@@ -15,7 +15,7 @@ var expectedID = testPrefix + ticket.IDSeparator + ticket.IDCharacters[len(ticke
 func openTestStore(t *testing.T) Store {
 	t.Helper()
 	root := t.TempDir()
-	tixDirectory := filepath.Join(root, DirectoryName)
+	tixDirectory := filepath.Join(root, ticket.DirectoryName)
 	makeDirectory(t, tixDirectory)
 	if err := WriteConfig(tixDirectory, Config{Prefix: testPrefix}); err != nil {
 		t.Fatalf("WriteConfig() error = %v", err)

@@ -33,7 +33,7 @@ func Open(workingDirectory string) (Store, error) {
 }
 
 func (store Store) TicketPath(id string) string {
-	return filepath.Join(store.Directory, id+TicketFileExtension)
+	return filepath.Join(store.Directory, ticket.FileName(id))
 }
 
 func (store Store) HasTicket(id string) bool {
@@ -49,7 +49,7 @@ func (store Store) ListTicketIDs() ([]string, error) {
 	var ids []string
 	for _, entry := range entries {
 		name := entry.Name()
-		if id, isTicketFile := strings.CutSuffix(name, TicketFileExtension); isTicketFile && name != ConfigFileName {
+		if id, isTicketFile := strings.CutSuffix(name, ticket.FileExtension); isTicketFile && name != ticket.ConfigFileName {
 			ids = append(ids, id)
 		}
 	}

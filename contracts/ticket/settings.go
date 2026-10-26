@@ -15,6 +15,12 @@ const (
 )
 
 const (
+	DirectoryName  = ".tix"
+	ConfigFileName = "config.yml"
+	FileExtension  = ".yml"
+)
+
+const (
 	problemInvalidID     = "invalid ticket id"
 	problemTitleRequired = "title is required"
 	yamlIntegerTag       = "!!int"

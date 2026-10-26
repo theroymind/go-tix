@@ -3,9 +3,6 @@ package store
 import "io/fs"
 
 const (
-	DirectoryName       = ".tix"
-	ConfigFileName      = "config.yml"
-	TicketFileExtension = ".yml"
 	temporaryFileSuffix = ".tmp"
 	yamlIndent          = 2
 )

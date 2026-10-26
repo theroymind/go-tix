@@ -26,7 +26,7 @@ func (config Config) Validate() error {
 }
 
 func ConfigPath(tixDirectory string) string {
-	return filepath.Join(tixDirectory, ConfigFileName)
+	return filepath.Join(tixDirectory, ticket.ConfigFileName)
 }
 
 func ReadConfig(tixDirectory string) (Config, error) {

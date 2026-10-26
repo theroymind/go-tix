@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/theroymind/railyard/internal/cli"
+	"github.com/theroymind/railyard/internal/contracts/ticket"
 	"github.com/theroymind/railyard/internal/tix/store"
 )
 
@@ -28,7 +29,7 @@ func runInit(arguments []string, _ io.Reader, _ io.Writer) error {
 	if err != nil {
 		return err
 	}
-	directory := filepath.Join(workingDirectory, store.DirectoryName)
+	directory := filepath.Join(workingDirectory, ticket.DirectoryName)
 	if _, err := os.Stat(directory); err == nil {
 		return store.AlreadyInitialized(directory)
 	} else if !errors.Is(err, fs.ErrNotExist) {
