@@ -10,5 +10,5 @@ import (
 )
 
 func main() {
-	os.Exit(int(tix.Program.Run(os.Args[1:], os.Stdout, os.Stderr)))
+	os.Exit(int(tix.Program.Run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)))
 }

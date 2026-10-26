@@ -15,7 +15,7 @@ var initSpecification = cli.Specification{
 	Options: []cli.Option{{Name: optionPrefix, Type: cli.OptionTypeString}},
 }
 
-func runInit(arguments []string, _ io.Writer) error {
+func runInit(arguments []string, _ io.Reader, _ io.Writer) error {
 	parsed, err := cli.Parse(arguments, initSpecification)
 	if err != nil {
 		return err

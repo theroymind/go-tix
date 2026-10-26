@@ -50,7 +50,7 @@ func invalidPriority(value string) error {
 	return problems
 }
 
-func runAdd(arguments []string, stdout io.Writer) error {
+func runAdd(arguments []string, _ io.Reader, stdout io.Writer) error {
 	parsed, err := cli.Parse(arguments, addSpecification)
 	if err != nil {
 		return err

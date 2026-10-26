@@ -13,7 +13,7 @@ var showSpecification = cli.Specification{
 	AllowsPositionals: true,
 }
 
-func runShow(arguments []string, stdout io.Writer) error {
+func runShow(arguments []string, _ io.Reader, stdout io.Writer) error {
 	parsed, err := cli.Parse(arguments, showSpecification)
 	if err != nil {
 		return err

@@ -12,7 +12,7 @@ import (
 
 var doneSpecification = cli.Specification{AllowsPositionals: true}
 
-func runDone(arguments []string, _ io.Writer) error {
+func runDone(arguments []string, _ io.Reader, _ io.Writer) error {
 	parsed, err := cli.Parse(arguments, doneSpecification)
 	if err != nil {
 		return err

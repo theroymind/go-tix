@@ -13,6 +13,7 @@ const (
 	fieldMarker    = "→ at"
 	fieldIndent    = "  "
 	optionJoiner   = "|"
+	fieldSeparator = "."
 	problemMissing = "Invalid input: field is required"
 )
 
@@ -31,6 +32,19 @@ type Errors []FieldError
 
 func (problems *Errors) Add(field, problem string) {
 	*problems = append(*problems, FieldError{Field: field, Problem: problem})
+}
+
+func (problems *Errors) AddNested(field string, err error) {
+	var nested Errors
+	if !errors.As(err, &nested) {
+		if err != nil {
+			problems.Add(field, err.Error())
+		}
+		return
+	}
+	for _, problem := range nested {
+		problems.Add(field+fieldSeparator+problem.Field, problem.Problem)
+	}
 }
 
 func (problems Errors) Error() string {
