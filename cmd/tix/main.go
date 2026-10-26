@@ -1,6 +1,6 @@
 // Command tix tracks tickets as YAML files in a .tix directory committed with the project.
 //
-// Run tix init --prefix PREFIX once, then tix add, tix show and tix done.
+// Run tix init --prefix PREFIX once, then tix add, tix show, tix ls, tix ready and tix done.
 package main
 
 import (

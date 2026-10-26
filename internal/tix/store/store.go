@@ -80,6 +80,22 @@ func (store Store) ReadTicketFile(id string) (TicketFile, error) {
 	return TicketFile{Path: path, Text: text, Ticket: parsed}, nil
 }
 
+func (store Store) ReadTickets() ([]ticket.Ticket, error) {
+	ids, err := store.ListTicketIDs()
+	if err != nil {
+		return nil, err
+	}
+	tickets := make([]ticket.Ticket, 0, len(ids))
+	for _, id := range ids {
+		file, err := store.ReadTicketFile(id)
+		if err != nil {
+			return nil, err
+		}
+		tickets = append(tickets, file.Ticket)
+	}
+	return tickets, nil
+}
+
 func (store Store) CreateTicket(value ticket.Ticket) error {
 	text, err := SerializeTicket(value)
 	if err != nil {

@@ -75,3 +75,37 @@ func TestStoreRejectsAFileWhoseIDDiffersFromItsFileName(t *testing.T) {
 		})
 	}
 }
+
+func TestReadTicketsReadsEveryTicketFile(t *testing.T) {
+	tests := []struct {
+		name       string
+		isInvalid  bool
+		expectedOK bool
+	}{
+		{"Every ticket is read, and the config is skipped", false, true},
+		{"An invalid ticket file fails the read", true, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := openTestStore(t)
+			expected := parseFixture(t)
+			expected.ID = expectedID
+			if err := store.CreateTicket(expected); err != nil {
+				t.Fatalf("CreateTicket() error = %v", err)
+			}
+			if tt.isInvalid {
+				writeFile(t, store.TicketPath(testPrefix+ticket.IDSeparator+"0000"), []byte("title: [\n"))
+			}
+
+			tickets, err := store.ReadTickets()
+
+			if (err == nil) != tt.expectedOK {
+				t.Fatalf("ReadTickets() error = %v, want success %v", err, tt.expectedOK)
+			}
+			if tt.expectedOK && !reflect.DeepEqual(tickets, []ticket.Ticket{expected}) {
+				t.Errorf("ReadTickets() = %+v, want %+v", tickets, []ticket.Ticket{expected})
+			}
+		})
+	}
+}

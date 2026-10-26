@@ -17,3 +17,7 @@ var Statuses = []Status{StatusDraft, StatusOpen, StatusInProgress, StatusComplet
 func (status Status) IsValid() bool {
 	return slices.Contains(Statuses, status)
 }
+
+func (status Status) IsResolved() bool {
+	return status == StatusCompleted || status == StatusCanceled
+}

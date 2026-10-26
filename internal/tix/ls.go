@@ -1,0 +1,73 @@
+package tix
+
+import (
+	"fmt"
+	"io"
+
+	"github.com/theroymind/railyard/internal/cli"
+	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/railyard/internal/contracts/validation"
+)
+
+var lsSpecification = cli.Specification{
+	Options: []cli.Option{
+		{Name: optionStatus, Type: cli.OptionTypeString},
+		{Name: optionType, Type: cli.OptionTypeString},
+		{Name: optionTag, Type: cli.OptionTypeString},
+		{Name: optionParent, Type: cli.OptionTypeString},
+		{Name: optionAll, Type: cli.OptionTypeBoolean},
+		{Name: optionJSON, Type: cli.OptionTypeBoolean},
+	},
+}
+
+func runLs(arguments []string, _ io.Reader, stdout io.Writer) error {
+	parsed, err := cli.Parse(arguments, lsSpecification)
+	if err != nil {
+		return err
+	}
+	status, err := parseOption(parsed, optionStatus, ticket.Statuses)
+	if err != nil {
+		return err
+	}
+	ticketType, err := parseOption(parsed, optionType, ticket.Types)
+	if err != nil {
+		return err
+	}
+	tag, _ := parsed.String(optionTag)
+	ticketStore, err := openStore()
+	if err != nil {
+		return err
+	}
+	var parent string
+	if reference, exists := parsed.String(optionParent); exists {
+		if parent, err = ticketStore.ResolveTicketID(reference); err != nil {
+			return err
+		}
+	}
+	tickets, err := ticketStore.ReadTickets()
+	if err != nil {
+		return err
+	}
+	listed := filter{
+		status:           status,
+		ticketType:       ticketType,
+		tag:              tag,
+		parent:           parent,
+		includesResolved: parsed.IsEnabled(optionAll),
+	}.apply(tickets)
+	return writeTickets(stdout, listed, parsed.IsEnabled(optionJSON))
+}
+
+// parseOption returns the option's value, or "" when it's absent, and rejects a value outside options as a usage error.
+func parseOption[Option ~string](parsed cli.Arguments, name string, options []Option) (Option, error) {
+	value, exists := parsed.String(name)
+	if !exists {
+		return "", nil
+	}
+	for _, option := range options {
+		if Option(value) == option {
+			return option, nil
+		}
+	}
+	return "", cli.NewUsageError(fmt.Errorf("%s%s %q %w: %s", longOptionStart, name, value, ErrInvalidOption, validation.InvalidOption(options)))
+}

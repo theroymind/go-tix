@@ -24,6 +24,12 @@ func (timestamp Timestamp) IsValid() bool {
 	return err == nil
 }
 
+// Time returns the zero time for an invalid timestamp, so callers validate first.
+func (timestamp Timestamp) Time() time.Time {
+	moment, _ := time.Parse(time.RFC3339, string(timestamp))
+	return moment
+}
+
 // MarshalYAML tags the value as a timestamp so it is written unquoted, as tix v1 files have it.
 func (timestamp Timestamp) MarshalYAML() (any, error) {
 	return &yaml.Node{Kind: yaml.ScalarNode, Tag: yamlTag, Value: string(timestamp)}, nil
