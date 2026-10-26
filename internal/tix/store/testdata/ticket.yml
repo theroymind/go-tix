@@ -1,0 +1,17 @@
+id: bs-k3f9
+title: Purchasables and greedy-cheapest policy
+type: task
+status: open
+priority: 1
+tags: [engine, slice1]
+dependencies: [bs-2m7q]
+parent: bs-x8vd
+description: |
+  Free-form markdown.
+
+  - with a list
+acceptance:
+  - Policy buys the cheapest affordable purchasable each tick
+  - "Quoted: because of the colon"
+created_at: 2026-10-14T21:00:00-04:00
+updated_at: 2026-10-14T21:00:00-04:00

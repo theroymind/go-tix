@@ -1,0 +1,208 @@
+package store
+
+import (
+	"bytes"
+	"errors"
+	"path/filepath"
+	"regexp"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/railyard/internal/contracts/timestamp"
+	"github.com/theroymind/railyard/internal/contracts/validation"
+)
+
+const (
+	unknownField = "estimate"
+	completedAt  = timestamp.Timestamp("2026-10-25T09:30:00-04:00")
+)
+
+var fixturePath = filepath.Join("testdata", "ticket.yml")
+
+func readFixture(t *testing.T) []byte {
+	t.Helper()
+	return readFile(t, fixturePath)
+}
+
+func parseFixture(t *testing.T) ticket.Ticket {
+	t.Helper()
+	parsed, err := ParseTicket(readFixture(t), fixturePath)
+	if err != nil {
+		t.Fatalf("ParseTicket(%s) error = %v", fixturePath, err)
+	}
+	return parsed
+}
+
+func serialize(t *testing.T, value ticket.Ticket) []byte {
+	t.Helper()
+	text, err := SerializeTicket(value)
+	if err != nil {
+		t.Fatalf("SerializeTicket() error = %v", err)
+	}
+	return text
+}
+
+func changedLines(before, after []byte) []string {
+	beforeLines := strings.Split(string(before), "\n")
+	var changed []string
+	for index, line := range strings.Split(string(after), "\n") {
+		if index >= len(beforeLines) || line != beforeLines[index] {
+			changed = append(changed, line)
+		}
+	}
+	return changed
+}
+
+func TestSerializeTicketRoundTripsAV1File(t *testing.T) {
+	fixture := readFixture(t)
+
+	if got := serialize(t, parseFixture(t)); !bytes.Equal(got, fixture) {
+		t.Errorf("SerializeTicket(ParseTicket(fixture)) =\n%s\nwant\n%s", got, fixture)
+	}
+}
+
+func TestSerializeTicketOmitsEmptyOptionalFields(t *testing.T) {
+	minimal := parseFixture(t)
+	minimal.Tags = []string{}
+	minimal.Dependencies = nil
+	minimal.Description = ""
+
+	text := serialize(t, minimal)
+
+	omitted := regexp.MustCompile(`(?m)^(` + ticket.FieldTags + `|` + ticket.FieldDependencies + `|` + ticket.FieldDescription + `):`)
+	if omitted.Match(text) {
+		t.Errorf("SerializeTicket() wrote an empty optional field:\n%s", text)
+	}
+}
+
+func TestSerializeTicketQuotesLikeV1(t *testing.T) {
+	tests := []struct {
+		name     string
+		title    string
+		expected string
+	}{
+		{"A plain string stays plain", "Plain title", `title: Plain title`},
+		{"A string that can't be plain is double-quoted", "Hello: world", `title: "Hello: world"`},
+		{"A string that would read as a number is double-quoted", "123", `title: "123"`},
+		{"A string with only double quotes is single-quoted to avoid escaping", `Say "hi": now`, `title: 'Say "hi": now'`},
+		{"A string with a single quote stays double-quoted", "It's: here", `title: "It's: here"`},
+		{"A long string is not folded", strings.Repeat("long ", 40) + "end", "title: " + strings.Repeat("long ", 40) + "end"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			value := parseFixture(t)
+			value.Title = tt.title
+
+			text := serialize(t, value)
+
+			if !slices.Contains(strings.Split(string(text), "\n"), tt.expected) {
+				t.Errorf("SerializeTicket() =\n%s\nwant a line %q", text, tt.expected)
+			}
+			reparsed, err := ParseTicket(text, fixturePath)
+			if err != nil {
+				t.Fatalf("ParseTicket() error = %v", err)
+			}
+			if reparsed.Title != tt.title {
+				t.Errorf("title round-tripped to %q, want %q", reparsed.Title, tt.title)
+			}
+		})
+	}
+}
+
+func TestUpdateTicketTextChangesOnlyTheUpdatedFieldsAndKeepsUnknownOnes(t *testing.T) {
+	withUnknownField := append(readFixture(t), []byte(unknownField+": 2d\n")...)
+	changes := []Change{
+		{Field: ticket.FieldStatus, Value: ticket.StatusCompleted},
+		{Field: ticket.FieldUpdatedAt, Value: completedAt},
+	}
+
+	updated, err := UpdateTicketText(withUnknownField, changes, fixturePath)
+	if err != nil {
+		t.Fatalf("UpdateTicketText() error = %v", err)
+	}
+
+	expected := []string{
+		ticket.FieldStatus + ": " + string(ticket.StatusCompleted),
+		ticket.FieldUpdatedAt + ": " + string(completedAt),
+	}
+	if got := changedLines(withUnknownField, updated); !slices.Equal(got, expected) {
+		t.Errorf("changed lines = %q, want %q", got, expected)
+	}
+	reparsed, err := ParseTicket(updated, fixturePath)
+	if err != nil {
+		t.Fatalf("ParseTicket() error = %v", err)
+	}
+	if got := reparsed.UnknownFields[unknownField]; got != "2d" {
+		t.Errorf("%s = %v, want 2d", unknownField, got)
+	}
+}
+
+func TestTicketFileReportsYAMLErrorsAndNamesTheFile(t *testing.T) {
+	fixture := string(readFixture(t))
+	unclosed := regexp.MustCompile(`(?m)^title: .*$`).ReplaceAllString(fixture, "title: [unclosed")
+
+	tests := []struct {
+		name string
+		text string
+	}{
+		{"A duplicate key", fixture + "title: Second title\n"},
+		{"An unclosed flow list", unclosed},
+		{"A second document", fixture + "---\n" + fixture},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			changes := []Change{{Field: ticket.FieldStatus, Value: ticket.StatusCompleted}}
+			_, parseError := ParseTicket([]byte(tt.text), fixturePath)
+			_, updateError := UpdateTicketText([]byte(tt.text), changes, fixturePath)
+
+			for _, err := range []error{parseError, updateError} {
+				if !errors.Is(err, ErrInvalidYAML) || !strings.HasPrefix(err.Error(), fixturePath) {
+					t.Errorf("error = %v, want %v naming %s", err, ErrInvalidYAML, fixturePath)
+				}
+			}
+		})
+	}
+}
+
+func TestParseTicketRejectsInvalidFiles(t *testing.T) {
+	fixture := string(readFixture(t))
+	withoutPriority := regexp.MustCompile(`(?m)^priority: .*\n`).ReplaceAllString(fixture, "")
+	fractionalPriority := regexp.MustCompile(`(?m)^priority: .*$`).ReplaceAllString(fixture, "priority: 1.5")
+	badStatus := regexp.MustCompile(`(?m)^status: .*$`).ReplaceAllString(fixture, "status: done")
+
+	tests := []struct {
+		name string
+		text string
+	}{
+		{"A missing required field", withoutPriority},
+		{"A fractional priority", fractionalPriority},
+		{"An unknown status", badStatus},
+		{"An empty file", ""},
+		{"A document that is not a mapping", "just text\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTicket([]byte(tt.text), fixturePath)
+
+			if !errors.Is(err, ErrInvalidFile) || !strings.HasPrefix(err.Error(), fixturePath) {
+				t.Errorf("ParseTicket() error = %v, want %v naming %s", err, ErrInvalidFile, fixturePath)
+			}
+		})
+	}
+}
+
+func TestUpdateTicketTextRefusesAnUpdateThatMakesTheTicketInvalid(t *testing.T) {
+	changes := []Change{{Field: ticket.FieldStatus, Value: ticket.Status("done")}}
+
+	_, err := UpdateTicketText(readFixture(t), changes, fixturePath)
+
+	var problems validation.Errors
+	if !errors.As(err, &problems) || !slices.Equal(problems.Fields(), []string{ticket.FieldStatus}) {
+		t.Errorf("UpdateTicketText() error = %v, want a problem with %s", err, ticket.FieldStatus)
+	}
+}
