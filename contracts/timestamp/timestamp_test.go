@@ -6,7 +6,10 @@ import (
 	"time"
 )
 
-const fractionSeparator = "."
+const (
+	fractionSeparator = "."
+	utcDesignator     = "Z"
+)
 
 func TestFormat(t *testing.T) {
 	offsets := []*time.Location{
@@ -40,9 +43,8 @@ func TestFormat(t *testing.T) {
 				if want := moment.Truncate(time.Second); !parsed.Equal(want) {
 					t.Errorf("Format(%v) parses back to %v, want %v", moment, parsed, want)
 				}
-				_, wantOffset := moment.Zone()
-				if _, gotOffset := parsed.Zone(); gotOffset != wantOffset {
-					t.Errorf("Format(%v) = %q, want the moment's own offset", moment, formatted)
+				if !strings.HasSuffix(string(formatted), utcDesignator) {
+					t.Errorf("Format(%v) = %q, want UTC", moment, formatted)
 				}
 			})
 		}

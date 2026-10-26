@@ -1,4 +1,4 @@
-// Package timestamp provides the RFC 3339 timestamps, with seconds and an explicit offset, that contracts carry.
+// Package timestamp provides the RFC 3339 timestamps, with seconds and an explicit offset, that contracts carry, and formats new ones in UTC.
 package timestamp
 
 import (
@@ -13,7 +13,7 @@ type Timestamp string
 var expression = regexp.MustCompile(pattern)
 
 func Format(moment time.Time) Timestamp {
-	return Timestamp(moment.Format(Layout))
+	return Timestamp(moment.UTC().Format(Layout))
 }
 
 func (timestamp Timestamp) IsValid() bool {
