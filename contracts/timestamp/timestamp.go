@@ -24,10 +24,9 @@ func (timestamp Timestamp) IsValid() bool {
 	return err == nil
 }
 
-// Time returns the zero time for an invalid timestamp, so callers validate first.
-func (timestamp Timestamp) Time() time.Time {
-	moment, _ := time.Parse(time.RFC3339, string(timestamp))
-	return moment
+// Time parses the timestamp, returning time.Parse's error when it is not RFC 3339.
+func (timestamp Timestamp) Time() (time.Time, error) {
+	return time.Parse(time.RFC3339, string(timestamp))
 }
 
 // MarshalYAML tags the value as a timestamp so it is written unquoted, as tix v1 files have it.

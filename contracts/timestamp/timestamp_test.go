@@ -1,6 +1,7 @@
 package timestamp
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -48,6 +49,40 @@ func TestFormat(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestTime(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     Timestamp
+		expected  time.Time
+		wantError bool
+	}{
+		{"UTC timestamp parses", "2026-10-25T09:00:00Z", time.Date(2026, time.October, 25, 9, 0, 0, 0, time.UTC), false},
+		{"Offset timestamp parses", "2026-10-25T09:00:00-04:00", time.Date(2026, time.October, 25, 13, 0, 0, 0, time.UTC), false},
+		{"Missing offset is an error", "2026-10-25T09:00:00", time.Time{}, true},
+		{"Leap day outside a leap year is an error", "2026-02-29T09:00:00Z", time.Time{}, true},
+		{"Empty string is an error", "", time.Time{}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.input.Time()
+			if tt.wantError {
+				var parseError *time.ParseError
+				if !errors.As(err, &parseError) {
+					t.Fatalf("Timestamp(%q).Time() error = %v, want a *time.ParseError", tt.input, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Timestamp(%q).Time() error = %v", tt.input, err)
+			}
+			if !got.Equal(tt.expected) {
+				t.Errorf("Timestamp(%q).Time() = %v, want %v", tt.input, got, tt.expected)
+			}
+		})
 	}
 }
 
