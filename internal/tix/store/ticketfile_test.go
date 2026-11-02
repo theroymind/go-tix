@@ -63,6 +63,28 @@ func TestSerializeTicketRoundTripsAV1File(t *testing.T) {
 	}
 }
 
+func TestParseTicketLoadsCriteriaUnmet(t *testing.T) {
+	want := []ticket.Criterion{
+		{Text: "Policy buys the cheapest affordable purchasable each tick"},
+		{Text: "Quoted: because of the colon"},
+	}
+
+	if got := parseFixture(t).Acceptance; !slices.Equal(got, want) {
+		t.Errorf("ParseTicket(fixture).Acceptance = %v, want %v", got, want)
+	}
+}
+
+func TestSerializeTicketWritesAMetCriterionAsItsText(t *testing.T) {
+	met := parseFixture(t)
+	for index := range met.Acceptance {
+		met.Acceptance[index].Done = true
+	}
+
+	if got := serialize(t, met); !bytes.Equal(got, readFixture(t)) {
+		t.Errorf("SerializeTicket() with met criteria =\n%s\nwant\n%s", got, readFixture(t))
+	}
+}
+
 func TestSerializeTicketOmitsEmptyOptionalFields(t *testing.T) {
 	minimal := parseFixture(t)
 	minimal.Tags = []string{}

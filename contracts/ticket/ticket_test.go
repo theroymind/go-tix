@@ -21,7 +21,7 @@ func validTicket() Ticket {
 		Status:     StatusOpen,
 		Priority:   PriorityDefault,
 		Tags:       []string{"tix"},
-		Acceptance: []string{"ls lists open tickets"},
+		Acceptance: []Criterion{{Text: "ls lists open tickets"}},
 		CreatedAt:  "2026-10-25T09:00:00-04:00",
 		UpdatedAt:  "2026-10-25T09:00:00-04:00",
 	}

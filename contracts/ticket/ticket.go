@@ -40,7 +40,7 @@ type Ticket struct {
 	Dependencies  []string            `yaml:"dependencies,omitempty,flow" json:"dependencies,omitempty"`
 	Parent        string              `yaml:"parent,omitempty" json:"parent,omitempty"`
 	Description   string              `yaml:"description,omitempty" json:"description,omitempty"`
-	Acceptance    []string            `yaml:"acceptance,omitempty" json:"acceptance,omitempty"`
+	Acceptance    []Criterion         `yaml:"acceptance,omitempty" json:"acceptance,omitempty"`
 	CreatedAt     timestamp.Timestamp `yaml:"created_at" json:"created_at"`
 	UpdatedAt     timestamp.Timestamp `yaml:"updated_at" json:"updated_at"`
 	UnknownFields map[string]any      `yaml:",inline" json:"-"`

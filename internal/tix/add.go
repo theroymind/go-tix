@@ -89,7 +89,7 @@ func runAdd(arguments []string, _ io.Reader, stdout io.Writer) error {
 		Priority:    priority,
 		Tags:        parsed.Strings(optionTag),
 		Description: description,
-		Acceptance:  parsed.Strings(optionAcceptance),
+		Acceptance:  ticket.NewCriteria(parsed.Strings(optionAcceptance)),
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
