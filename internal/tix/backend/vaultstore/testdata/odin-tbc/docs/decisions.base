@@ -1,0 +1,38 @@
+filters:
+  and:
+    - file.inFolder("decisions")
+properties:
+  file.name:
+    displayName: Decision
+  decided_by:
+    displayName: Decided by
+views:
+  - type: table
+    name: All
+    order:
+      - file.name
+      - status
+      - decided_by
+      - date
+      - tasks
+    sort:
+      - property: date
+        direction: DESC
+  - type: table
+    name: Proposed
+    filters:
+      and:
+        - 'status == "proposed"'
+    order:
+      - file.name
+      - tasks
+  - type: table
+    name: Superseded or deferred
+    filters:
+      or:
+        - 'status == "superseded"'
+        - 'status == "deferred"'
+    order:
+      - file.name
+      - status
+      - superseded_by

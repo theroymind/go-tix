@@ -47,6 +47,21 @@ func (note *Note) Section(heading string) (Range, error) {
 	return section, nil
 }
 
+// Heading returns the text of the first heading of the given level, skipping code fences, and
+// whether there is one.
+func (note *Note) Heading(level int) (string, bool) {
+	fence := fenceTracker{}
+	for _, line := range note.Body {
+		if fence.inCode(line) {
+			continue
+		}
+		if lineLevel, text, ok := parseHeading(line); ok && lineLevel == level {
+			return text, true
+		}
+	}
+	return "", false
+}
+
 // Checkboxes returns the task-list items within lines, in order, skipping code fences.
 func (note *Note) Checkboxes(lines Range) []Checkbox {
 	var boxes []Checkbox

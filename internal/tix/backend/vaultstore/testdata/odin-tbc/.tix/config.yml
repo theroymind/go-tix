@@ -1,0 +1,30 @@
+prefix: odin
+backend: vault
+vault:
+  root: docs
+  type_property: type
+  tickets:
+    task:
+      ticket_type: task
+      statuses:
+        todo: open
+        done: completed
+      fields:
+        depends_on: dependencies
+        phase: parent
+    phase:
+      ticket_type: epic
+      statuses:
+        active: in_progress
+        done: completed
+  docs:
+    decision:
+      statuses: [proposed, accepted, deferred, superseded]
+      template: templates/decision.md
+    idea:
+      statuses: [open]
+    spec:
+      statuses: [proposed, confirmed]
+  criteria_heading: Acceptance criteria
+  ticket_templates:
+    task: templates/task.md

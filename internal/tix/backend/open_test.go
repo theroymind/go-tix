@@ -26,8 +26,11 @@ func TestOpen(t *testing.T) {
 		{"backend: yaml opens the YAML store", "prefix: ry\nbackend: yaml\n", nil, nil},
 		{"An unknown backend names the allowed ones", "prefix: ry\nbackend: nonsense\n", backend.ErrInvalidFile,
 			[]string{"backend", strconv.Quote(string(backend.KindYAML)), strconv.Quote(string(backend.KindVault))}},
-		{"The vault backend is not implemented yet", "prefix: ry\nbackend: vault\n", backend.ErrNotImplemented,
-			[]string{string(backend.KindVault)}},
+		{"The vault backend needs a profile", "prefix: ry\nbackend: vault\n", backend.ErrInvalidFile,
+			[]string{"vault", "profile"}},
+		{"An unregistered backend is not implemented",
+			"prefix: ry\nbackend: vault\nvault:\n  tickets:\n    task: {ticket_type: task, statuses: {todo: open}}\n",
+			backend.ErrNotImplemented, []string{string(backend.KindVault)}},
 	}
 
 	for _, tt := range tests {

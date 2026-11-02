@@ -1,0 +1,26 @@
+filters:
+  and:
+    - file.inFolder("tasks")
+properties:
+  file.name:
+    displayName: Task
+  depends_on:
+    displayName: Depends on
+views:
+  - type: table
+    name: Open
+    filters:
+      and:
+        - 'status != "done"'
+    order:
+      - file.name
+      - phase
+      - scope
+      - depends_on
+  - type: table
+    name: All
+    order:
+      - file.name
+      - status
+      - phase
+      - scope

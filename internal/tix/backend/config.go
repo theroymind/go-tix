@@ -13,6 +13,8 @@ type Config struct {
 	Prefix string `yaml:"prefix"`
 	// Backend is the kind of backend that stores the tickets; empty means KindYAML.
 	Backend Kind `yaml:"backend,omitempty"`
+	// Vault is the vault backend's Profile, which that backend requires.
+	Vault *Profile `yaml:"vault,omitempty"`
 }
 
 func (config Config) Validate() error {
@@ -22,6 +24,11 @@ func (config Config) Validate() error {
 	}
 	if config.Backend != "" && !config.Backend.IsKnown() {
 		problems.Add(configFieldBackend, validation.InvalidOption(Kinds))
+	}
+	if config.Vault != nil {
+		problems.AddNested(configFieldVault, config.Vault.Validate())
+	} else if config.Backend == KindVault {
+		problems.Add(configFieldVault, problemVaultRequired)
 	}
 	return problems.Err()
 }
@@ -44,12 +51,11 @@ func ReadConfig(tixDirectory string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	document, err := ParseYAML(text, path)
-	if err != nil {
+	if _, err := ParseYAML(text, path); err != nil {
 		return Config{}, err
 	}
 	var config Config
-	if err := DecodeYAML(document, &config, path); err != nil {
+	if err := DecodeKnownFields(text, &config, path); err != nil {
 		return Config{}, err
 	}
 	return config, Validate(config, path)

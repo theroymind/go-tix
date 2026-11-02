@@ -62,6 +62,22 @@ func DecodeYAML(document *yaml.Node, target any, path string) error {
 	return err
 }
 
+// DecodeKnownFields decodes a single YAML document into target, rejecting any key target has no field for, at
+// any depth, and reporting it or a type mismatch as an invalid file at path. Empty text leaves target unchanged.
+// Parse text with ParseYAML first to reject duplicate keys and further documents.
+func DecodeKnownFields(text []byte, target any, path string) error {
+	decoder := yaml.NewDecoder(bytes.NewReader(text))
+	decoder.KnownFields(true)
+	err := decoder.Decode(target)
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+	if typeError := (*yaml.TypeError)(nil); errors.As(err, &typeError) {
+		return InvalidFile(path, err)
+	}
+	return err
+}
+
 // EncodeYAML writes value as YAML with the two-space indent tix v1 files use.
 func EncodeYAML(value any) ([]byte, error) {
 	var buffer bytes.Buffer

@@ -67,6 +67,30 @@ func mustParse(t *testing.T, text string) *Note {
 	return note
 }
 
+func TestHeading(t *testing.T) {
+	tests := []struct {
+		name      string
+		text      string
+		level     int
+		wantText  string
+		wantFound bool
+	}{
+		{"first H1", "intro\n## Sub\n# Title\n# Second\n", 1, "Title", true},
+		{"fenced heading skipped", "```\n# Fenced\n```\n# Real\n", 1, "Real", true},
+		{"closing hashes trimmed", "# Title #\n", 1, "Title", true},
+		{"other level", "# Title\n## Sub\n", 2, "Sub", true},
+		{"none", "## Sub\ntext\n", 1, "", false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, found := mustParse(t, test.text).Heading(test.level)
+			if got != test.wantText || found != test.wantFound {
+				t.Errorf("Heading(%d) = %q, %v, want %q, %v", test.level, got, found, test.wantText, test.wantFound)
+			}
+		})
+	}
+}
+
 func TestSectionNotFound(t *testing.T) {
 	tests := []struct {
 		name    string
