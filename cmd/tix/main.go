@@ -1,7 +1,7 @@
 // Command tix tracks tickets as YAML files in a .tix directory committed with the project, or reads them from
 // an Obsidian vault when .tix/config.yml names the vault backend and its profile.
 //
-// Run tix init --prefix PREFIX once, then tix add, tix show, tix ls, tix ready and tix done.
+// Run tix init --prefix PREFIX once, then tix add, tix show, tix ls, tix ready, tix set and tix done.
 package main
 
 import (

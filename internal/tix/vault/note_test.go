@@ -186,6 +186,10 @@ func TestSetProperty(t *testing.T) {
 		{name: "new key appended", text: readFixture(t, "enemy-choice-is-a-weighted-argmax.md"), key: "superseded_by", value: "new-decision", wantLine: "superseded_by: new-decision", wantAdded: 1},
 		{name: "crlf", text: toCRLF(readFixture(t, "goal-scoring.md")), key: "status", value: "todo", wantLine: "status: todo\r"},
 		{name: "line comment kept", text: []byte("---\nstatus: todo # set by tix\nphase: x\n---\n"), key: "status", value: "done", wantLine: "status: done # set by tix"},
+		{name: "plain int stays plain", text: []byte("---\nscope: 2\nstatus: todo\n---\n"), key: "scope", value: "3", wantLine: "scope: 3"},
+		{name: "plain date stays plain", text: []byte("---\nupdated_at: 2026-11-01\nstatus: todo\n---\n"), key: "updated_at", value: "2026-11-02", wantLine: "updated_at: 2026-11-02"},
+		{name: "a string that no longer resolves to the old tag is plain text", text: []byte("---\nscope: 2\nstatus: todo\n---\n"), key: "scope", value: "large", wantLine: "scope: large"},
+		{name: "a string that would change type is quoted", text: []byte("---\nscope: small\nstatus: todo\n---\n"), key: "scope", value: "3", wantLine: `scope: "3"`},
 		{name: "block list", text: []byte("---\ntags:\n  - a\n  - b\n\n# trailing\nstatus: todo\n---\n"), key: "tags", value: []string{"c", "d"}, wantLine: "  - c"},
 	}
 	for _, test := range tests {

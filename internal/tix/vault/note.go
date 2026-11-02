@@ -194,12 +194,24 @@ func entryLines(mapping *yaml.Node, index int, content []string) (*yaml.Node, in
 // keepStyle carries the old value's quoting, flow style and line comment onto its replacement.
 func keepStyle(old, replacement *yaml.Node) {
 	switch {
-	case old.Kind == yaml.ScalarNode && replacement.Kind == yaml.ScalarNode && replacement.Tag == "!!str":
+	case old.Kind == yaml.ScalarNode && replacement.Kind == yaml.ScalarNode && replacement.Tag == stringTag && keepsPlainTag(old, replacement):
+		replacement.Tag, replacement.Style = old.ShortTag(), 0
+	case old.Kind == yaml.ScalarNode && replacement.Kind == yaml.ScalarNode && replacement.Tag == stringTag:
 		replacement.Style = old.Style & (yaml.DoubleQuotedStyle | yaml.SingleQuotedStyle)
 	case old.Kind == replacement.Kind && old.Kind != yaml.ScalarNode:
 		replacement.Style = old.Style & yaml.FlowStyle
 	}
 	replacement.LineComment = old.LineComment
+}
+
+// keepsPlainTag reports whether the old value is a plain scalar of a type other than string, such as an int or a
+// date, and the replacement text read unquoted is a value of that same type, so it can stay plain.
+func keepsPlainTag(old, replacement *yaml.Node) bool {
+	if old.Style&(yaml.DoubleQuotedStyle|yaml.SingleQuotedStyle|yaml.LiteralStyle|yaml.FoldedStyle) != 0 || old.ShortTag() == stringTag {
+		return false
+	}
+	unquoted := &yaml.Node{Kind: yaml.ScalarNode, Value: replacement.Value}
+	return unquoted.ShortTag() == old.ShortTag()
 }
 
 func encodeEntry(key, value *yaml.Node) ([]string, error) {

@@ -37,3 +37,8 @@ func tooManyParents(path, property string, links []string) error {
 func createUnsupported() error {
 	return fmt.Errorf("Create %w %s", backend.ErrUnsupported, backend.KindVault)
 }
+
+// fieldUnsupported reports a ticket field that the vault backend can't set as a property.
+func fieldUnsupported(field string) error {
+	return fmt.Errorf("SetField %s %w %s", field, backend.ErrUnsupported, backend.KindVault)
+}

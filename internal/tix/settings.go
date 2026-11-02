@@ -14,6 +14,8 @@ const (
 	optionStatus      = "status"
 	optionParent      = "parent"
 	optionAll         = "all"
+	optionForce       = "force"
+	pairSeparator     = "="
 	longOptionStart   = "--"
 	integerPattern    = `^-?\d+$`
 	problemPriority   = "Invalid input: expected integer, received "
@@ -33,4 +35,8 @@ var (
 	ErrExpectedOneTitle     = errors.New("expected exactly one title")
 	ErrExpectedOneReference = errors.New("expected exactly one ticket reference")
 	ErrInvalidOption        = errors.New("is invalid")
+	ErrExpectedPair         = errors.New("expected KEY=VALUE")
+	ErrExpectedPairs        = errors.New("expected a ticket reference and at least one KEY=VALUE")
+	ErrUnmetCriteria        = errors.New("has unmet criteria")
+	ErrListField            = errors.New("is a list; set takes single-value fields")
 )

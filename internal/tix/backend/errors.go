@@ -16,6 +16,7 @@ var (
 	ErrAmbiguous          = errors.New("is ambiguous")
 	ErrNoCriterion        = errors.New("has no criterion")
 	ErrInvalidFile        = errors.New("is invalid")
+	ErrInvalidChange      = errors.New("change rejected")
 	ErrInvalidYAML        = errors.New("is not valid YAML")
 	ErrMultipleDocuments  = errors.New("source contains multiple documents")
 	ErrDuplicateKey       = errors.New("duplicate mapping key")
@@ -42,6 +43,11 @@ func NoCriterion(id string, index int) error {
 
 func InvalidFile(path string, problems error) error {
 	return fmt.Errorf("%s %w:\n%w", path, ErrInvalidFile, problems)
+}
+
+// InvalidChange reports problems a change would leave in the valid file at path, which is left as it was.
+func InvalidChange(path string, problems error) error {
+	return fmt.Errorf("%s: %w:\n%w", path, ErrInvalidChange, problems)
 }
 
 func invalidYAML(path string, problems error) error {

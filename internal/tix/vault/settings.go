@@ -10,6 +10,7 @@ const (
 	doneMark             = "x"
 	undoneMark           = " "
 	maxFenceIndent       = 3
+	stringTag            = "!!str"
 )
 
 var (

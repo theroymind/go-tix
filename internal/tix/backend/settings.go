@@ -15,6 +15,8 @@ const (
 	temporaryFileSuffix   = ".tmp"
 	yamlIndent            = 2
 	fieldSeparator        = "."
+	clashMapsTo           = " map to "
+	clashSeparator        = "; "
 )
 
 const (
@@ -29,6 +31,8 @@ const (
 	problemNoStatuses        = "Invalid input: expected at least one status"
 	problemTicketAndDoc      = "Invalid input: a note type can't be both a ticket and a doc"
 	problemTemplateNotTicket = "Invalid input: expected a note type listed in tickets"
+	problemStatusNamedOther  = "Invalid input: expected a note status named after a ticket status to map to it, but "
+	problemSharedStatus      = "Invalid input: expected each note status to map to its own ticket status, but "
 )
 
 // Profile defaults, which suit an Obsidian vault kept in docs/ whose notes carry a type property.

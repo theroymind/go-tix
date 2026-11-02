@@ -3,6 +3,8 @@ package backend
 import (
 	"maps"
 	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/theroymind/railyard/internal/contracts/ticket"
 	"github.com/theroymind/railyard/internal/contracts/validation"
@@ -96,9 +98,17 @@ func (mapping TicketMapping) Validate() error {
 		problems.Add(mappingFieldStatuses, problemNoStatuses)
 	}
 	for _, noteStatus := range slices.Sorted(maps.Keys(mapping.Statuses)) {
-		if !mapping.Statuses[noteStatus].IsValid() {
+		status := mapping.Statuses[noteStatus]
+		if !status.IsValid() {
 			problems.Add(mappingFieldStatuses+fieldSeparator+noteStatus, validation.InvalidOption(ticket.Statuses))
 		}
+		if named := ticket.Status(noteStatus); named.IsValid() && named != status {
+			problems.Add(mappingFieldStatuses+fieldSeparator+noteStatus,
+				problemStatusNamedOther+strconv.Quote(noteStatus)+clashMapsTo+strconv.Quote(string(status)))
+		}
+	}
+	if problem := sharedStatuses(mapping.Statuses); problem != "" {
+		problems.Add(mappingFieldStatuses, problem)
 	}
 	for _, property := range slices.Sorted(maps.Keys(mapping.Fields)) {
 		if !slices.Contains(LinkFields, mapping.Fields[property]) {
@@ -106,4 +116,23 @@ func (mapping TicketMapping) Validate() error {
 		}
 	}
 	return problems.Err()
+}
+
+// sharedStatuses describes the ticket statuses that more than one note status maps to, or is "" when the statuses
+// map one to one, so that a ticket status always maps back to a single note status.
+func sharedStatuses(statuses map[string]ticket.Status) string {
+	byTicketStatus := map[ticket.Status][]string{}
+	for _, noteStatus := range slices.Sorted(maps.Keys(statuses)) {
+		byTicketStatus[statuses[noteStatus]] = append(byTicketStatus[statuses[noteStatus]], strconv.Quote(noteStatus))
+	}
+	var clashes []string
+	for _, status := range slices.Sorted(maps.Keys(byTicketStatus)) {
+		if noteStatuses := byTicketStatus[status]; len(noteStatuses) > 1 {
+			clashes = append(clashes, strings.Join(noteStatuses, matchSeparator)+clashMapsTo+strconv.Quote(string(status)))
+		}
+	}
+	if len(clashes) == 0 {
+		return ""
+	}
+	return problemSharedStatus + strings.Join(clashes, clashSeparator)
 }

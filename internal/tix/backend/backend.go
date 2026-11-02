@@ -22,6 +22,12 @@ type TextReader interface {
 	ReadText(id string) ([]byte, error)
 }
 
+// CriterionTracker is implemented by a backend whose criteria carry a done state, so that tix done can refuse to
+// complete a ticket while a criterion is unmet. A backend whose criteria always load unmet leaves it out.
+type CriterionTracker interface {
+	TracksCriteria()
+}
+
 // Change is one edit Apply makes to a ticket: SetField, CheckCriterion, UncheckCriterion, SetCriterion or AddCriterion.
 type Change interface {
 	isChange()

@@ -27,9 +27,13 @@ type ticketNote struct {
 }
 
 var (
-	_ backend.Backend    = Store{}
-	_ backend.TextReader = Store{}
+	_ backend.Backend          = Store{}
+	_ backend.TextReader       = Store{}
+	_ backend.CriterionTracker = Store{}
 )
+
+// TracksCriteria marks a vault's criteria as carrying a done state: each is a checkbox, ticked or not.
+func (Store) TracksCriteria() {}
 
 // Open is the vault backend's backend.Opener. The vault's root is relative to the directory holding .tix.
 func Open(tixDirectory string, config backend.Config) (backend.Backend, error) {
@@ -163,15 +167,4 @@ func (store Store) ReadText(id string) ([]byte, error) {
 // Create fails: the vault backend doesn't create notes yet.
 func (store Store) Create(ticket.Ticket) (string, error) {
 	return "", createUnsupported()
-}
-
-// Apply fails on the first change: the vault backend doesn't edit notes yet.
-func (store Store) Apply(id string, changes []backend.Change) error {
-	if _, err := store.Read(id); err != nil {
-		return err
-	}
-	if len(changes) > 0 {
-		return backend.Unsupported(changes[0], backend.KindVault)
-	}
-	return nil
 }

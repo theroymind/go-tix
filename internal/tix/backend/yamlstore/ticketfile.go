@@ -19,17 +19,27 @@ func ParseTicket(text []byte, path string) (ticket.Ticket, error) {
 }
 
 func decodeTicket(document *yaml.Node, path string) (ticket.Ticket, error) {
-	if err := validation.RequireFields(requiredFields, hasKey(mappingRoot(document))); err != nil {
+	decoded, err := checkTicket(document)
+	if err != nil {
 		return ticket.Ticket{}, backend.InvalidFile(path, err)
 	}
+	return decoded, nil
+}
+
+// checkTicket decodes and validates a ticket document, returning its problems for the caller to report: a missing
+// field, a value of the wrong type or a value the contract rejects.
+func checkTicket(document *yaml.Node) (ticket.Ticket, error) {
+	if err := validation.RequireFields(requiredFields, hasKey(mappingRoot(document))); err != nil {
+		return ticket.Ticket{}, err
+	}
 	var decoded ticket.Ticket
-	if err := backend.DecodeYAML(document, &decoded, path); err != nil {
+	if err := document.Decode(&decoded); err != nil {
 		return ticket.Ticket{}, err
 	}
 	if err := validation.RequireFields(requiredFields, hasValue(decoded)); err != nil {
-		return ticket.Ticket{}, backend.InvalidFile(path, err)
+		return ticket.Ticket{}, err
 	}
-	return decoded, backend.Validate(decoded, path)
+	return decoded, decoded.Validate()
 }
 
 // hasValue reports whether a field decoded to a value. A key holding null or an empty string leaves
@@ -89,8 +99,12 @@ func UpdateTicketText(text []byte, changes []backend.Change, path string) ([]byt
 			return nil, err
 		}
 	}
-	if _, err := decodeTicket(document, path); err != nil {
-		return nil, err
+	if _, err := checkTicket(document); err != nil {
+		// A file that was already invalid is the problem, not the change.
+		if _, parseError := ParseTicket(text, path); parseError != nil {
+			return nil, parseError
+		}
+		return nil, backend.InvalidChange(path, err)
 	}
 	return backend.EncodeYAML(document)
 }
@@ -99,6 +113,10 @@ func UpdateTicketText(text []byte, changes []backend.Change, path string) ([]byt
 func applyChange(mapping *yaml.Node, change backend.Change, path string) error {
 	switch change := change.(type) {
 	case backend.SetField:
+		if change.Field == ticket.FieldID {
+			// The file is named by the id, so changing it would break the match.
+			return backend.Unsupported(change, backend.KindYAML)
+		}
 		return setField(mapping, change)
 	case backend.SetCriterion:
 		return setCriterion(mapping, change, path)

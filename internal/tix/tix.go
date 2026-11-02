@@ -1,4 +1,4 @@
-// Package tix provides the tix commands, which create, list, show and complete the tickets in a .tix directory.
+// Package tix provides the tix commands, which create, list, show, change and complete the tickets in a .tix directory.
 package tix
 
 import "github.com/theroymind/railyard/internal/cli"
@@ -11,7 +11,8 @@ commands:
   show REF [--json]
   ls [--status S] [--type T] [--tag T] [--parent REF] [--all] [--json]
   ready [--type T] [--json]
-  done REF
+  done [--force] REF
+  set REF KEY=VALUE...   (raw write; does not check criteria, use done)
 `
 
 var Program = cli.Program{
@@ -24,5 +25,6 @@ var Program = cli.Program{
 		"ls":    runLs,
 		"ready": runReady,
 		"done":  runDone,
+		"set":   runSet,
 	},
 }

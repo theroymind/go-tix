@@ -80,6 +80,7 @@ func TestApplyRefusesAChangeItCantMakeAndWritesNothing(t *testing.T) {
 		{"UncheckCriterion is unsupported", []backend.Change{backend.UncheckCriterion{Index: 1}}, backend.ErrUnsupported},
 		{"An unsupported change stops the changes before it", []backend.Change{setStatus, backend.CheckCriterion{Index: 1}}, backend.ErrUnsupported},
 		{"SetCriterion past the last criterion", []backend.Change{backend.SetCriterion{Index: 3, Text: "x"}}, backend.ErrNoCriterion},
+		{"Setting the id is unsupported, since the file is named by it", []backend.Change{backend.SetField{Field: ticket.FieldID, Value: "bs-zzzz"}}, backend.ErrUnsupported},
 		{"SetCriterion below 1", []backend.Change{backend.SetCriterion{Index: 0, Text: "x"}}, backend.ErrNoCriterion},
 	}
 

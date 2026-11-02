@@ -220,14 +220,41 @@ func TestParseTicketRejectsInvalidFiles(t *testing.T) {
 	}
 }
 
-func TestUpdateTicketTextRefusesAnUpdateThatMakesTheTicketInvalid(t *testing.T) {
-	changes := []backend.Change{backend.SetField{Field: ticket.FieldStatus, Value: ticket.Status("done")}}
+func TestUpdateTicketTextTellsARejectedChangeFromAnInvalidFile(t *testing.T) {
+	fixture := string(readFixture(t))
+	badStatus := regexp.MustCompile(`(?m)^status: .*$`).ReplaceAllString(fixture, "status: done")
 
-	_, err := UpdateTicketText(readFixture(t), changes, fixturePath)
+	tests := []struct {
+		name     string
+		text     string
+		change   backend.SetField
+		expected error
+		other    error
+		mention  string
+	}{
+		{"A change that makes a valid ticket invalid is rejected, naming the problem", fixture,
+			backend.SetField{Field: ticket.FieldStatus, Value: ticket.Status("done")},
+			backend.ErrInvalidChange, backend.ErrInvalidFile, "change rejected"},
+		{"A file already invalid is reported as the invalid file", badStatus,
+			backend.SetField{Field: ticket.FieldTitle, Value: "Renamed"},
+			backend.ErrInvalidFile, backend.ErrInvalidChange, "is invalid"},
+	}
 
-	var problems validation.Errors
-	if !errors.As(err, &problems) || !slices.Equal(problems.Fields(), []string{ticket.FieldStatus}) {
-		t.Errorf("UpdateTicketText() error = %v, want a problem with %s", err, ticket.FieldStatus)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := UpdateTicketText([]byte(tt.text), []backend.Change{tt.change}, fixturePath)
+
+			var problems validation.Errors
+			if !errors.Is(err, tt.expected) || errors.Is(err, tt.other) || !strings.HasPrefix(err.Error(), fixturePath) {
+				t.Errorf("UpdateTicketText() error = %v, want %v and not %v, naming %s", err, tt.expected, tt.other, fixturePath)
+			}
+			if !strings.Contains(err.Error(), tt.mention) {
+				t.Errorf("UpdateTicketText() error = %v, want it to say %q", err, tt.mention)
+			}
+			if !errors.As(err, &problems) || !slices.Equal(problems.Fields(), []string{ticket.FieldStatus}) {
+				t.Errorf("UpdateTicketText() error = %v, want a problem with %s", err, ticket.FieldStatus)
+			}
+		})
 	}
 }
 

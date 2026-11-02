@@ -171,14 +171,14 @@ func TestReadText(t *testing.T) {
 	}
 }
 
-func TestWritesAreUnsupported(t *testing.T) {
+func TestUnsupportedWrites(t *testing.T) {
 	store := openFixture(t)
 	tests := []struct {
 		name  string
 		write func() error
 	}{
 		{"Apply", func() error {
-			return store.Apply("goal-scoring", []backend.Change{backend.SetField{Field: ticket.FieldStatus, Value: ticket.StatusOpen}})
+			return store.Apply("goal-scoring", []backend.Change{backend.UncheckCriterion{Index: 1}})
 		}},
 		{"Create", func() error {
 			_, err := store.Create(ticket.Ticket{Title: "New", Type: ticket.TypeTask, Status: ticket.StatusOpen})

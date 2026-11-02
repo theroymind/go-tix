@@ -32,6 +32,11 @@ func parsePriority(parsed cli.Arguments) (ticket.Priority, error) {
 	if !exists {
 		return ticket.PriorityDefault, nil
 	}
+	return parsePriorityText(value)
+}
+
+// parsePriorityText reads a priority written as a base-10 integer.
+func parsePriorityText(value string) (ticket.Priority, error) {
 	if !integerExpression.MatchString(value) {
 		return 0, invalidPriority(value)
 	}
