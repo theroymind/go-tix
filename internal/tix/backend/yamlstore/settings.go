@@ -1,19 +1,14 @@
-package store
+package yamlstore
 
-import (
-	"io/fs"
-
-	"github.com/theroymind/railyard/internal/contracts/ticket"
-)
+import "github.com/theroymind/railyard/internal/contracts/ticket"
 
 const (
-	temporaryFileSuffix = ".tmp"
-	yamlIndent          = 2
-)
+	doubleQuote = `"`
+	singleQuote = "'"
+	nullTag     = "!!null"
+	sequenceTag = "!!seq"
 
-const (
-	DirectoryPermission fs.FileMode = 0o777
-	filePermission      fs.FileMode = 0o666
+	problemNotList = "Invalid input: expected array"
 )
 
 // requiredFields are the keys every tix v1 ticket file carries, though the contract leaves priority and the timestamps optional.

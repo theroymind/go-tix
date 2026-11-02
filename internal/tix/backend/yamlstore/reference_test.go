@@ -1,4 +1,4 @@
-package store
+package yamlstore
 
 import (
 	"errors"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/railyard/internal/tix/backend"
 )
 
 const testPrefix = "bs"
@@ -54,10 +55,10 @@ func TestResolveReferenceFails(t *testing.T) {
 		expectedError   error
 		expectedMessage string
 	}{
-		{"Fails on an ambiguous reference and lists the matches", "k3", ErrAmbiguous, strconv.Quote("k3") + " is ambiguous: " + qualified("k3aa") + ", " + qualified("k3f9")},
-		{"Fails when no suffix matches", "zz", ErrNoMatch, "no ticket matches " + strconv.Quote("zz")},
-		{"Fails when no full ID matches", qualified("zz"), ErrNoMatch, "no ticket matches " + strconv.Quote(qualified("zz"))},
-		{"Fails on an empty reference", "", ErrNoMatch, "no ticket matches " + strconv.Quote("")},
+		{"Fails on an ambiguous reference and lists the matches", "k3", backend.ErrAmbiguous, strconv.Quote("k3") + " is ambiguous: " + qualified("k3aa") + ", " + qualified("k3f9")},
+		{"Fails when no suffix matches", "zz", backend.ErrNoMatch, "no ticket matches " + strconv.Quote("zz")},
+		{"Fails when no full ID matches", qualified("zz"), backend.ErrNoMatch, "no ticket matches " + strconv.Quote(qualified("zz"))},
+		{"Fails on an empty reference", "", backend.ErrNoMatch, "no ticket matches " + strconv.Quote("")},
 	}
 
 	for _, tt := range tests {

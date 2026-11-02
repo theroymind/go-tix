@@ -1,4 +1,4 @@
-package store
+package backend
 
 import (
 	"os"
@@ -8,13 +8,11 @@ import (
 	"github.com/theroymind/railyard/internal/contracts/validation"
 )
 
-const (
-	configFieldPrefix     = "prefix"
-	problemPrefixMismatch = "prefix must match "
-)
-
+// Config is .tix/config.yml.
 type Config struct {
 	Prefix string `yaml:"prefix"`
+	// Backend is the kind of backend that stores the tickets; empty means KindYAML.
+	Backend Kind `yaml:"backend,omitempty"`
 }
 
 func (config Config) Validate() error {
@@ -22,7 +20,18 @@ func (config Config) Validate() error {
 	if !ticket.IsValidPrefix(config.Prefix) {
 		problems.Add(configFieldPrefix, problemPrefixMismatch+ticket.PrefixPattern)
 	}
+	if config.Backend != "" && !config.Backend.IsKnown() {
+		problems.Add(configFieldBackend, validation.InvalidOption(Kinds))
+	}
 	return problems.Err()
+}
+
+// BackendKind is the configured backend, defaulting to KindYAML when the config names none.
+func (config Config) BackendKind() Kind {
+	if config.Backend == "" {
+		return KindYAML
+	}
+	return config.Backend
 }
 
 func ConfigPath(tixDirectory string) string {
@@ -35,12 +44,12 @@ func ReadConfig(tixDirectory string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	document, err := parseYAML(text, path)
+	document, err := ParseYAML(text, path)
 	if err != nil {
 		return Config{}, err
 	}
 	var config Config
-	if err := decodeYAML(document, &config, path); err != nil {
+	if err := DecodeYAML(document, &config, path); err != nil {
 		return Config{}, err
 	}
 	return config, Validate(config, path)
@@ -51,9 +60,9 @@ func WriteConfig(tixDirectory string, config Config) error {
 	if err := Validate(config, path); err != nil {
 		return err
 	}
-	text, err := encodeYAML(config)
+	text, err := EncodeYAML(config)
 	if err != nil {
 		return err
 	}
-	return writeAtomically(path, text)
+	return WriteAtomically(path, text)
 }

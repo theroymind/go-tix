@@ -1,12 +1,15 @@
-// Package store provides tix's ticket store: the .tix directory, its config, and the ticket files in it.
-package store
+// Package yamlstore provides the yaml backend, which keeps each ticket as a tix v1 YAML file in the .tix directory.
+package yamlstore
 
 import (
+	"crypto/rand"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/railyard/internal/contracts/validation"
+	"github.com/theroymind/railyard/internal/tix/backend"
 )
 
 type Store struct {
@@ -20,16 +23,14 @@ type TicketFile struct {
 	Ticket ticket.Ticket
 }
 
-func Open(workingDirectory string) (Store, error) {
-	directory, err := FindDirectory(workingDirectory)
-	if err != nil {
-		return Store{}, err
-	}
-	config, err := ReadConfig(directory)
-	if err != nil {
-		return Store{}, err
-	}
-	return Store{Directory: directory, Prefix: config.Prefix}, nil
+var (
+	_ backend.Backend    = Store{}
+	_ backend.TextReader = Store{}
+)
+
+// Open is the yaml backend's backend.Opener.
+func Open(tixDirectory string, config backend.Config) (backend.Backend, error) {
+	return Store{Directory: tixDirectory, Prefix: config.Prefix}, nil
 }
 
 func (store Store) TicketPath(id string) string {
@@ -56,7 +57,7 @@ func (store Store) ListTicketIDs() ([]string, error) {
 	return ids, nil
 }
 
-func (store Store) ResolveTicketID(reference string) (string, error) {
+func (store Store) Resolve(reference string) (string, error) {
 	ids, err := store.ListTicketIDs()
 	if err != nil {
 		return "", err
@@ -80,7 +81,18 @@ func (store Store) ReadTicketFile(id string) (TicketFile, error) {
 	return TicketFile{Path: path, Text: text, Ticket: parsed}, nil
 }
 
-func (store Store) ReadTickets() ([]ticket.Ticket, error) {
+func (store Store) Read(id string) (ticket.Ticket, error) {
+	file, err := store.ReadTicketFile(id)
+	return file.Ticket, err
+}
+
+// ReadText returns the ticket file's bytes, once they've parsed as a valid ticket.
+func (store Store) ReadText(id string) ([]byte, error) {
+	file, err := store.ReadTicketFile(id)
+	return file.Text, err
+}
+
+func (store Store) List() ([]ticket.Ticket, error) {
 	ids, err := store.ListTicketIDs()
 	if err != nil {
 		return nil, err
@@ -96,15 +108,33 @@ func (store Store) ReadTickets() ([]ticket.Ticket, error) {
 	return tickets, nil
 }
 
+// Create gives value a new random id under the store's prefix and writes it.
+func (store Store) Create(value ticket.Ticket) (string, error) {
+	id, err := ticket.GenerateID(store.Prefix, rand.Reader, store.HasTicket)
+	if err != nil {
+		return "", err
+	}
+	value.ID = id
+	return id, store.CreateTicket(value)
+}
+
+// CreateTicket writes value under its own id, refusing a ticket that lacks a field every tix v1 file carries.
 func (store Store) CreateTicket(value ticket.Ticket) error {
+	path := store.TicketPath(value.ID)
+	if err := validation.RequireFields(requiredFields, hasValue(value)); err != nil {
+		return backend.InvalidFile(path, err)
+	}
+	if err := backend.Validate(value, path); err != nil {
+		return err
+	}
 	text, err := SerializeTicket(value)
 	if err != nil {
 		return err
 	}
-	return writeAtomically(store.TicketPath(value.ID), text)
+	return backend.WriteAtomically(path, text)
 }
 
-func (store Store) UpdateTicket(id string, changes []Change) error {
+func (store Store) Apply(id string, changes []backend.Change) error {
 	file, err := store.ReadTicketFile(id)
 	if err != nil {
 		return err
@@ -113,5 +143,5 @@ func (store Store) UpdateTicket(id string, changes []Change) error {
 	if err != nil {
 		return err
 	}
-	return writeAtomically(file.Path, text)
+	return backend.WriteAtomically(file.Path, text)
 }

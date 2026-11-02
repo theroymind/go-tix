@@ -1,4 +1,4 @@
-package store
+package yamlstore
 
 import (
 	"bytes"
@@ -8,23 +8,16 @@ import (
 	"testing"
 
 	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/railyard/internal/tix/backend"
 )
 
 var expectedID = testPrefix + ticket.IDSeparator + ticket.IDCharacters[len(ticket.IDCharacters)-ticket.IDSuffixLength:]
 
 func openTestStore(t *testing.T) Store {
 	t.Helper()
-	root := t.TempDir()
-	tixDirectory := filepath.Join(root, ticket.DirectoryName)
+	tixDirectory := filepath.Join(t.TempDir(), ticket.DirectoryName)
 	makeDirectory(t, tixDirectory)
-	if err := WriteConfig(tixDirectory, Config{Prefix: testPrefix}); err != nil {
-		t.Fatalf("WriteConfig() error = %v", err)
-	}
-	store, err := Open(root)
-	if err != nil {
-		t.Fatalf("Open() error = %v", err)
-	}
-	return store
+	return Store{Directory: tixDirectory, Prefix: testPrefix}
 }
 
 func TestReadTicketFileReadsATicketWhoseIDMatchesItsFileName(t *testing.T) {
@@ -58,7 +51,7 @@ func TestStoreRejectsAFileWhoseIDDiffersFromItsFileName(t *testing.T) {
 			return err
 		}},
 		{"Updating", func() error {
-			return store.UpdateTicket(expectedID, []Change{{Field: ticket.FieldStatus, Value: ticket.StatusCompleted}})
+			return store.Apply(expectedID, []backend.Change{backend.SetField{Field: ticket.FieldStatus, Value: ticket.StatusCompleted}})
 		}},
 	}
 
@@ -98,7 +91,7 @@ func TestReadTicketsReadsEveryTicketFile(t *testing.T) {
 				writeFile(t, store.TicketPath(testPrefix+ticket.IDSeparator+"0000"), []byte("title: [\n"))
 			}
 
-			tickets, err := store.ReadTickets()
+			tickets, err := store.List()
 
 			if (err == nil) != tt.expectedOK {
 				t.Fatalf("ReadTickets() error = %v, want success %v", err, tt.expectedOK)

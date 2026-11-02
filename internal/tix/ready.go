@@ -24,11 +24,11 @@ func runReady(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	ticketStore, err := openStore()
+	store, err := openBackend()
 	if err != nil {
 		return err
 	}
-	tickets, err := ticketStore.ReadTickets()
+	tickets, err := store.List()
 	if err != nil {
 		return err
 	}

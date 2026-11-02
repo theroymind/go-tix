@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/tix/store"
+	"github.com/theroymind/railyard/internal/tix/backend"
 )
 
 var showSpecification = cli.Specification{
@@ -21,29 +21,34 @@ func runShow(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if len(parsed.Positionals) != 1 {
 		return cli.NewUsageError(ErrExpectedOneReference)
 	}
-	ticketStore, err := openStore()
+	store, err := openBackend()
 	if err != nil {
 		return err
 	}
-	id, err := ticketStore.ResolveTicketID(parsed.Positionals[0])
+	id, err := store.Resolve(parsed.Positionals[0])
 	if err != nil {
 		return err
 	}
-	file, err := ticketStore.ReadTicketFile(id)
+	// A backend without source text shows the ticket as JSON.
+	if textReader, hasText := store.(backend.TextReader); hasText && !parsed.IsEnabled(optionJSON) {
+		text, err := textReader.ReadText(id)
+		if err != nil {
+			return err
+		}
+		_, err = stdout.Write(text)
+		return err
+	}
+	shown, err := store.Read(id)
 	if err != nil {
 		return err
 	}
-	if parsed.IsEnabled(optionJSON) {
-		return cli.WriteJSON(stdout, file.Ticket)
-	}
-	_, err = stdout.Write(file.Text)
-	return err
+	return cli.WriteJSON(stdout, shown)
 }
 
-func openStore() (store.Store, error) {
+func openBackend() (backend.Backend, error) {
 	workingDirectory, err := os.Getwd()
 	if err != nil {
-		return store.Store{}, err
+		return nil, err
 	}
-	return store.Open(workingDirectory)
+	return backend.Open(workingDirectory)
 }

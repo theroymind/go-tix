@@ -1,4 +1,4 @@
-package store
+package backend
 
 import (
 	"bytes"
@@ -9,7 +9,8 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-func parseYAML(text []byte, path string) (*yaml.Node, error) {
+// ParseYAML parses a single YAML document, rejecting duplicate keys, and names path in its errors.
+func ParseYAML(text []byte, path string) (*yaml.Node, error) {
 	decoder := yaml.NewDecoder(bytes.NewReader(text))
 	var document yaml.Node
 	if err := decoder.Decode(&document); err != nil && !errors.Is(err, io.EOF) {
@@ -49,7 +50,8 @@ func checkDuplicateKeys(node *yaml.Node) error {
 	return nil
 }
 
-func decodeYAML(document *yaml.Node, target any, path string) error {
+// DecodeYAML decodes a parsed document into target, reporting a type mismatch as an invalid file at path.
+func DecodeYAML(document *yaml.Node, target any, path string) error {
 	if document.Kind == 0 {
 		return nil
 	}
@@ -60,7 +62,8 @@ func decodeYAML(document *yaml.Node, target any, path string) error {
 	return err
 }
 
-func encodeYAML(value any) ([]byte, error) {
+// EncodeYAML writes value as YAML with the two-space indent tix v1 files use.
+func EncodeYAML(value any) ([]byte, error) {
 	var buffer bytes.Buffer
 	encoder := yaml.NewEncoder(&buffer)
 	encoder.SetIndent(yamlIndent)
@@ -71,29 +74,4 @@ func encodeYAML(value any) ([]byte, error) {
 		return nil, err
 	}
 	return buffer.Bytes(), nil
-}
-
-func mappingRoot(document *yaml.Node) *yaml.Node {
-	if document.Kind != yaml.DocumentNode || len(document.Content) != 1 || document.Content[0].Kind != yaml.MappingNode {
-		return nil
-	}
-	return document.Content[0]
-}
-
-func hasKey(mapping *yaml.Node) func(key string) bool {
-	return func(key string) bool {
-		return valueIndex(mapping, key) >= 0
-	}
-}
-
-func valueIndex(mapping *yaml.Node, key string) int {
-	if mapping == nil {
-		return -1
-	}
-	for index := 0; index+1 < len(mapping.Content); index += 2 {
-		if mapping.Content[index].Value == key {
-			return index + 1
-		}
-	}
-	return -1
 }

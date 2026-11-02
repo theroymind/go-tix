@@ -7,7 +7,7 @@ import (
 	"github.com/theroymind/railyard/internal/cli"
 	"github.com/theroymind/railyard/internal/contracts/ticket"
 	"github.com/theroymind/railyard/internal/contracts/timestamp"
-	"github.com/theroymind/railyard/internal/tix/store"
+	"github.com/theroymind/railyard/internal/tix/backend"
 )
 
 var doneSpecification = cli.Specification{AllowsPositionals: true}
@@ -20,16 +20,16 @@ func runDone(arguments []string, _ io.Reader, _ io.Writer) error {
 	if len(parsed.Positionals) != 1 {
 		return cli.NewUsageError(ErrExpectedOneReference)
 	}
-	ticketStore, err := openStore()
+	store, err := openBackend()
 	if err != nil {
 		return err
 	}
-	id, err := ticketStore.ResolveTicketID(parsed.Positionals[0])
+	id, err := store.Resolve(parsed.Positionals[0])
 	if err != nil {
 		return err
 	}
-	return ticketStore.UpdateTicket(id, []store.Change{
-		{Field: ticket.FieldStatus, Value: ticket.StatusCompleted},
-		{Field: ticket.FieldUpdatedAt, Value: timestamp.Format(time.Now())},
+	return store.Apply(id, []backend.Change{
+		backend.SetField{Field: ticket.FieldStatus, Value: ticket.StatusCompleted},
+		backend.SetField{Field: ticket.FieldUpdatedAt, Value: timestamp.Format(time.Now())},
 	})
 }

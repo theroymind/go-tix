@@ -34,17 +34,17 @@ func runLs(arguments []string, _ io.Reader, stdout io.Writer) error {
 		return err
 	}
 	tag, _ := parsed.String(optionTag)
-	ticketStore, err := openStore()
+	store, err := openBackend()
 	if err != nil {
 		return err
 	}
 	var parent string
 	if reference, exists := parsed.String(optionParent); exists {
-		if parent, err = ticketStore.ResolveTicketID(reference); err != nil {
+		if parent, err = store.Resolve(reference); err != nil {
 			return err
 		}
 	}
-	tickets, err := ticketStore.ReadTickets()
+	tickets, err := store.List()
 	if err != nil {
 		return err
 	}

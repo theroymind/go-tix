@@ -1,4 +1,4 @@
-package store
+package backend
 
 import (
 	"errors"
@@ -65,16 +65,7 @@ func makeDirectory(t *testing.T, path string) {
 
 func writeFile(t *testing.T, path string, contents []byte) {
 	t.Helper()
-	if err := os.WriteFile(path, contents, filePermission); err != nil {
+	if err := os.WriteFile(path, contents, FilePermission); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func readFile(t *testing.T, path string) []byte {
-	t.Helper()
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return contents
 }

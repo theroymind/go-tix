@@ -1,7 +1,6 @@
 package tix
 
 import (
-	"crypto/rand"
 	"fmt"
 	"io"
 	"regexp"
@@ -12,7 +11,6 @@ import (
 	"github.com/theroymind/railyard/internal/contracts/ticket"
 	"github.com/theroymind/railyard/internal/contracts/timestamp"
 	"github.com/theroymind/railyard/internal/contracts/validation"
-	"github.com/theroymind/railyard/internal/tix/store"
 )
 
 var addSpecification = cli.Specification{
@@ -62,18 +60,13 @@ func runAdd(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	ticketStore, err := openStore()
+	store, err := openBackend()
 	if err != nil {
 		return err
 	}
-	id, err := ticket.GenerateID(ticketStore.Prefix, rand.Reader, ticketStore.HasTicket)
-	if err != nil {
-		return err
-	}
-	path := ticketStore.TicketPath(id)
 	priority, err := parsePriority(parsed)
 	if err != nil {
-		return store.InvalidFile(path, err)
+		return err
 	}
 	status := ticket.StatusOpen
 	if parsed.IsEnabled(optionDraft) {
@@ -82,7 +75,6 @@ func runAdd(arguments []string, _ io.Reader, stdout io.Writer) error {
 	description, _ := parsed.String(optionDescription)
 	now := timestamp.Format(time.Now())
 	created := ticket.Ticket{
-		ID:          id,
 		Title:       parsed.Positionals[0],
 		Type:        ticket.Type(ticketType),
 		Status:      status,
@@ -93,10 +85,8 @@ func runAdd(arguments []string, _ io.Reader, stdout io.Writer) error {
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	if err := store.Validate(created, path); err != nil {
-		return err
-	}
-	if err := ticketStore.CreateTicket(created); err != nil {
+	id, err := store.Create(created)
+	if err != nil {
 		return err
 	}
 	_, err = fmt.Fprintln(stdout, id)

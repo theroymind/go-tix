@@ -1,15 +1,16 @@
-package store
+package yamlstore
 
 import (
 	"slices"
 	"strings"
 
 	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/railyard/internal/tix/backend"
 )
 
 func ResolveReference(reference, prefix string, ids []string) (string, error) {
 	if reference == "" {
-		return "", noMatch(reference)
+		return "", backend.NoMatch(reference)
 	}
 	if slices.Contains(ids, reference) {
 		return reference, nil
@@ -31,10 +32,10 @@ func ResolveReference(reference, prefix string, ids []string) (string, error) {
 	slices.Sort(matches)
 	switch len(matches) {
 	case 0:
-		return "", noMatch(reference)
+		return "", backend.NoMatch(reference)
 	case 1:
 		return matches[0], nil
 	default:
-		return "", ambiguous(reference, matches)
+		return "", backend.Ambiguous(reference, matches)
 	}
 }

@@ -9,7 +9,7 @@ import (
 
 	"github.com/theroymind/railyard/internal/cli"
 	"github.com/theroymind/railyard/internal/contracts/ticket"
-	"github.com/theroymind/railyard/internal/tix/store"
+	"github.com/theroymind/railyard/internal/tix/backend"
 )
 
 var initSpecification = cli.Specification{
@@ -31,16 +31,16 @@ func runInit(arguments []string, _ io.Reader, _ io.Writer) error {
 	}
 	directory := filepath.Join(workingDirectory, ticket.DirectoryName)
 	if _, err := os.Stat(directory); err == nil {
-		return store.AlreadyInitialized(directory)
+		return backend.AlreadyInitialized(directory)
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
-	config := store.Config{Prefix: prefix}
-	if err := store.Validate(config, store.ConfigPath(directory)); err != nil {
+	config := backend.Config{Prefix: prefix}
+	if err := backend.Validate(config, backend.ConfigPath(directory)); err != nil {
 		return err
 	}
-	if err := os.Mkdir(directory, store.DirectoryPermission); err != nil {
+	if err := os.Mkdir(directory, backend.DirectoryPermission); err != nil {
 		return err
 	}
-	return store.WriteConfig(directory, config)
+	return backend.WriteConfig(directory, config)
 }

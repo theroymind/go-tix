@@ -1,4 +1,4 @@
-package store
+package yamlstore
 
 import (
 	"bytes"
@@ -13,6 +13,7 @@ import (
 	"github.com/theroymind/railyard/internal/contracts/ticket"
 	"github.com/theroymind/railyard/internal/contracts/timestamp"
 	"github.com/theroymind/railyard/internal/contracts/validation"
+	"github.com/theroymind/railyard/internal/tix/backend"
 )
 
 const (
@@ -137,9 +138,9 @@ func TestSerializeTicketQuotesLikeV1(t *testing.T) {
 
 func TestUpdateTicketTextChangesOnlyTheUpdatedFieldsAndKeepsUnknownOnes(t *testing.T) {
 	withUnknownField := append(readFixture(t), []byte(unknownField+": 2d\n")...)
-	changes := []Change{
-		{Field: ticket.FieldStatus, Value: ticket.StatusCompleted},
-		{Field: ticket.FieldUpdatedAt, Value: completedAt},
+	changes := []backend.Change{
+		backend.SetField{Field: ticket.FieldStatus, Value: ticket.StatusCompleted},
+		backend.SetField{Field: ticket.FieldUpdatedAt, Value: completedAt},
 	}
 
 	updated, err := UpdateTicketText(withUnknownField, changes, fixturePath)
@@ -178,13 +179,13 @@ func TestTicketFileReportsYAMLErrorsAndNamesTheFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			changes := []Change{{Field: ticket.FieldStatus, Value: ticket.StatusCompleted}}
+			changes := []backend.Change{backend.SetField{Field: ticket.FieldStatus, Value: ticket.StatusCompleted}}
 			_, parseError := ParseTicket([]byte(tt.text), fixturePath)
 			_, updateError := UpdateTicketText([]byte(tt.text), changes, fixturePath)
 
 			for _, err := range []error{parseError, updateError} {
-				if !errors.Is(err, ErrInvalidYAML) || !strings.HasPrefix(err.Error(), fixturePath) {
-					t.Errorf("error = %v, want %v naming %s", err, ErrInvalidYAML, fixturePath)
+				if !errors.Is(err, backend.ErrInvalidYAML) || !strings.HasPrefix(err.Error(), fixturePath) {
+					t.Errorf("error = %v, want %v naming %s", err, backend.ErrInvalidYAML, fixturePath)
 				}
 			}
 		})
@@ -212,15 +213,15 @@ func TestParseTicketRejectsInvalidFiles(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := ParseTicket([]byte(tt.text), fixturePath)
 
-			if !errors.Is(err, ErrInvalidFile) || !strings.HasPrefix(err.Error(), fixturePath) {
-				t.Errorf("ParseTicket() error = %v, want %v naming %s", err, ErrInvalidFile, fixturePath)
+			if !errors.Is(err, backend.ErrInvalidFile) || !strings.HasPrefix(err.Error(), fixturePath) {
+				t.Errorf("ParseTicket() error = %v, want %v naming %s", err, backend.ErrInvalidFile, fixturePath)
 			}
 		})
 	}
 }
 
 func TestUpdateTicketTextRefusesAnUpdateThatMakesTheTicketInvalid(t *testing.T) {
-	changes := []Change{{Field: ticket.FieldStatus, Value: ticket.Status("done")}}
+	changes := []backend.Change{backend.SetField{Field: ticket.FieldStatus, Value: ticket.Status("done")}}
 
 	_, err := UpdateTicketText(readFixture(t), changes, fixturePath)
 
@@ -252,8 +253,8 @@ func TestParseTicketRequiresTheFieldsTheContractLeavesOptional(t *testing.T) {
 			_, err := ParseTicket([]byte(text), fixturePath)
 
 			var problems validation.Errors
-			if !errors.Is(err, ErrInvalidFile) || !errors.As(err, &problems) || !slices.Equal(problems.Fields(), []string{tt.field}) {
-				t.Errorf("ParseTicket() error = %v, want %v naming %s", err, ErrInvalidFile, tt.field)
+			if !errors.Is(err, backend.ErrInvalidFile) || !errors.As(err, &problems) || !slices.Equal(problems.Fields(), []string{tt.field}) {
+				t.Errorf("ParseTicket() error = %v, want %v naming %s", err, backend.ErrInvalidFile, tt.field)
 			}
 		})
 	}

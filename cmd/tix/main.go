@@ -7,8 +7,11 @@ import (
 	"os"
 
 	"github.com/theroymind/railyard/internal/tix"
+	"github.com/theroymind/railyard/internal/tix/backend"
+	"github.com/theroymind/railyard/internal/tix/backend/yamlstore"
 )
 
 func main() {
+	backend.Register(backend.KindYAML, yamlstore.Open)
 	os.Exit(int(tix.Program.Run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)))
 }
