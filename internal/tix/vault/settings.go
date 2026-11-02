@@ -1,0 +1,21 @@
+package vault
+
+import "regexp"
+
+const (
+	frontmatterDelimiter = "---"
+	noteExtension        = ".md"
+	yamlIndent           = 2
+	carriageReturn       = "\r"
+	doneMark             = "x"
+	undoneMark           = " "
+	maxFenceIndent       = 3
+)
+
+var (
+	headingPattern  = regexp.MustCompile(`^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$`)
+	fencePattern    = regexp.MustCompile("^ {0,3}(`{3,}|~{3,})")
+	checkboxPattern = regexp.MustCompile(`^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\](?:[ \t]+|$))(.*)$`)
+	wikilinkPattern = regexp.MustCompile(`!?\[\[([^\[\]\n]*)\]\]`)
+	backtickRun     = regexp.MustCompile("`+")
+)
