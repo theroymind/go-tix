@@ -1,9 +1,6 @@
 package ticket
 
-import (
-	"regexp"
-	"strconv"
-)
+import "regexp"
 
 const (
 	IDCharacters      = "0123456789abcdefghjkmnpqrstvwxyz"
@@ -12,6 +9,7 @@ const (
 	MaximumIDAttempts = 10
 	prefixSource      = "[a-z][a-z0-9]{0,7}"
 	PrefixPattern     = "^" + prefixSource + "$"
+	IDPattern         = "^[a-z0-9][a-z0-9-]*$"
 )
 
 const (
@@ -28,8 +26,5 @@ const (
 
 var (
 	prefixExpression = regexp.MustCompile(PrefixPattern)
-	idExpression     = regexp.MustCompile(
-		"^" + prefixSource + regexp.QuoteMeta(IDSeparator) +
-			"[" + IDCharacters + "]{" + strconv.Itoa(IDSuffixLength) + "}$",
-	)
+	idExpression     = regexp.MustCompile(IDPattern)
 )

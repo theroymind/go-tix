@@ -83,3 +83,29 @@ func TestGenerateID(t *testing.T) {
 		})
 	}
 }
+
+func TestIsValidID(t *testing.T) {
+	tests := []struct {
+		name     string
+		id       string
+		expected bool
+	}{
+		{"A prefixed ID", "ry-k3f9", true},
+		{"A vault slug", "goal-scoring", true},
+		{"A single character", "a", true},
+		{"A leading digit", "9lives", true},
+		{"The empty string", "", false},
+		{"A leading hyphen", "-x", false},
+		{"An uppercase letter", "Goal", false},
+		{"An underscore", "a_b", false},
+		{"A path segment", "../ry-k3f9", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsValidID(tt.id); got != tt.expected {
+				t.Errorf("IsValidID(%q) = %v, want %v", tt.id, got, tt.expected)
+			}
+		})
+	}
+}

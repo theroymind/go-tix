@@ -67,10 +67,10 @@ func TestValidateRejects(t *testing.T) {
 		{FieldPriority, func(ticket *Ticket) { ticket.Priority = PriorityHighest - 1 }},
 		{FieldTitle, func(ticket *Ticket) { ticket.Title = "" }},
 		{FieldTitle, func(ticket *Ticket) { ticket.Title = "   " }},
-		{FieldID, func(ticket *Ticket) { ticket.ID = "ry-iiii" }},
-		{FieldID, func(ticket *Ticket) { ticket.ID = "ry" + IDSeparator + IDCharacters[:IDSuffixLength+1] }},
-		{FieldParent, func(ticket *Ticket) { ticket.Parent = "not-an-id" }},
-		{FieldDependencies + ".1", func(ticket *Ticket) { ticket.Dependencies = []string{ticket.ID, "not-an-id"} }},
+		{FieldID, func(ticket *Ticket) { ticket.ID = "RY-K3F9" }},
+		{FieldID, func(ticket *Ticket) { ticket.ID = IDSeparator + "k3f9" }},
+		{FieldParent, func(ticket *Ticket) { ticket.Parent = "not an id" }},
+		{FieldDependencies + ".1", func(ticket *Ticket) { ticket.Dependencies = []string{ticket.ID, "not_an_id"} }},
 		{FieldCreatedAt, func(ticket *Ticket) { ticket.CreatedAt = "2026-10-25T09:00:00" }},
 	}
 
