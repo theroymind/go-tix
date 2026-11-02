@@ -28,14 +28,34 @@ func ParseTicket(text []byte, path string) (ticket.Ticket, error) {
 }
 
 func decodeTicket(document *yaml.Node, path string) (ticket.Ticket, error) {
-	if err := validation.RequireFields(ticket.RequiredFields, hasKey(mappingRoot(document))); err != nil {
+	if err := validation.RequireFields(requiredFields, hasKey(mappingRoot(document))); err != nil {
 		return ticket.Ticket{}, InvalidFile(path, err)
 	}
 	var decoded ticket.Ticket
 	if err := decodeYAML(document, &decoded, path); err != nil {
 		return ticket.Ticket{}, err
 	}
+	if err := validation.RequireFields(requiredFields, hasValue(decoded)); err != nil {
+		return ticket.Ticket{}, InvalidFile(path, err)
+	}
 	return decoded, Validate(decoded, path)
+}
+
+// hasValue reports whether a field decoded to a value. A key holding null or an empty string leaves
+// priority or a timestamp absent, which the contract allows and a ticket file does not.
+func hasValue(decoded ticket.Ticket) func(field string) bool {
+	return func(field string) bool {
+		switch field {
+		case ticket.FieldPriority:
+			return decoded.Priority != nil
+		case ticket.FieldCreatedAt:
+			return decoded.CreatedAt != ""
+		case ticket.FieldUpdatedAt:
+			return decoded.UpdatedAt != ""
+		default:
+			return true
+		}
+	}
 }
 
 func SerializeTicket(value ticket.Ticket) ([]byte, error) {
@@ -70,7 +90,7 @@ func UpdateTicketText(text []byte, changes []Change, path string) ([]byte, error
 	}
 	root := mappingRoot(document)
 	if root == nil {
-		return nil, InvalidFile(path, validation.RequireFields(ticket.RequiredFields, hasKey(root)))
+		return nil, InvalidFile(path, validation.RequireFields(requiredFields, hasKey(root)))
 	}
 	for _, change := range changes {
 		if err := setField(root, change); err != nil {

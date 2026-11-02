@@ -21,24 +21,41 @@ func TestSort(t *testing.T) {
 		{
 			"Priority comes first",
 			[]Ticket{
-				{ID: "t-0001", Priority: PriorityLowest, CreatedAt: sortEarlier},
-				{ID: "t-0002", Priority: PriorityHighest, CreatedAt: sortLater},
+				{ID: "t-0001", Priority: new(PriorityLowest), CreatedAt: sortEarlier},
+				{ID: "t-0002", Priority: new(PriorityHighest), CreatedAt: sortLater},
 			},
 			[]string{"t-0002", "t-0001"},
 		},
 		{
 			"Created at breaks a priority tie, comparing instants across offsets",
 			[]Ticket{
-				{ID: "t-0001", Priority: PriorityDefault, CreatedAt: sortLater},
-				{ID: "t-0002", Priority: PriorityDefault, CreatedAt: sortEarlier},
+				{ID: "t-0001", Priority: new(PriorityDefault), CreatedAt: sortLater},
+				{ID: "t-0002", Priority: new(PriorityDefault), CreatedAt: sortEarlier},
+			},
+			[]string{"t-0002", "t-0001"},
+		},
+		{
+			"An absent priority sorts as the default",
+			[]Ticket{
+				{ID: "t-0001", Priority: new(PriorityLowest), CreatedAt: sortEarlier},
+				{ID: "t-0002", CreatedAt: sortLater},
+				{ID: "t-0003", Priority: new(PriorityHighest), CreatedAt: sortLater},
+			},
+			[]string{"t-0003", "t-0002", "t-0001"},
+		},
+		{
+			"An absent created_at sorts before a present one",
+			[]Ticket{
+				{ID: "t-0001", Priority: new(PriorityDefault), CreatedAt: sortEarlier},
+				{ID: "t-0002", Priority: new(PriorityDefault)},
 			},
 			[]string{"t-0002", "t-0001"},
 		},
 		{
 			"ID breaks a full tie",
 			[]Ticket{
-				{ID: "t-0002", Priority: PriorityDefault, CreatedAt: sortEarlier},
-				{ID: "t-0001", Priority: PriorityDefault, CreatedAt: sortEarlier},
+				{ID: "t-0002", Priority: new(PriorityDefault), CreatedAt: sortEarlier},
+				{ID: "t-0001", Priority: new(PriorityDefault), CreatedAt: sortEarlier},
 			},
 			[]string{"t-0001", "t-0002"},
 		},

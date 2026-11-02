@@ -19,7 +19,7 @@ func validTicket() Ticket {
 		Title:      "Port ls and ready",
 		Type:       TypeTask,
 		Status:     StatusOpen,
-		Priority:   PriorityDefault,
+		Priority:   new(PriorityDefault),
 		Tags:       []string{"tix"},
 		Acceptance: []Criterion{{Text: "ls lists open tickets"}},
 		CreatedAt:  "2026-10-25T09:00:00-04:00",
@@ -38,6 +38,10 @@ func failingFields(ticket Ticket) []string {
 func TestValidateAccepts(t *testing.T) {
 	withUnknownField := validTicket()
 	withUnknownField.UnknownFields = map[string]any{unknownField: "2d"}
+	withoutOptionalFields := validTicket()
+	withoutOptionalFields.Priority, withoutOptionalFields.CreatedAt, withoutOptionalFields.UpdatedAt = nil, "", ""
+	withHighestPriority := validTicket()
+	withHighestPriority.Priority = new(PriorityHighest)
 
 	tests := []struct {
 		name   string
@@ -45,6 +49,8 @@ func TestValidateAccepts(t *testing.T) {
 	}{
 		{"A valid ticket", validTicket()},
 		{"A ticket with a field it doesn't know about", withUnknownField},
+		{"A ticket with no priority or timestamps", withoutOptionalFields},
+		{"A ticket with priority 0", withHighestPriority},
 	}
 
 	for _, tt := range tests {
@@ -63,8 +69,8 @@ func TestValidateRejects(t *testing.T) {
 	}{
 		{FieldType, func(ticket *Ticket) { ticket.Type = "bug" }},
 		{FieldStatus, func(ticket *Ticket) { ticket.Status = "done" }},
-		{FieldPriority, func(ticket *Ticket) { ticket.Priority = PriorityLowest + 1 }},
-		{FieldPriority, func(ticket *Ticket) { ticket.Priority = PriorityHighest - 1 }},
+		{FieldPriority, func(ticket *Ticket) { ticket.Priority = new(PriorityLowest + 1) }},
+		{FieldPriority, func(ticket *Ticket) { ticket.Priority = new(PriorityHighest - 1) }},
 		{FieldTitle, func(ticket *Ticket) { ticket.Title = "" }},
 		{FieldTitle, func(ticket *Ticket) { ticket.Title = "   " }},
 		{FieldID, func(ticket *Ticket) { ticket.ID = "RY-K3F9" }},
@@ -72,6 +78,7 @@ func TestValidateRejects(t *testing.T) {
 		{FieldParent, func(ticket *Ticket) { ticket.Parent = "not an id" }},
 		{FieldDependencies + ".1", func(ticket *Ticket) { ticket.Dependencies = []string{ticket.ID, "not_an_id"} }},
 		{FieldCreatedAt, func(ticket *Ticket) { ticket.CreatedAt = "2026-10-25T09:00:00" }},
+		{FieldUpdatedAt, func(ticket *Ticket) { ticket.UpdatedAt = "yesterday" }},
 	}
 
 	for _, tt := range tests {
@@ -115,5 +122,65 @@ func TestMarshalJSONKeepsUnknownFieldsAfterKnownOnes(t *testing.T) {
 	firstUnknown := bytes.Index(encoded, []byte(strconv.Quote(unknownField)))
 	if firstUnknown < lastKnown {
 		t.Errorf("unknown field written before known fields: %s", encoded)
+	}
+}
+
+func TestMarshalJSONOptionalFields(t *testing.T) {
+	absent := validTicket()
+	absent.Priority, absent.CreatedAt, absent.UpdatedAt = nil, "", ""
+	highest := validTicket()
+	highest.Priority = new(PriorityHighest)
+
+	tests := []struct {
+		name     string
+		ticket   Ticket
+		expected map[string]any
+	}{
+		{"Absent fields are omitted", absent, map[string]any{}},
+		{
+			"Present fields are written, priority 0 included",
+			highest,
+			map[string]any{FieldPriority: float64(PriorityHighest), FieldCreatedAt: string(highest.CreatedAt), FieldUpdatedAt: string(highest.UpdatedAt)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			encoded, err := json.Marshal(tt.ticket)
+			if err != nil {
+				t.Fatalf("json.Marshal() error = %v", err)
+			}
+			var decoded map[string]any
+			if err := json.Unmarshal(encoded, &decoded); err != nil {
+				t.Fatalf("json.Unmarshal(%s) error = %v", encoded, err)
+			}
+			for _, field := range []string{FieldPriority, FieldCreatedAt, FieldUpdatedAt} {
+				got, isPresent := decoded[field]
+				want, isExpected := tt.expected[field]
+				if isPresent != isExpected || got != want {
+					t.Errorf("%s = %v (present %t), want %v (present %t) in %s", field, got, isPresent, want, isExpected, encoded)
+				}
+			}
+		})
+	}
+}
+
+func TestPriorityOrDefault(t *testing.T) {
+	tests := []struct {
+		name     string
+		priority *Priority
+		expected Priority
+	}{
+		{"Absent is the default", nil, PriorityDefault},
+		{"Zero is the highest, not absent", new(PriorityHighest), PriorityHighest},
+		{"Present is itself", new(PriorityLowest), PriorityLowest},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := (Ticket{Priority: tt.priority}).PriorityOrDefault(); got != tt.expected {
+				t.Errorf("PriorityOrDefault() = %d, want %d", got, tt.expected)
+			}
+		})
 	}
 }

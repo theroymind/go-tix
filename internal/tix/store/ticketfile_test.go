@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -226,5 +227,34 @@ func TestUpdateTicketTextRefusesAnUpdateThatMakesTheTicketInvalid(t *testing.T) 
 	var problems validation.Errors
 	if !errors.As(err, &problems) || !slices.Equal(problems.Fields(), []string{ticket.FieldStatus}) {
 		t.Errorf("UpdateTicketText() error = %v, want a problem with %s", err, ticket.FieldStatus)
+	}
+}
+
+func TestParseTicketRequiresTheFieldsTheContractLeavesOptional(t *testing.T) {
+	fixture := string(readFixture(t))
+
+	tests := []struct {
+		field       string
+		replacement string
+	}{
+		{ticket.FieldPriority, ""},
+		{ticket.FieldCreatedAt, ""},
+		{ticket.FieldUpdatedAt, ""},
+		{ticket.FieldPriority, ticket.FieldPriority + ": null\n"},
+		{ticket.FieldCreatedAt, ticket.FieldCreatedAt + ": null\n"},
+		{ticket.FieldUpdatedAt, ticket.FieldUpdatedAt + ": \"\"\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.field+" "+strconv.Quote(tt.replacement), func(t *testing.T) {
+			text := regexp.MustCompile(`(?m)^`+tt.field+`: .*\n`).ReplaceAllString(fixture, tt.replacement)
+
+			_, err := ParseTicket([]byte(text), fixturePath)
+
+			var problems validation.Errors
+			if !errors.Is(err, ErrInvalidFile) || !errors.As(err, &problems) || !slices.Equal(problems.Fields(), []string{tt.field}) {
+				t.Errorf("ParseTicket() error = %v, want %v naming %s", err, ErrInvalidFile, tt.field)
+			}
+		})
 	}
 }

@@ -26,23 +26,21 @@ const (
 	FieldUpdatedAt    = "updated_at"
 )
 
-var RequiredFields = []string{
-	FieldID, FieldTitle, FieldType, FieldStatus, FieldPriority, FieldCreatedAt, FieldUpdatedAt,
-}
-
+// Ticket is one unit of work. Priority, CreatedAt and UpdatedAt are optional: a nil Priority or an empty
+// timestamp is absent, and JSON omits it. Priority 0 is the highest priority, not an absent one.
 type Ticket struct {
 	ID            string              `yaml:"id" json:"id"`
 	Title         string              `yaml:"title" json:"title"`
 	Type          Type                `yaml:"type" json:"type"`
 	Status        Status              `yaml:"status" json:"status"`
-	Priority      Priority            `yaml:"priority" json:"priority"`
+	Priority      *Priority           `yaml:"priority,omitempty" json:"priority,omitempty"`
 	Tags          []string            `yaml:"tags,omitempty,flow" json:"tags,omitempty"`
 	Dependencies  []string            `yaml:"dependencies,omitempty,flow" json:"dependencies,omitempty"`
 	Parent        string              `yaml:"parent,omitempty" json:"parent,omitempty"`
 	Description   string              `yaml:"description,omitempty" json:"description,omitempty"`
 	Acceptance    []Criterion         `yaml:"acceptance,omitempty" json:"acceptance,omitempty"`
-	CreatedAt     timestamp.Timestamp `yaml:"created_at" json:"created_at"`
-	UpdatedAt     timestamp.Timestamp `yaml:"updated_at" json:"updated_at"`
+	CreatedAt     timestamp.Timestamp `yaml:"created_at,omitempty" json:"created_at,omitempty"`
+	UpdatedAt     timestamp.Timestamp `yaml:"updated_at,omitempty" json:"updated_at,omitempty"`
 	UnknownFields map[string]any      `yaml:",inline" json:"-"`
 }
 
@@ -60,10 +58,10 @@ func (ticket Ticket) Validate() error {
 	if !ticket.Status.IsValid() {
 		problems.Add(FieldStatus, validation.InvalidOption(Statuses))
 	}
-	if ticket.Priority < PriorityHighest {
+	if ticket.Priority != nil && *ticket.Priority < PriorityHighest {
 		problems.Add(FieldPriority, validation.TooSmall(int(PriorityHighest)))
 	}
-	if ticket.Priority > PriorityLowest {
+	if ticket.Priority != nil && *ticket.Priority > PriorityLowest {
 		problems.Add(FieldPriority, validation.TooBig(int(PriorityLowest)))
 	}
 	for index, dependency := range ticket.Dependencies {
@@ -74,13 +72,21 @@ func (ticket Ticket) Validate() error {
 	if ticket.Parent != "" && !IsValidID(ticket.Parent) {
 		problems.Add(FieldParent, problemInvalidID)
 	}
-	if !ticket.CreatedAt.IsValid() {
+	if ticket.CreatedAt != "" && !ticket.CreatedAt.IsValid() {
 		problems.Add(FieldCreatedAt, timestamp.ProblemInvalid)
 	}
-	if !ticket.UpdatedAt.IsValid() {
+	if ticket.UpdatedAt != "" && !ticket.UpdatedAt.IsValid() {
 		problems.Add(FieldUpdatedAt, timestamp.ProblemInvalid)
 	}
 	return problems.Err()
+}
+
+// PriorityOrDefault is the ticket's priority, or PriorityDefault when it has none.
+func (ticket Ticket) PriorityOrDefault() Priority {
+	if ticket.Priority == nil {
+		return PriorityDefault
+	}
+	return *ticket.Priority
 }
 
 // MarshalJSON writes the known fields in contract order, then the unknown fields, so readers see everything the file holds.

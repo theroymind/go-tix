@@ -3,6 +3,7 @@ package tix
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"text/tabwriter"
 
 	"github.com/theroymind/railyard/internal/cli"
@@ -19,9 +20,17 @@ func writeTickets(stdout io.Writer, tickets []ticket.Ticket, isJSON bool) error 
 		return err
 	}
 	for _, row := range tickets {
-		if _, err := fmt.Fprintf(table, tableRow, row.ID, row.Type, row.Status, row.Priority, row.Title); err != nil {
+		if _, err := fmt.Fprintf(table, tableRow, row.ID, row.Type, row.Status, priorityCell(row.Priority), row.Title); err != nil {
 			return err
 		}
 	}
 	return table.Flush()
+}
+
+// priorityCell is the priority as a number, or a dash when the ticket has none.
+func priorityCell(priority *ticket.Priority) string {
+	if priority == nil {
+		return tableAbsent
+	}
+	return strconv.Itoa(int(*priority))
 }

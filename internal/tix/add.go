@@ -86,7 +86,7 @@ func runAdd(arguments []string, _ io.Reader, stdout io.Writer) error {
 		Title:       parsed.Positionals[0],
 		Type:        ticket.Type(ticketType),
 		Status:      status,
-		Priority:    priority,
+		Priority:    &priority,
 		Tags:        parsed.Strings(optionTag),
 		Description: description,
 		Acceptance:  ticket.NewCriteria(parsed.Strings(optionAcceptance)),

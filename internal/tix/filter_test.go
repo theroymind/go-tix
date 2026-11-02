@@ -11,13 +11,13 @@ import (
 const filterCreatedAt timestamp.Timestamp = "2026-10-25T09:00:00Z"
 
 var filterTickets = []ticket.Ticket{
-	{ID: "t-0001", Type: ticket.TypeEpic, Status: ticket.StatusOpen, Priority: ticket.PriorityLowest, CreatedAt: filterCreatedAt},
+	{ID: "t-0001", Type: ticket.TypeEpic, Status: ticket.StatusOpen, Priority: new(ticket.PriorityLowest), CreatedAt: filterCreatedAt},
 	{
-		ID: "t-0002", Type: ticket.TypeStory, Status: ticket.StatusInProgress, Priority: ticket.PriorityDefault,
+		ID: "t-0002", Type: ticket.TypeStory, Status: ticket.StatusInProgress, Priority: new(ticket.PriorityDefault),
 		Tags: []string{"engine"}, Parent: "t-0001", CreatedAt: filterCreatedAt,
 	},
-	{ID: "t-0003", Type: ticket.TypeTask, Status: ticket.StatusCompleted, Priority: ticket.PriorityHighest, CreatedAt: filterCreatedAt},
-	{ID: "t-0004", Type: ticket.TypeTask, Status: ticket.StatusCanceled, Priority: ticket.PriorityHighest, Parent: "t-0001", CreatedAt: filterCreatedAt},
+	{ID: "t-0003", Type: ticket.TypeTask, Status: ticket.StatusCompleted, Priority: new(ticket.PriorityHighest), CreatedAt: filterCreatedAt},
+	{ID: "t-0004", Type: ticket.TypeTask, Status: ticket.StatusCanceled, Priority: new(ticket.PriorityHighest), Parent: "t-0001", CreatedAt: filterCreatedAt},
 }
 
 func TestFilterApply(t *testing.T) {

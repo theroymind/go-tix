@@ -11,7 +11,7 @@ import (
 const createdAt timestamp.Timestamp = "2026-10-25T09:00:00Z"
 
 func testTicket(id string, status ticket.Status) ticket.Ticket {
-	return ticket.Ticket{ID: id, Status: status, Priority: ticket.PriorityDefault, CreatedAt: createdAt}
+	return ticket.Ticket{ID: id, Status: status, Priority: new(ticket.PriorityDefault), CreatedAt: createdAt}
 }
 
 func withDependencies(value ticket.Ticket, dependencies ...string) ticket.Ticket {
@@ -25,7 +25,7 @@ func withParent(value ticket.Ticket, parent string) ticket.Ticket {
 }
 
 func withPriority(value ticket.Ticket, priority ticket.Priority) ticket.Ticket {
-	value.Priority = priority
+	value.Priority = &priority
 	return value
 }
 

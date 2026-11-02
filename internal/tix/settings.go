@@ -21,7 +21,8 @@ const (
 
 const (
 	tableHeader           = "ID\tTYPE\tSTATUS\tPRIORITY\tTITLE"
-	tableRow              = "%s\t%s\t%s\t%d\t%s\n"
+	tableRow              = "%s\t%s\t%s\t%s\t%s\n"
+	tableAbsent           = "-"
 	tableMinimumWidth     = 0
 	tableTabWidth         = 0
 	tablePadding          = 2
