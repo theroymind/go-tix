@@ -117,3 +117,46 @@ func TestReady(t *testing.T) {
 		})
 	}
 }
+
+func TestDependencyPath(t *testing.T) {
+	open := ticket.StatusOpen
+	chain := []ticket.Ticket{
+		withDependencies(testTicket("a", open), "b"),
+		withDependencies(testTicket("b", open), "c"),
+		testTicket("c", open),
+	}
+	diamond := []ticket.Ticket{
+		withDependencies(testTicket("a", open), "long", "short"),
+		withDependencies(testTicket("long", open), "middle"),
+		withDependencies(testTicket("middle", open), "end"),
+		withDependencies(testTicket("short", open), "end"),
+		testTicket("end", open),
+	}
+	looped := []ticket.Ticket{
+		withDependencies(testTicket("a", open), "b"),
+		withDependencies(testTicket("b", open), "a"),
+		testTicket("c", open),
+	}
+	tests := []struct {
+		name     string
+		tickets  []ticket.Ticket
+		from     string
+		to       string
+		expected []string
+	}{
+		{"A ticket reaches itself by a path of one", chain, "a", "a", []string{"a"}},
+		{"A direct dependency is a path of two", chain, "a", "b", []string{"a", "b"}},
+		{"Dependencies are followed through", chain, "a", "c", []string{"a", "b", "c"}},
+		{"Dependencies aren't followed backwards", chain, "c", "a", nil},
+		{"The shortest path wins", diamond, "a", "end", []string{"a", "short", "end"}},
+		{"A dangling dependency leads nowhere", []ticket.Ticket{withDependencies(testTicket("a", open), "gone")}, "a", "b", nil},
+		{"An existing cycle doesn't stop the search ending", looped, "a", "c", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := DependencyPath(tt.tickets, tt.from, tt.to); !slices.Equal(got, tt.expected) {
+				t.Errorf("DependencyPath(%q, %q) = %v, want %v", tt.from, tt.to, got, tt.expected)
+			}
+		})
+	}
+}
