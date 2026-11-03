@@ -119,6 +119,8 @@ func applyChange(mapping *yaml.Node, change backend.Change, path string) error {
 			return backend.Unsupported(change, backend.KindYAML)
 		}
 		return setField(mapping, change)
+	case backend.RemoveField:
+		return removeField(mapping, change, path)
 	case backend.SetCriterion:
 		return setCriterion(mapping, change, path)
 	case backend.AddCriterion:
@@ -224,6 +226,18 @@ func isEmptyList(value *yaml.Node) bool {
 	isEmptySequence := value.Kind == yaml.SequenceNode && len(value.Content) == 0
 	isNull := value.Kind == yaml.ScalarNode && value.Tag == nullTag
 	return isEmptySequence || isNull
+}
+
+// removeField removes an optional field; every tix v1 ticket file carries the required ones.
+func removeField(mapping *yaml.Node, change backend.RemoveField, path string) error {
+	if slices.Contains(requiredFields, change.Field) {
+		return backend.RequiredField(path, change.Field)
+	}
+	if valueIndex(mapping, change.Field) < 0 {
+		return backend.NoField(path, change.Field)
+	}
+	removeKey(mapping, change.Field)
+	return nil
 }
 
 func removeKey(mapping *yaml.Node, key string) {

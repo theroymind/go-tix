@@ -105,6 +105,11 @@ func mappedPropertyUnsupported(property, field string) error {
 	return fmt.Errorf("SetField %s %w %s; the profile maps it to %s, so set that field", property, backend.ErrUnsupported, backend.KindVault, field)
 }
 
+// descriptionIsBody reports a RemoveField of a ticket note's description, which is its body, not a property.
+func descriptionIsBody(path string) error {
+	return fmt.Errorf("%s: RemoveField %s %w %s; a ticket's description is its body, not a property", path, ticket.FieldDescription, backend.ErrUnsupported, backend.KindVault)
+}
+
 func criterionOutOfRange(path string, index, count int) error {
 	return fmt.Errorf("%s: criterion %d %w, the note has %d", path, index, ErrCriterionOutOfRange, count)
 }

@@ -119,6 +119,17 @@ Flags come before positional arguments, because Go's `flag` stops at the first n
 - **Exit codes:** 0 on success, 1 on failure, 2 on usage errors (`exitUsage` already exists).
 - **`--json`** emits an array (or a single object for `show`) using the same field names as the YAML.
 
+### Railyard extensions
+
+These commands and rules are Railyard's, beyond v1. Files they write still match v1's format: field order, flow lists for `tags` and `dependencies`, and empty optional fields omitted.
+
+| Command | Behavior |
+| --- | --- |
+| `tix dep REF DEPENDENCY_REF...` / `tix undep REF DEPENDENCY_REF...` | v1's `dep` and `undep`, taking several references and writing once. `dep` skips a dependency the ticket already has. `undep` removes a dependency by the exact id held, so one on a deleted ticket can go, or by a reference to a held ticket. Anything else fails, naming it. |
+| `tix set REF KEY=VALUE...` | A raw write to a ticket or doc. `KEY=[a, b]` replaces the value with that list, and `KEY=[]` empties it (on `.tix/` files an empty `tags` list drops the key). A wikilink such as `[[slug]]` stays text, and any other value is a scalar. `dependencies` and `acceptance` are refused: change them with `dep`/`undep` and `ac set`/`ac add`. |
+| `tix unset REF KEY...` | Removes each key, all of them or none. A required field (`.tix/`: `id`, `title`, `type`, `status`, `priority`, `created_at`, `updated_at`; a vault note: `status` and its type property) is refused, and so is a key the file doesn't hold, naming it. On a vault ticket, `description` is the note's body, not a property, so `unset` refuses it. On a doc, it removes only the frontmatter key. |
+| `tix tick` / `untick` / `ac set` / `ac add` | Tick, untick, reword and add acceptance criteria by the number `show` prints. |
+
 ## Project Structure
 
 ```text

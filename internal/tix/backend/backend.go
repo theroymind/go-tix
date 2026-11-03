@@ -41,7 +41,8 @@ type TypeName struct {
 	Type ticket.Type
 }
 
-// Change is one edit Apply makes to a ticket: SetField, CheckCriterion, UncheckCriterion, SetCriterion or AddCriterion.
+// Change is one edit Apply makes to a ticket: SetField, RemoveField, CheckCriterion, UncheckCriterion, SetCriterion or
+// AddCriterion.
 type Change interface {
 	isChange()
 }
@@ -50,6 +51,12 @@ type Change interface {
 type SetField struct {
 	Field string
 	Value any
+}
+
+// RemoveField removes the field named by its contract key, or the property of that name. A required field, or one
+// the ticket or doc doesn't hold, fails.
+type RemoveField struct {
+	Field string
 }
 
 // CheckCriterion marks the criterion at the 1-based Index met.
@@ -74,6 +81,7 @@ type AddCriterion struct {
 }
 
 func (SetField) isChange()         {}
+func (RemoveField) isChange()      {}
 func (CheckCriterion) isChange()   {}
 func (UncheckCriterion) isChange() {}
 func (SetCriterion) isChange()     {}

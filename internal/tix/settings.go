@@ -65,6 +65,7 @@ var (
 	ErrUnmetCriteria         = errors.New("has unmet criteria")
 	ErrListField             = errors.New("is a list; set takes single-value fields")
 	ErrInvalidList           = errors.New("is not a list of strings, such as [a, b]")
+	ErrExpectedKeys          = errors.New("expected a ticket or doc reference and at least one KEY")
 	ErrExpectedDependencies  = errors.New("expected a ticket reference and at least one dependency reference")
 	ErrDependencyCycle       = errors.New("the dependency would form a cycle")
 	ErrNotDependency         = errors.New("does not depend on")

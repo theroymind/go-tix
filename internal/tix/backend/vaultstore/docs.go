@@ -132,6 +132,9 @@ func (store Store) ApplyDoc(id string, changes []backend.Change) error {
 }
 
 func (store Store) applyDocChange(found docNote, change backend.Change) error {
+	if remove, isRemoveField := change.(backend.RemoveField); isRemoveField {
+		return store.removeDocProperty(found, remove.Field)
+	}
 	set, isSetField := change.(backend.SetField)
 	if !isSetField {
 		return backend.Unsupported(change, backend.KindVault)
@@ -150,6 +153,19 @@ func (store Store) applyDocChange(found docNote, change backend.Change) error {
 		return fieldUnsupported(set.Field)
 	default:
 		return found.note.SetProperty(set.Field, propertyValue(set.Value))
+	}
+}
+
+// removeDocProperty removes a frontmatter property a doc note holds, its body untouched. Its status and type
+// property are required.
+func (store Store) removeDocProperty(found docNote, field string) error {
+	switch {
+	case field == statusProperty || field == store.Profile.TypeProperty:
+		return backend.RequiredField(found.note.Path, field)
+	case unheldDocFields[field]:
+		return fieldUnsupported(field)
+	default:
+		return removeProperty(found.note, field)
 	}
 }
 

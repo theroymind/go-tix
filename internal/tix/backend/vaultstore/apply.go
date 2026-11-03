@@ -9,6 +9,7 @@ import (
 
 	"github.com/theroymind/railyard/internal/contracts/ticket"
 	"github.com/theroymind/railyard/internal/tix/backend"
+	"github.com/theroymind/railyard/internal/tix/vault"
 )
 
 // Apply makes every change to the note in memory, checks it then maps onto a valid ticket, and writes it atomically;
@@ -36,6 +37,9 @@ func (store Store) Apply(id string, changes []backend.Change) error {
 }
 
 func (store Store) applyChange(found ticketNote, change backend.Change) error {
+	if remove, isRemoveField := change.(backend.RemoveField); isRemoveField {
+		return store.removeTicketProperty(found, remove.Field)
+	}
 	set, isSetField := change.(backend.SetField)
 	if !isSetField {
 		return store.applyCriterionChange(found.note, change)
@@ -59,6 +63,32 @@ func (store Store) applyChange(found ticketNote, change backend.Change) error {
 	default:
 		return found.note.SetProperty(set.Field, propertyValue(set.Value))
 	}
+}
+
+// removeTicketProperty removes a property a ticket note holds. Its status and type property are required, its
+// description is its body rather than a property, and a property the profile maps onto a field is changed through
+// that field.
+func (store Store) removeTicketProperty(found ticketNote, field string) error {
+	switch {
+	case field == statusProperty || field == store.Profile.TypeProperty:
+		return backend.RequiredField(found.note.Path, field)
+	case field == ticket.FieldDescription:
+		return descriptionIsBody(found.note.Path)
+	case found.mapping.Fields[field] != "":
+		return mappedPropertyUnsupported(field, found.mapping.Fields[field])
+	case unheldFields[field]:
+		return fieldUnsupported(field)
+	default:
+		return removeProperty(found.note, field)
+	}
+}
+
+// removeProperty removes key from the note's frontmatter, failing with backend.ErrNoField when it isn't there.
+func removeProperty(note *vault.Note, key string) error {
+	if note.Property(key) == nil {
+		return backend.NoField(note.Path, key)
+	}
+	return note.RemoveProperty(key)
 }
 
 // propertyValue is value as a property holds it: a list of strings is a flow list, as a vault's lists are written,

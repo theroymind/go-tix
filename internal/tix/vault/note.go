@@ -20,6 +20,7 @@ var (
 	ErrInvalidFrontmatter      = errors.New("invalid frontmatter")
 	ErrFrontmatterNotMapping   = errors.New("frontmatter is not a mapping")
 	ErrDuplicateKey            = errors.New("duplicate frontmatter key")
+	ErrPropertyNotFound        = errors.New("frontmatter has no property")
 	ErrSectionNotFound         = errors.New("section not found")
 	ErrNotCheckbox             = errors.New("line is not a checkbox")
 	ErrNotHeading              = errors.New("line is not a heading")
@@ -143,6 +144,27 @@ func (note *Note) SetProperty(key string, value any) error {
 	edited = append(edited, note.head[0])
 	edited = append(edited, content[:first]...)
 	edited = append(edited, lines...)
+	edited = append(edited, content[last:]...)
+	edited = append(edited, note.head[len(note.head)-1])
+	if err := note.setHead(edited); err != nil {
+		return fmt.Errorf("%s: %w", note.Path, err)
+	}
+	return nil
+}
+
+// RemoveProperty deletes key's entry from the frontmatter, every line its value spans, and leaves the rest of the
+// note as it was. A key the frontmatter doesn't hold fails with ErrPropertyNotFound.
+func (note *Note) RemoveProperty(key string) error {
+	mapping := mappingRoot(note.Frontmatter)
+	index := valueIndex(mapping, key)
+	if index < 0 {
+		return fmt.Errorf("%s: %w: %s", note.Path, ErrPropertyNotFound, key)
+	}
+	content := note.head[1 : len(note.head)-1]
+	_, first, last := entryLines(mapping, index, content)
+	edited := make([]string, 0, len(note.head))
+	edited = append(edited, note.head[0])
+	edited = append(edited, content[:first]...)
 	edited = append(edited, content[last:]...)
 	edited = append(edited, note.head[len(note.head)-1])
 	if err := note.setHead(edited); err != nil {

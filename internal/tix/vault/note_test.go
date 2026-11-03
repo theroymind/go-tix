@@ -243,3 +243,52 @@ func TestSetPropertyTwiceAndWithoutFrontmatter(t *testing.T) {
 		})
 	}
 }
+
+func TestRemoveProperty(t *testing.T) {
+	tests := []struct {
+		name          string
+		text          string
+		key           string
+		expected      string
+		expectedError error
+	}{
+		{"A scalar's line goes", "---\ntype: idea\ndescription: Old words.\nstatus: open\n---\n\n# Idea\n\ndescription: body text\n", "description",
+			"---\ntype: idea\nstatus: open\n---\n\n# Idea\n\ndescription: body text\n", nil},
+		{"A block list goes with every item", "---\ntags:\n  - a\n  - b\nstatus: todo\n---\n", "tags",
+			"---\nstatus: todo\n---\n", nil},
+		{"A folded value goes with its lines", "---\ndescription: >\n  one\n  two\nstatus: todo\n---\n", "description",
+			"---\nstatus: todo\n---\n", nil},
+		{"The last key keeps the blank and comment lines after it", "---\nstatus: todo\nscope: small\n\n# trailing\n---\n", "scope",
+			"---\nstatus: todo\n\n# trailing\n---\n", nil},
+		{"Carriage returns are kept", "---\r\nstatus: todo\r\nscope: small\r\n---\r\n", "scope",
+			"---\r\nstatus: todo\r\n---\r\n", nil},
+		{"An absent key is an error", "---\nstatus: todo\n---\n", "scope", "", ErrPropertyNotFound},
+		{"A note without frontmatter has no key to remove", "# Title\n", "scope", "", ErrPropertyNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			note, err := Parse("note.md", []byte(tt.text))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = note.RemoveProperty(tt.key)
+
+			if !errors.Is(err, tt.expectedError) {
+				t.Fatalf("RemoveProperty() error = %v, want %v", err, tt.expectedError)
+			}
+			if tt.expectedError != nil {
+				if !strings.Contains(err.Error(), tt.key) {
+					t.Errorf("RemoveProperty() error = %q, want it to name %s", err, tt.key)
+				}
+				return
+			}
+			if got := string(note.Render()); got != tt.expected {
+				t.Errorf("Render() = %q, want %q", got, tt.expected)
+			}
+			if note.Property(tt.key) != nil {
+				t.Errorf("Property(%s) is still set", tt.key)
+			}
+		})
+	}
+}

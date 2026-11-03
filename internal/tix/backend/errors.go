@@ -22,6 +22,10 @@ var (
 	ErrDuplicateKey       = errors.New("duplicate mapping key")
 	ErrUnsupported        = errors.New("is not supported by the backend")
 	ErrNotImplemented     = errors.New("is not implemented yet")
+	// ErrRequiredField reports a RemoveField on a field the ticket or doc can't be without.
+	ErrRequiredField = errors.New("is required and can't be removed")
+	// ErrNoField reports a RemoveField on a field the ticket or doc doesn't hold.
+	ErrNoField = errors.New("has no field")
 )
 
 func AlreadyInitialized(directory string) error {
@@ -68,6 +72,16 @@ func invalidYAML(path string, problems error) error {
 // Unsupported reports a change that the kind of backend can't hold.
 func Unsupported(change Change, kind Kind) error {
 	return fmt.Errorf("%T %w %s", change, ErrUnsupported, kind)
+}
+
+// RequiredField reports a field that the file at path can't be without.
+func RequiredField(path, field string) error {
+	return fmt.Errorf("%s: %s %w", path, field, ErrRequiredField)
+}
+
+// NoField reports a field that the file at path doesn't hold.
+func NoField(path, field string) error {
+	return fmt.Errorf("%s %w %s", path, ErrNoField, field)
 }
 
 func notImplemented(kind Kind) error {

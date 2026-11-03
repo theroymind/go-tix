@@ -15,6 +15,7 @@ commands:
   ready [--type T] [--json]
   done [--force] REF     (refuses while a criterion is unticked)
   set REF KEY=VALUE...   (raw write to a ticket or doc; takes the values the file holds, not the ones ls shows)
+  unset REF KEY...       (removes each key; refuses a required one, and a ticket's description, its body)
   dep REF DEPENDENCY_REF...
                          (refuses one that would form a cycle, naming its path)
   undep REF DEPENDENCY_REF...
@@ -45,6 +46,7 @@ var Program = cli.Program{
 		"ready":     runReady,
 		"done":      runDone,
 		"set":       runSet,
+		"unset":     runUnset,
 		"dep":       runDep,
 		"undep":     runUndep,
 		"tick":      runTick,

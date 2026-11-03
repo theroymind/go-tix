@@ -203,3 +203,44 @@ func TestApplySetsDependencies(t *testing.T) {
 		})
 	}
 }
+
+func TestApplyRemovesAField(t *testing.T) {
+	fixture := string(readFixture(t))
+	tests := []struct {
+		name          string
+		field         string
+		expected      string
+		expectedError error
+	}{
+		{"An optional field's lines are removed", ticket.FieldParent, strings.Replace(fixture, "parent: bs-x8vd\n", "", 1), nil},
+		{"A block value goes with all its lines", ticket.FieldDescription,
+			strings.Replace(fixture, "description: |\n  Free-form markdown.\n\n  - with a list\n", "", 1), nil},
+		{"A list field is removed", ticket.FieldTags, strings.Replace(fixture, "tags: [engine, slice1]\n", "", 1), nil},
+		{"The id is required", ticket.FieldID, fixture, backend.ErrRequiredField},
+		{"The title is required", ticket.FieldTitle, fixture, backend.ErrRequiredField},
+		{"Priority is required in a ticket file", ticket.FieldPriority, fixture, backend.ErrRequiredField},
+		{"A timestamp is required in a ticket file", ticket.FieldCreatedAt, fixture, backend.ErrRequiredField},
+		{"A field the file doesn't have is named", "owner", fixture, backend.ErrNoField},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := openTestStore(t)
+			id := parseFixture(t).ID
+			path := store.TicketPath(id)
+			writeFile(t, path, []byte(fixture))
+
+			err := store.Apply(id, []backend.Change{backend.RemoveField{Field: tt.field}})
+
+			if !errors.Is(err, tt.expectedError) {
+				t.Fatalf("Apply() error = %v, want %v", err, tt.expectedError)
+			}
+			if err != nil && !strings.Contains(err.Error(), tt.field) {
+				t.Errorf("Apply() error = %q, want it to name %s", err, tt.field)
+			}
+			if got := string(readFile(t, path)); got != tt.expected {
+				t.Errorf("Apply() wrote\n%s\nwant\n%s", got, tt.expected)
+			}
+		})
+	}
+}
