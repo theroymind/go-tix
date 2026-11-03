@@ -29,6 +29,32 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+func TestProgramDispatch(t *testing.T) {
+	tests := []struct {
+		name             string
+		arguments        []string
+		expectedExitCode cli.ExitCode
+		expectedOutput   string
+	}{
+		{"No arguments print the full usage as a usage error", nil, cli.ExitCodeUsage, tix.Program.Usage},
+		{"help prints the full usage and succeeds", []string{"help"}, cli.ExitCodeSuccess, tix.Program.Usage},
+		{"An unknown command is one line pointing at help", []string{"shwo", "x"}, cli.ExitCodeUsage,
+			"tix: unknown command \"shwo\"; run \"tix help\" for usage\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			exitCode, output := run(t, t.TempDir(), tt.arguments...)
+
+			if exitCode != tt.expectedExitCode {
+				t.Fatalf("exit code = %d, expected %d; output %q", exitCode, tt.expectedExitCode, output)
+			}
+			if output != tt.expectedOutput {
+				t.Errorf("output = %q, expected %q", output, tt.expectedOutput)
+			}
+		})
+	}
+}
+
 // run runs tix in directory and returns its exit code and everything it printed.
 func run(t *testing.T, directory string, arguments ...string) (cli.ExitCode, string) {
 	t.Helper()

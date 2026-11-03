@@ -23,6 +23,7 @@ commands:
   doc add --type T TITLE
   backlinks REF [--json]
   supersede OLD NEW      (marks the OLD doc superseded by NEW)
+  help
 `
 
 var Program = cli.Program{
