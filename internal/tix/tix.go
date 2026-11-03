@@ -29,7 +29,8 @@ commands:
   supersede OLD NEW      (marks the OLD doc superseded by NEW)
   help
 
-A ref is an id or a unique prefix of one. A TYPE is epic, story or task, or the project's own name for one, such
+A set VALUE written as a list, such as [a, b], replaces the value with that list, and [] empties it; a wikilink
+such as [[slug]] stays text. A ref is an id or a unique prefix of one. A TYPE is epic, story or task, or the project's own name for one, such
 as phase. The table output is the one to read; --json is for a program.
 `
 

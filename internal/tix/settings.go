@@ -31,6 +31,11 @@ const (
 
 	dependencyPathSeparator = " -> "
 	dependenciesHint        = "change dependencies with tix dep and tix undep"
+	criteriaHint            = "change criteria with tix ac set and tix ac add"
+	listHint                = "write it as a list, such as [a, b]"
+	listStart               = "["
+	listEnd                 = "]"
+	wikilinkStart           = "[["
 )
 
 const (
@@ -59,6 +64,7 @@ var (
 	ErrExpectedPairs         = errors.New("expected a ticket or doc reference and at least one KEY=VALUE")
 	ErrUnmetCriteria         = errors.New("has unmet criteria")
 	ErrListField             = errors.New("is a list; set takes single-value fields")
+	ErrInvalidList           = errors.New("is not a list of strings, such as [a, b]")
 	ErrExpectedDependencies  = errors.New("expected a ticket reference and at least one dependency reference")
 	ErrDependencyCycle       = errors.New("the dependency would form a cycle")
 	ErrNotDependency         = errors.New("does not depend on")

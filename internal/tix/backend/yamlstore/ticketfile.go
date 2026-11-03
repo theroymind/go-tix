@@ -129,12 +129,14 @@ func applyChange(mapping *yaml.Node, change backend.Change, path string) error {
 }
 
 // setField writes the field's value the way tix v1 would: a list v1 writes in flow style is a flow list, an empty
-// one removes the key, as v1 omits it, and a new key goes in v1's field order.
+// one removes the key, as v1 omits it, a string that needs quotes is double-quoted, and a new key goes in v1's field
+// order.
 func setField(mapping *yaml.Node, change backend.SetField) error {
 	var value yaml.Node
 	if err := value.Encode(change.Value); err != nil {
 		return err
 	}
+	preferDoubleQuotes(&value)
 	if flowFields[change.Field] && isEmptyList(&value) {
 		removeKey(mapping, change.Field)
 		return nil

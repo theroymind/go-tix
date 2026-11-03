@@ -57,8 +57,22 @@ func (store Store) applyChange(found ticketNote, change backend.Change) error {
 	case unheldFields[set.Field] || set.Field == store.Profile.TypeProperty:
 		return fieldUnsupported(set.Field)
 	default:
-		return found.note.SetProperty(set.Field, set.Value)
+		return found.note.SetProperty(set.Field, propertyValue(set.Value))
 	}
+}
+
+// propertyValue is value as a property holds it: a list of strings is a flow list, as a vault's lists are written,
+// unless the property already holds a block list. Any other value is written as it is.
+func propertyValue(value any) any {
+	items, isList := value.([]string)
+	if !isList {
+		return value
+	}
+	list := &yaml.Node{Kind: yaml.SequenceNode, Tag: sequenceTag, Style: yaml.FlowStyle}
+	for _, item := range items {
+		list.Content = append(list.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: stringTag, Value: item})
+	}
+	return list
 }
 
 // noteStatusOf returns the note status that value names: the note status a ticket status maps back from, or a note

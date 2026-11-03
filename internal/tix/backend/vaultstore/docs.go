@@ -149,7 +149,7 @@ func (store Store) applyDocChange(found docNote, change backend.Change) error {
 	case unheldDocFields[set.Field] || set.Field == store.Profile.TypeProperty:
 		return fieldUnsupported(set.Field)
 	default:
-		return found.note.SetProperty(set.Field, set.Value)
+		return found.note.SetProperty(set.Field, propertyValue(set.Value))
 	}
 }
 

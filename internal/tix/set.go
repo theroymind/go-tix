@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"go.yaml.in/yaml/v3"
+
 	"github.com/theroymind/railyard/internal/cli"
 	"github.com/theroymind/railyard/internal/contracts/ticket"
 	"github.com/theroymind/railyard/internal/contracts/timestamp"
@@ -38,19 +40,41 @@ func runSet(arguments []string, _ io.Reader, _ io.Writer) error {
 	return apply(id, changes)
 }
 
-// pairValue gives a value the type its field holds: a priority is an integer, and a list field is refused, since
-// one value can't say whether to replace the list or add to it. Any other value stays text.
+// pairValue gives a value the type its field holds: a priority is an integer, and a value written as a flow list,
+// such as [a, b], is a list of strings that replaces the field's value; [] is an empty one. A wikilink such as
+// [[slug]] stays text. Tags take only a list. Dependencies and criteria have commands of their own, which check
+// what a raw write can't, so set refuses them. Any other value stays text.
 func pairValue(key, value string) (any, error) {
-	switch key {
-	case ticket.FieldPriority:
+	isList := isListText(value)
+	switch {
+	case key == ticket.FieldPriority:
 		return parsePriorityText(value)
-	case ticket.FieldDependencies:
+	case key == ticket.FieldDependencies:
 		return nil, fmt.Errorf("%s %w; %s", key, ErrListField, dependenciesHint)
-	case ticket.FieldTags, ticket.FieldAcceptance:
-		return nil, fmt.Errorf("%s %w", key, ErrListField)
+	case key == ticket.FieldAcceptance:
+		return nil, fmt.Errorf("%s %w; %s", key, ErrListField, criteriaHint)
+	case key == ticket.FieldTags && !isList:
+		return nil, fmt.Errorf("%s %w; %s", key, ErrListField, listHint)
+	case isList:
+		return parseList(key, value)
 	default:
 		return value, nil
 	}
+}
+
+func isListText(value string) bool {
+	isBracketed := strings.HasPrefix(value, listStart) && strings.HasSuffix(value, listEnd)
+	isWikilink := strings.HasPrefix(value, wikilinkStart)
+	return isBracketed && !isWikilink
+}
+
+// parseList reads a YAML flow list of strings.
+func parseList(key, value string) ([]string, error) {
+	items := []string{}
+	if err := yaml.Unmarshal([]byte(value), &items); err != nil {
+		return nil, fmt.Errorf("%s=%s %w", key, value, ErrInvalidList)
+	}
+	return items, nil
 }
 
 // parsePairs turns each KEY=VALUE into a SetField, splitting at the first "=", and adds updated_at unless a pair
