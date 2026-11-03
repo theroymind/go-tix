@@ -1,0 +1,102 @@
+package tix_test
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/theroymind/railyard/internal/cli"
+	"github.com/theroymind/railyard/internal/contracts/ticket"
+)
+
+func TestShowNumbersCriteria(t *testing.T) {
+	tests := []struct {
+		name      string
+		isVault   bool
+		reference string
+		block     string
+	}{
+		{"A note's criteria are numbered with their boxes after the note", true, "weighted-step-choice",
+			"\ncriteria:\n" +
+				"  1. [x] `scoring_target` returns the `Pick` target for a `Pick` rule and the lowest-stat candidate for a `Weighted_Roll`, tested on both.\n" +
+				"  2. [ ] The argmax takes the higher score, the earlier step on a tie, and falls through to Attack when every other step is unaffordable or fails `check_command`; each case has a test on a constructed world.\n" +
+				"  3. [ ] Only the winning step draws from the random state, tested by comparing the state after a choice to one draw.\n" +
+				"  4. [ ] A parity test runs the determinism test's scripted fight and asserts every `last_action` matches the pre-change choices, and the roster test still asserts Attack in every profile.\n"},
+		{"A YAML ticket's criteria are numbered without boxes after the file", false, yamlID,
+			"\ncriteria:\n" +
+				"  1. Policy buys the cheapest affordable purchasable each tick\n" +
+				"  2. Quoted: because of the colon\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var root, path string
+			if tt.isVault {
+				root = copyVault(t)
+				path = filepath.Join(root, "docs", "tasks", tt.reference+".md")
+			} else {
+				root, path = yamlRepository(t)
+			}
+
+			exitCode, output := run(t, root, "show", tt.reference)
+
+			if exitCode != cli.ExitCodeSuccess {
+				t.Fatalf("exit code = %d, output %q", exitCode, output)
+			}
+			if expected := readFile(t, path) + tt.block; output != expected {
+				t.Errorf("output =\n%s\nexpected\n%s", output, expected)
+			}
+		})
+	}
+}
+
+func TestShowJSONIsUnchanged(t *testing.T) {
+	root := copyVault(t)
+
+	exitCode, output := run(t, root, "show", "--json", "weighted-step-choice")
+
+	if exitCode != cli.ExitCodeSuccess {
+		t.Fatalf("exit code = %d, output %q", exitCode, output)
+	}
+	var shown ticket.Ticket
+	if err := json.Unmarshal([]byte(output), &shown); err != nil {
+		t.Fatalf("output is not one JSON ticket: %v\n%s", err, output)
+	}
+	if len(shown.Acceptance) != 4 {
+		t.Errorf("acceptance = %d criteria, expected 4", len(shown.Acceptance))
+	}
+}
+
+func TestShowTextWithoutATrailingNewline(t *testing.T) {
+	const withoutCriteria = "id: bs-k3f9\ntitle: No criteria\ntype: task\nstatus: open\npriority: 1\n" +
+		"created_at: 2026-10-14T21:00:00-04:00\nupdated_at: 2026-10-14T21:00:00-04:00"
+	tests := []struct {
+		name     string
+		text     string
+		expected string
+	}{
+		{"Without criteria the text is printed byte for byte", withoutCriteria, withoutCriteria},
+		{"With criteria the last line is ended before the blank line",
+			withoutCriteria + "\nacceptance:\n  - One",
+			withoutCriteria + "\nacceptance:\n  - One\n\ncriteria:\n  1. One\n"},
+		{"Without criteria a file ending in a newline is printed byte for byte",
+			withoutCriteria + "\n", withoutCriteria + "\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root, path := yamlRepository(t)
+			if err := os.WriteFile(path, []byte(tt.text), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			exitCode, output := run(t, root, "show", yamlID)
+
+			if exitCode != cli.ExitCodeSuccess {
+				t.Fatalf("exit code = %d, output %q", exitCode, output)
+			}
+			if output != tt.expected {
+				t.Errorf("output = %q, expected %q", output, tt.expected)
+			}
+		})
+	}
+}

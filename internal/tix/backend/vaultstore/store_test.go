@@ -177,9 +177,6 @@ func TestUnsupportedWrites(t *testing.T) {
 		name  string
 		write func() error
 	}{
-		{"Apply", func() error {
-			return store.Apply("goal-scoring", []backend.Change{backend.UncheckCriterion{Index: 1}})
-		}},
 		{"Create", func() error {
 			_, err := store.Create(ticket.Ticket{Title: "New", Type: ticket.TypeTask, Status: ticket.StatusOpen})
 			return err

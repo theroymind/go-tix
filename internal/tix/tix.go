@@ -13,18 +13,25 @@ commands:
   ready [--type T] [--json]
   done [--force] REF
   set REF KEY=VALUE...   (raw write; does not check criteria, use done)
+  tick REF N...          (N is a criterion number from show)
+  untick REF N...
+  ac set REF N TEXT
+  ac add REF TEXT
 `
 
 var Program = cli.Program{
 	Name:  "tix",
 	Usage: usage,
 	Commands: map[string]cli.Command{
-		"init":  runInit,
-		"add":   runAdd,
-		"show":  runShow,
-		"ls":    runLs,
-		"ready": runReady,
-		"done":  runDone,
-		"set":   runSet,
+		"init":   runInit,
+		"add":    runAdd,
+		"show":   runShow,
+		"ls":     runLs,
+		"ready":  runReady,
+		"done":   runDone,
+		"set":    runSet,
+		"tick":   runTick,
+		"untick": runUntick,
+		"ac":     runAc,
 	},
 }

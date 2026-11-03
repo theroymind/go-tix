@@ -57,7 +57,7 @@ func toTicket(profile backend.Profile, mapping backend.TicketMapping, note *vaul
 
 // criteria returns the checkboxes under the profile's criteria heading, or none when the note lacks the heading.
 func criteria(profile backend.Profile, note *vault.Note) ([]ticket.Criterion, error) {
-	section, err := note.Section(profile.CriteriaHeading)
+	_, boxes, err := criterionBoxes(profile, note)
 	if errors.Is(err, vault.ErrSectionNotFound) {
 		return nil, nil
 	}
@@ -65,10 +65,20 @@ func criteria(profile backend.Profile, note *vault.Note) ([]ticket.Criterion, er
 		return nil, err
 	}
 	var criteria []ticket.Criterion
-	for _, box := range note.Checkboxes(section) {
+	for _, box := range boxes {
 		criteria = append(criteria, ticket.Criterion{Text: box.Text, Done: box.Done})
 	}
 	return criteria, nil
+}
+
+// criterionBoxes returns the profile's criteria section and the checkboxes in it, which are the ticket's criteria in
+// order. A note without the section fails with vault.ErrSectionNotFound.
+func criterionBoxes(profile backend.Profile, note *vault.Note) (vault.Range, []vault.Checkbox, error) {
+	section, err := note.Section(profile.CriteriaHeading)
+	if err != nil {
+		return vault.Range{}, nil, err
+	}
+	return section, note.Checkboxes(section), nil
 }
 
 // propertyText is a scalar property's value, or "" for an absent or non-scalar one.

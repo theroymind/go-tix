@@ -11,7 +11,8 @@ import (
 
 // Apply makes every change to the note in memory, checks it then maps onto a valid ticket, and writes it atomically;
 // on any failure the note is left as it was. The note need not map before the changes, so a change can repair it.
-// Only SetField is supported so far.
+// Criterion changes edit the checkboxes under the profile's criteria heading, numbered from 1 as Read returns them,
+// and fail on a note without that heading.
 func (store Store) Apply(id string, changes []backend.Change) error {
 	found, err := store.ticketNote(id)
 	if err != nil {
@@ -35,7 +36,7 @@ func (store Store) Apply(id string, changes []backend.Change) error {
 func (store Store) applyChange(found ticketNote, change backend.Change) error {
 	set, isSetField := change.(backend.SetField)
 	if !isSetField {
-		return backend.Unsupported(change, backend.KindVault)
+		return store.applyCriterionChange(found.note, change)
 	}
 	switch {
 	case set.Field == ticket.FieldStatus:
