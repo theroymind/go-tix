@@ -164,3 +164,17 @@ func TestShowFallsThroughToDocs(t *testing.T) {
 		})
 	}
 }
+
+func TestShowANoteWithoutCriteria(t *testing.T) {
+	root := copyVault(t)
+	text := readFile(t, filepath.Join(root, "docs", "phases", "enemy-puzzle.md"))
+
+	exitCode, output := run(t, root, "show", "enemy-puzzle")
+
+	if exitCode != cli.ExitCodeSuccess {
+		t.Fatalf("exit code = %d, output %q", exitCode, output)
+	}
+	if output != text {
+		t.Errorf("output =\n%s\nexpected the phase note as it is", output)
+	}
+}

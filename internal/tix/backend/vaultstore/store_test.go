@@ -269,3 +269,27 @@ func write(t *testing.T, path, text string) {
 		t.Fatal(err)
 	}
 }
+
+func TestReadTextOnANoteWithoutCriteria(t *testing.T) {
+	store := openFixture(t)
+	text, err := store.(backend.TextReader).ReadText("enemy-puzzle")
+	if err != nil {
+		t.Fatalf("ReadText() error = %v", err)
+	}
+	expected, err := os.ReadFile(filepath.Join(fixture, "docs", "phases", "enemy-puzzle.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(text) != string(expected) {
+		t.Errorf("ReadText() = %q, want the phase note as it is", text)
+	}
+}
+
+func TestTypeNames(t *testing.T) {
+	store := openFixture(t)
+	names := store.(backend.TypeNamer).TypeNames()
+	expected := []backend.TypeName{{Name: "phase", Type: ticket.TypeEpic}, {Name: "task", Type: ticket.TypeTask}}
+	if !reflect.DeepEqual(names, expected) {
+		t.Errorf("TypeNames() = %v, want %v", names, expected)
+	}
+}

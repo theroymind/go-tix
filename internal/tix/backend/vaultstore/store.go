@@ -3,6 +3,7 @@
 package vaultstore
 
 import (
+	"errors"
 	"io/fs"
 	"maps"
 	"path/filepath"
@@ -32,7 +33,17 @@ var (
 	_ backend.Backend          = Store{}
 	_ backend.TextReader       = Store{}
 	_ backend.CriterionTracker = Store{}
+	_ backend.TypeNamer        = Store{}
 )
+
+// TypeNames returns the vault's note types that are tickets, sorted, each with the ticket type it stands for.
+func (store Store) TypeNames() []backend.TypeName {
+	var names []backend.TypeName
+	for _, noteType := range slices.Sorted(maps.Keys(store.Profile.Tickets)) {
+		names = append(names, backend.TypeName{Name: noteType, Type: store.Profile.Tickets[noteType].TicketType})
+	}
+	return names
+}
 
 // TracksCriteria marks a vault's criteria as carrying a done state: each is a checkbox, ticked or not.
 func (Store) TracksCriteria() {}
@@ -174,6 +185,10 @@ func (store Store) ReadText(id string) ([]byte, error) {
 		return nil, err
 	}
 	_, boxes, err := criterionBoxes(store.Profile, found.note)
+	if errors.Is(err, vault.ErrSectionNotFound) {
+		// A note without the section, such as an epic, has no criteria to number.
+		return found.note.Render(), nil
+	}
 	if err != nil {
 		return nil, err
 	}
