@@ -62,8 +62,15 @@ func noTemplate(ticketType ticket.Type) error {
 	return fmt.Errorf("ticket type %s %w", strconv.Quote(string(ticketType)), ErrNoTemplate)
 }
 
-func noDocTemplate(docType string) error {
-	return fmt.Errorf("doc type %s %w", strconv.Quote(docType), ErrNoDocTemplate)
+func noDocTemplate(docType string, templated []string) error {
+	if len(templated) == 0 {
+		return fmt.Errorf("doc type %s %w, and no doc type has one", strconv.Quote(docType), ErrNoDocTemplate)
+	}
+	quoted := make([]string, len(templated))
+	for index, name := range templated {
+		quoted[index] = strconv.Quote(name)
+	}
+	return fmt.Errorf("doc type %s %w; the types with one are %s", strconv.Quote(docType), ErrNoDocTemplate, strings.Join(quoted, listSeparator))
 }
 
 func emptySlug(title string) error {

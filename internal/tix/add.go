@@ -65,7 +65,7 @@ func runAdd(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if len(parsed.Positionals) != 1 {
 		return cli.NewUsageError(ErrExpectedOneTitle)
 	}
-	ticketType, err := parsed.RequiredString(optionType)
+	typeName, err := parsed.RequiredString(optionType)
 	if err != nil {
 		return err
 	}
@@ -74,6 +74,10 @@ func runAdd(arguments []string, _ io.Reader, stdout io.Writer) error {
 		return err
 	}
 	store, err := openBackend()
+	if err != nil {
+		return err
+	}
+	ticketType, err := resolveType(typeName, store)
 	if err != nil {
 		return err
 	}
@@ -97,7 +101,7 @@ func runAdd(arguments []string, _ io.Reader, stdout io.Writer) error {
 	now := timestamp.Format(time.Now())
 	created := ticket.Ticket{
 		Title:        title,
-		Type:         ticket.Type(ticketType),
+		Type:         ticketType,
 		Status:       status,
 		Priority:     &priority,
 		Tags:         parsed.Strings(optionTag),

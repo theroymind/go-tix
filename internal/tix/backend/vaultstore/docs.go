@@ -172,7 +172,7 @@ func (store Store) CreateDoc(docType string, value backend.Doc) (string, error) 
 		return "", unknownType(docType, slices.Sorted(maps.Keys(store.Profile.Docs)))
 	}
 	if mapping.Template == "" {
-		return "", noDocTemplate(docType)
+		return "", noDocTemplate(docType, store.templatedDocTypes())
 	}
 	slug := vault.Slugify(value.Title)
 	if slug == "" {
@@ -327,4 +327,15 @@ func propertyTextOf(value any) string {
 		return ""
 	}
 	return node.Value
+}
+
+// templatedDocTypes returns the doc types the profile gives a template, sorted.
+func (store Store) templatedDocTypes() []string {
+	var templated []string
+	for _, docType := range slices.Sorted(maps.Keys(store.Profile.Docs)) {
+		if store.Profile.Docs[docType].Template != "" {
+			templated = append(templated, docType)
+		}
+	}
+	return templated
 }

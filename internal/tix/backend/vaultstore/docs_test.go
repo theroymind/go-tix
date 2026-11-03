@@ -294,7 +294,7 @@ func TestCreateDoc(t *testing.T) {
 		{"A status outside the type's list writes nothing",
 			"decision", backend.Doc{Title: "Bosses plan with GOAP", Status: "done"}, "", "", "", vaultstore.ErrUnknownStatus, []string{`"done"`}},
 		{"A type without a template writes nothing",
-			"idea", backend.Doc{Title: "Bosses"}, "", "", "", vaultstore.ErrNoDocTemplate, []string{`"idea"`}},
+			"idea", backend.Doc{Title: "Bosses"}, "", "", "", vaultstore.ErrNoDocTemplate, []string{`"idea"`, `the types with one are "decision"`}},
 		{"A type outside the profile names the types in it",
 			"task", backend.Doc{Title: "Bosses"}, "", "", "", vaultstore.ErrUnknownType, []string{`"task"`, `"decision", "idea", "spec"`}},
 		{"A slug a doc has is taken",

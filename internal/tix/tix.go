@@ -26,7 +26,8 @@ commands:
   supersede OLD NEW      (marks the OLD doc superseded by NEW)
   help
 
-A ref is an id or a unique prefix of one. The table output is the one to read; --json is for a program.
+A ref is an id or a unique prefix of one. A TYPE is epic, story or task, or the project's own name for one, such
+as phase. The table output is the one to read; --json is for a program.
 `
 
 var Program = cli.Program{

@@ -29,12 +29,12 @@ func runLs(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	ticketType, err := parseOption(parsed, optionType, ticket.Types)
+	tag, _ := parsed.String(optionTag)
+	store, err := openBackend()
 	if err != nil {
 		return err
 	}
-	tag, _ := parsed.String(optionTag)
-	store, err := openBackend()
+	ticketType, err := parseType(parsed, store)
 	if err != nil {
 		return err
 	}

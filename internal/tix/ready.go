@@ -4,7 +4,6 @@ import (
 	"io"
 
 	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/contracts/ticket"
 	"github.com/theroymind/railyard/internal/tix/graph"
 )
 
@@ -20,11 +19,11 @@ func runReady(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	ticketType, err := parseOption(parsed, optionType, ticket.Types)
+	store, err := openBackend()
 	if err != nil {
 		return err
 	}
-	store, err := openBackend()
+	ticketType, err := parseType(parsed, store)
 	if err != nil {
 		return err
 	}

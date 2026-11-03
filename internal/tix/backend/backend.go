@@ -28,6 +28,19 @@ type CriterionTracker interface {
 	TracksCriteria()
 }
 
+// TypeNamer is a Backend whose project calls the ticket types by names of its own, such as a vault whose epics are
+// phases. Commands that take a --type accept those names beside the ticket types.
+type TypeNamer interface {
+	// TypeNames returns the project's names, sorted, each with the ticket type it stands for.
+	TypeNames() []TypeName
+}
+
+// TypeName is a project's own name for a ticket type.
+type TypeName struct {
+	Name string
+	Type ticket.Type
+}
+
 // Change is one edit Apply makes to a ticket: SetField, CheckCriterion, UncheckCriterion, SetCriterion or AddCriterion.
 type Change interface {
 	isChange()
