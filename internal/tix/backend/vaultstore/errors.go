@@ -32,6 +32,8 @@ var (
 	ErrNoDestination = errors.New("has no notes to place a new note beside")
 	// ErrNotKept reports a new note that would read back with a field other than the one given.
 	ErrNotKept = errors.New("would not read back")
+	// ErrNotIDList reports a link field set to a value other than a list of ids.
+	ErrNotIDList = errors.New("takes a list of ids")
 )
 
 func unknownStatus(path, status string, allowed []string) error {
@@ -89,9 +91,18 @@ func notKept(path, field string) error {
 	return fmt.Errorf("%s %w the %s given", path, ErrNotKept, field)
 }
 
+func notIDList(path, field string) error {
+	return fmt.Errorf("%s: %s %w", path, field, ErrNotIDList)
+}
+
 // fieldUnsupported reports a ticket field that the vault backend can't set as a property.
 func fieldUnsupported(field string) error {
 	return fmt.Errorf("SetField %s %w %s", field, backend.ErrUnsupported, backend.KindVault)
+}
+
+// mappedPropertyUnsupported reports a property the profile maps onto a ticket field, which is set through that field.
+func mappedPropertyUnsupported(property, field string) error {
+	return fmt.Errorf("SetField %s %w %s; the profile maps it to %s, so set that field", property, backend.ErrUnsupported, backend.KindVault, field)
 }
 
 func criterionOutOfRange(path string, index, count int) error {

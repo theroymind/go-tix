@@ -144,12 +144,11 @@ func (store Store) fill(note *vault.Note, mapping backend.TicketMapping, value t
 
 // setLinkProperty writes links, as plain slugs, to the first property by name that the mapping maps to field.
 func setLinkProperty(note *vault.Note, mapping backend.TicketMapping, field string, links any) error {
-	for _, property := range slices.Sorted(maps.Keys(mapping.Fields)) {
-		if mapping.Fields[property] == field {
-			return note.SetProperty(property, links)
-		}
+	property, isMapped := linkProperty(mapping, field)
+	if !isMapped {
+		return fieldUnsupported(field)
 	}
-	return fieldUnsupported(field)
+	return note.SetProperty(property, links)
 }
 
 // setTitle rewrites the first H1 to read title, or inserts one before the body's first text.

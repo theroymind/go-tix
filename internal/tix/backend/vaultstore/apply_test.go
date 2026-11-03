@@ -59,12 +59,12 @@ func TestApply(t *testing.T) {
 		{"A ticket field with no property to hold it is unsupported",
 			[]backend.Change{backend.SetField{Field: ticket.FieldTitle, Value: "Golems"}},
 			[2]string{}, backend.ErrUnsupported, []string{ticket.FieldTitle}},
-		{"A link field is unsupported",
-			[]backend.Change{backend.SetField{Field: ticket.FieldDependencies, Value: []string{"mana"}}},
-			[2]string{}, backend.ErrUnsupported, []string{ticket.FieldDependencies}},
+		{"The parent link field is unsupported",
+			[]backend.Change{backend.SetField{Field: ticket.FieldParent, Value: "first-fight"}},
+			[2]string{}, backend.ErrUnsupported, []string{ticket.FieldParent}},
 		{"A property the profile maps to a link field is unsupported",
 			[]backend.Change{backend.SetField{Field: "depends_on", Value: "mana"}},
-			[2]string{}, backend.ErrUnsupported, []string{"depends_on"}},
+			[2]string{}, backend.ErrUnsupported, []string{"depends_on", "maps it to " + ticket.FieldDependencies}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -308,6 +308,96 @@ func TestApplyAddsACriterionToASectionThatEndsTheNote(t *testing.T) {
 			}
 			if expected := head + tt.expected; string(got) != expected {
 				t.Errorf("note after Apply() =\n%q\nwant\n%q", got, expected)
+			}
+		})
+	}
+}
+
+func TestApplyDependencies(t *testing.T) {
+	const (
+		golemGuards = "docs/tasks/golem-guards.md"
+		golemLinks  = "depends_on: [weighted-step-choice]\n"
+	)
+	setDependencies := func(ids ...string) []backend.Change {
+		return []backend.Change{backend.SetField{Field: ticket.FieldDependencies, Value: ids}}
+	}
+	tests := []struct {
+		name          string
+		note          string
+		setup         [2]string
+		changes       []backend.Change
+		replace       [2]string
+		expectedError error
+		mentions      []string
+	}{
+		{"Dependencies are written to the property the profile maps them from", golemGuards, [2]string{},
+			setDependencies("weighted-step-choice", "mana"),
+			[2]string{golemLinks, "depends_on: [weighted-step-choice, mana]\n"}, nil, nil},
+		{"No dependencies leave an empty list", golemGuards, [2]string{},
+			setDependencies(),
+			[2]string{golemLinks, "depends_on: []\n"}, nil, nil},
+		{"A kept dependency keeps the way it was written", "docs/tasks/weighted-step-choice.md", [2]string{},
+			setDependencies("goal-scoring", "sim-queries"),
+			[2]string{`depends_on: ["[[goal-scoring]]"]` + "\n", `depends_on: ["[[goal-scoring]]", sim-queries]` + "\n"}, nil, nil},
+		{"A block list stays a block list", golemGuards, [2]string{golemLinks, "depends_on:\n  - weighted-step-choice\n"},
+			setDependencies("weighted-step-choice", "mana"),
+			[2]string{"depends_on:\n  - weighted-step-choice\n", "depends_on:\n  - weighted-step-choice\n  - mana\n"}, nil, nil},
+		{"A note without the property gains it as a flow list", golemGuards, [2]string{golemLinks, ""},
+			setDependencies("mana"),
+			[2]string{"scope: small\n", "scope: small\ndepends_on: [mana]\n"}, nil, nil},
+		{"A single link written as a scalar becomes a list", golemGuards, [2]string{golemLinks, "depends_on: weighted-step-choice\n"},
+			setDependencies("weighted-step-choice", "mana"),
+			[2]string{"depends_on: weighted-step-choice\n", "depends_on: [weighted-step-choice, mana]\n"}, nil, nil},
+		{"A note type that maps no property to dependencies is unsupported", "docs/phases/first-fight.md", [2]string{},
+			setDependencies("mana"),
+			[2]string{}, backend.ErrUnsupported, []string{ticket.FieldDependencies}},
+		{"A value that isn't a list of ids is refused", golemGuards, [2]string{},
+			[]backend.Change{backend.SetField{Field: ticket.FieldDependencies, Value: "mana"}},
+			[2]string{}, vaultstore.ErrNotIDList, []string{ticket.FieldDependencies}},
+		{"A failing change after the dependencies leaves the note as it was", golemGuards, [2]string{},
+			append(setDependencies("mana"), backend.SetField{Field: ticket.FieldStatus, Value: "nonsense"}),
+			[2]string{}, vaultstore.ErrUnknownStatus, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, root := copyFixture(t)
+			path := filepath.Join(root, tt.note)
+			fixtureText, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			original := string(fixtureText)
+			if tt.setup[0] != "" {
+				if !strings.Contains(original, tt.setup[0]) {
+					t.Fatalf("fixture lacks %q", tt.setup[0])
+				}
+				original = strings.Replace(original, tt.setup[0], tt.setup[1], 1)
+				write(t, path, original)
+			}
+
+			err = store.Apply(vault.SlugOf(path), tt.changes)
+
+			if !errors.Is(err, tt.expectedError) {
+				t.Fatalf("Apply() error = %v, want %v", err, tt.expectedError)
+			}
+			for _, mention := range tt.mentions {
+				if !strings.Contains(err.Error(), mention) {
+					t.Errorf("Apply() error = %q, want it to mention %s", err, mention)
+				}
+			}
+			expected := original
+			if tt.expectedError == nil {
+				if !strings.Contains(expected, tt.replace[0]) {
+					t.Fatalf("fixture lacks %q", tt.replace[0])
+				}
+				expected = strings.Replace(expected, tt.replace[0], tt.replace[1], 1)
+			}
+			got, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != expected {
+				t.Errorf("note after Apply() =\n%s\nwant\n%s", got, expected)
 			}
 		})
 	}

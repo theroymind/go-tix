@@ -7,6 +7,8 @@ const (
 	hiddenPrefix   = "."
 	titleLevel     = 1
 	statusProperty = "status"
+	sequenceTag    = "!!seq"
+	stringTag      = "!!str"
 )
 
 var (

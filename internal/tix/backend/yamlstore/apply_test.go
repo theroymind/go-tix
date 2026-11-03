@@ -150,3 +150,56 @@ func TestCreateRequiresTheFieldsTheContractLeavesOptional(t *testing.T) {
 		})
 	}
 }
+
+func TestApplySetsDependencies(t *testing.T) {
+	fixture := string(readFixture(t))
+	const (
+		dependenciesLine = "dependencies: [bs-2m7q]\n"
+		tagsLine         = "tags: [engine, slice1]\n"
+	)
+	withoutDependencies := strings.Replace(fixture, dependenciesLine, "", 1)
+	withoutTags := strings.Replace(withoutDependencies, tagsLine, "", 1)
+	withBlockDependencies := strings.Replace(fixture, dependenciesLine, "dependencies:\n  - bs-2m7q\n", 1)
+
+	tests := []struct {
+		name         string
+		text         string
+		dependencies []string
+		expected     string
+	}{
+		{"Dependencies are replaced as a flow list", fixture, []string{"bs-2m7q", "bs-aaaa"},
+			strings.Replace(fixture, dependenciesLine, "dependencies: [bs-2m7q, bs-aaaa]\n", 1)},
+		{"No dependencies remove the key, as v1 omits an empty list", fixture, nil, withoutDependencies},
+		{"An empty list removes the key too", fixture, []string{}, withoutDependencies},
+		{"A ticket without dependencies gains the key after tags, in v1's field order", withoutDependencies, []string{"bs-2m7q"}, fixture},
+		{"Without tags the key goes after priority", withoutTags, []string{"bs-2m7q"},
+			strings.Replace(withoutTags, "priority: 1\n", "priority: 1\n"+dependenciesLine, 1)},
+		{"A block list is rewritten as v1's flow list", withBlockDependencies, []string{"bs-2m7q"}, fixture},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := openTestStore(t)
+			id := parseFixture(t).ID
+			path := store.TicketPath(id)
+			writeFile(t, path, []byte(tt.text))
+
+			change := backend.SetField{Field: ticket.FieldDependencies, Value: tt.dependencies}
+			if err := store.Apply(id, []backend.Change{change}); err != nil {
+				t.Fatalf("Apply() error = %v", err)
+			}
+
+			got := readFile(t, path)
+			if string(got) != tt.expected {
+				t.Errorf("Apply() wrote\n%s\nwant\n%s", got, tt.expected)
+			}
+			parsed, err := ParseTicket(got, path)
+			if err != nil {
+				t.Fatalf("ParseTicket() error = %v", err)
+			}
+			if serialized, err := SerializeTicket(parsed); err != nil || string(serialized) != string(got) {
+				t.Errorf("Apply() wrote\n%s\nwhich v1 would write as\n%s", got, serialized)
+			}
+		})
+	}
+}

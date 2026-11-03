@@ -1,6 +1,7 @@
 package yamlstore
 
 import (
+	"slices"
 	"strings"
 
 	"go.yaml.in/yaml/v3"
@@ -127,14 +128,23 @@ func applyChange(mapping *yaml.Node, change backend.Change, path string) error {
 	}
 }
 
+// setField writes the field's value the way tix v1 would: a list v1 writes in flow style is a flow list, an empty
+// one removes the key, as v1 omits it, and a new key goes in v1's field order.
 func setField(mapping *yaml.Node, change backend.SetField) error {
 	var value yaml.Node
 	if err := value.Encode(change.Value); err != nil {
 		return err
 	}
+	if flowFields[change.Field] && isEmptyList(&value) {
+		removeKey(mapping, change.Field)
+		return nil
+	}
+	if flowFields[change.Field] && value.Kind == yaml.SequenceNode {
+		value.Style = yaml.FlowStyle
+	}
 	index := valueIndex(mapping, change.Field)
 	if index < 0 {
-		mapping.Content = append(mapping.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: change.Field}, &value)
+		insertKey(mapping, change.Field, &value)
 		return nil
 	}
 	existing := mapping.Content[index]
@@ -206,4 +216,33 @@ func criterionNode(text string) (*yaml.Node, error) {
 	}
 	preferDoubleQuotes(&document)
 	return document.Content[0], nil
+}
+
+func isEmptyList(value *yaml.Node) bool {
+	isEmptySequence := value.Kind == yaml.SequenceNode && len(value.Content) == 0
+	isNull := value.Kind == yaml.ScalarNode && value.Tag == nullTag
+	return isEmptySequence || isNull
+}
+
+func removeKey(mapping *yaml.Node, key string) {
+	index := valueIndex(mapping, key)
+	if index < 0 {
+		return
+	}
+	mapping.Content = slices.Delete(mapping.Content, index-1, index+1)
+}
+
+// insertKey adds key before the first key that tix v1 writes after it, or at the end for a key v1 doesn't know.
+func insertKey(mapping *yaml.Node, key string, value *yaml.Node) {
+	keyNode := &yaml.Node{Kind: yaml.ScalarNode, Value: key}
+	position := slices.Index(fieldOrder, key)
+	if position >= 0 {
+		for index := 0; index+1 < len(mapping.Content); index += 2 {
+			if slices.Index(fieldOrder, mapping.Content[index].Value) > position {
+				mapping.Content = slices.Insert(mapping.Content, index, keyNode, value)
+				return
+			}
+		}
+	}
+	mapping.Content = append(mapping.Content, keyNode, value)
 }
