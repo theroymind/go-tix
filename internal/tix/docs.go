@@ -100,19 +100,30 @@ func openDocStore() (backend.DocStore, error) {
 	return docStore, nil
 }
 
-// resolveAny returns the ticket or doc that reference names, and the function that applies changes to it. A
-// reference that names no ticket is tried as a doc when the backend has docs.
+// resolveAny returns the ticket or doc that reference names, and the function that applies changes to it. An exact
+// id wins; a prefix must be unique across tickets and docs together, since the two share a namespace in a vault.
 func resolveAny(store backend.Backend, reference string) (string, func(id string, changes []backend.Change) error, error) {
-	id, err := store.Resolve(reference)
+	ticketID, ticketErr := store.Resolve(reference)
 	docStore, hasDocs := store.(backend.DocStore)
-	if err == nil || !hasDocs || !errors.Is(err, backend.ErrNoMatch) {
-		return id, store.Apply, err
+	if !hasDocs || (ticketErr == nil && ticketID == reference) {
+		return ticketID, store.Apply, ticketErr
 	}
 	docID, docErr := docStore.ResolveDoc(reference)
-	if errors.Is(docErr, backend.ErrNoMatch) {
-		return "", nil, err
+	switch {
+	case docErr == nil && docID == reference:
+		return docID, docStore.ApplyDoc, nil
+	case ticketErr == nil && docErr == nil:
+		return "", nil, backend.Ambiguous(reference, []string{ticketID, docID})
+	case ticketErr == nil && errors.Is(docErr, backend.ErrNoMatch):
+		return ticketID, store.Apply, nil
+	case docErr == nil && errors.Is(ticketErr, backend.ErrNoMatch):
+		return docID, docStore.ApplyDoc, nil
+	case ticketErr != nil && !errors.Is(ticketErr, backend.ErrNoMatch):
+		return "", nil, ticketErr
+	default:
+		// The reference matches no ticket, or one ticket beside several docs: either way the doc side's error says why.
+		return "", nil, docErr
 	}
-	return docID, docStore.ApplyDoc, docErr
 }
 
 func withStatus(docs []backend.Doc, status string) []backend.Doc {
