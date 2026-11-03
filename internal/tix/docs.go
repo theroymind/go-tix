@@ -96,6 +96,11 @@ func showDoc(stdout io.Writer, reference string, isJSON bool) error {
 	if err != nil {
 		return err
 	}
+	return writeDoc(stdout, store, id, isJSON)
+}
+
+// writeDoc prints the doc's text as it is, or the doc as JSON.
+func writeDoc(stdout io.Writer, store backend.DocStore, id string, isJSON bool) error {
 	if isJSON {
 		shown, err := store.ReadDoc(id)
 		if err != nil {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/theroymind/railyard/internal/cli"
@@ -96,6 +97,53 @@ func TestShowTextWithoutATrailingNewline(t *testing.T) {
 			}
 			if output != tt.expected {
 				t.Errorf("output = %q, expected %q", output, tt.expected)
+			}
+		})
+	}
+}
+
+func TestShowFallsThroughToDocs(t *testing.T) {
+	tests := []struct {
+		name             string
+		arguments        []string
+		expectedExitCode cli.ExitCode
+		note             string
+		mentions         []string
+	}{
+		{"A doc id shows the note as doc show does",
+			[]string{"show", "enemy-ai"}, cli.ExitCodeSuccess, filepath.Join("docs", "ideas", "enemy-ai.md"), nil},
+		{"A doc at the docs root shows too",
+			[]string{"show", "enemy-goals"}, cli.ExitCodeSuccess, filepath.Join("docs", "enemy-goals.md"), nil},
+		{"A unique prefix of a doc alone resolves to the doc",
+			[]string{"show", "turn"}, cli.ExitCodeSuccess, filepath.Join("docs", "decisions", "turn-order-is-a-wait-counter.md"), nil},
+		{"JSON shows the doc",
+			[]string{"show", "--json", "enemy-ai"}, cli.ExitCodeSuccess, "",
+			[]string{`"id": "enemy-ai"`, `"type": "idea"`, `"title": "Enemy AI: targeting, behaviour and planning"`}},
+		{"A ticket still wins over a doc",
+			[]string{"show", "golem-guards"}, cli.ExitCodeSuccess, filepath.Join("docs", "tasks", "golem-guards.md"), []string{"criteria:"}},
+		{"A prefix of both a ticket and a doc is ambiguous",
+			[]string{"show", "enemy"}, cli.ExitCodeFailure, "", []string{`"enemy"`, "ambiguous", "enemy-ai"}},
+		{"A reference matching neither a ticket nor a doc has no match",
+			[]string{"show", "nothing"}, cli.ExitCodeFailure, "", []string{"no ticket matches", `"nothing"`}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := copyVault(t)
+
+			exitCode, output := run(t, root, tt.arguments...)
+
+			if exitCode != tt.expectedExitCode {
+				t.Fatalf("exit code = %d, expected %d; output %q", exitCode, tt.expectedExitCode, output)
+			}
+			if tt.note != "" {
+				if expected := readFile(t, filepath.Join(root, tt.note)); !strings.HasPrefix(output, expected) {
+					t.Errorf("output =\n%s\nexpected to start with the note\n%s", output, expected)
+				}
+			}
+			for _, mention := range tt.mentions {
+				if !strings.Contains(output, mention) {
+					t.Errorf("output %q does not mention %q", output, mention)
+				}
 			}
 		})
 	}

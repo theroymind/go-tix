@@ -104,7 +104,7 @@ Flags come before positional arguments, because Go's `flag` stops at the first n
 | --- | --- |
 | `tix init --prefix bs` | Creates `.tix/config.yml` in the working directory. The prefix must match `^[a-z][a-z0-9]{0,7}$`. Fails if `.tix/` exists. |
 | `tix add --type task [--parent REF] [--priority N] [--tag T]... [--dependency REF]... [--acceptance A]... [--description D] [--draft] "title"` | Validates, saves, and prints only the new ID. |
-| `tix show REF [--json]` | Prints the ticket as YAML, the same as the file. |
+| `tix show REF [--json]` | Prints the ticket as YAML, the same as the file. On a backend with docs, a reference that matches no ticket shows the doc, as `tix doc show` does. |
 | `tix ls [--status S] [--type T] [--tag T] [--parent REF] [--all] [--json]` | Table of `ID TYPE STATUS PRIORITY TITLE`. Hides resolved tickets unless `--all` or `--status` is given. |
 | `tix dep REF DEPENDENCY_REF` / `tix undep REF DEPENDENCY_REF` | Adds or removes a dependency. `dep` rejects cycles and names the path. |
 | `tix ready [--type T] [--json]` | Ready tickets, sorted. |

@@ -27,9 +27,13 @@ func runShow(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	id, err := store.Resolve(parsed.Positionals[0])
+	// A reference names a ticket first; one that matches only a doc shows the doc, as doc show does.
+	id, isDoc, err := resolveEither(store, parsed.Positionals[0])
 	if err != nil {
 		return err
+	}
+	if isDoc {
+		return writeDoc(stdout, store.(backend.DocStore), id, parsed.IsEnabled(optionJSON))
 	}
 	// A backend without source text shows the ticket as JSON.
 	if textReader, hasText := store.(backend.TextReader); hasText && !parsed.IsEnabled(optionJSON) {
