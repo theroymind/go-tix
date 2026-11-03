@@ -88,7 +88,7 @@ func TestDocShow(t *testing.T) {
 		{"A unique prefix resolves", []string{"doc", "show", "enemy-a"}, cli.ExitCodeSuccess, true, nil},
 		{"JSON shows the doc", []string{"doc", "show", "--json", "enemy-ai"}, cli.ExitCodeSuccess, false,
 			[]string{`"id": "enemy-ai"`, `"kind": "idea"`, `"title": "Enemy AI: targeting, behaviour and planning"`, `"status": "open"`}},
-		{"A ticket slug is no doc", []string{"doc", "show", "golem-guards"}, cli.ExitCodeFailure, false, []string{"no ticket matches", `"golem-guards"`}},
+		{"A ticket slug is no doc", []string{"doc", "show", "golem-guards"}, cli.ExitCodeFailure, false, []string{"no doc matches", `"golem-guards"`}},
 		{"doc alone is a usage error", []string{"doc"}, cli.ExitCodeUsage, false, []string{"expected doc show REF"}},
 		{"doc show without a reference is a usage error", []string{"doc", "show"}, cli.ExitCodeUsage, false, []string{"expected doc show REF"}},
 		{"A subcommand other than show is a usage error", []string{"doc", "ls"}, cli.ExitCodeUsage, false, []string{"expected doc show REF", `"ls"`}},

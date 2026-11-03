@@ -50,7 +50,7 @@ const (
 
 var (
 	ErrExpectedOneTitle     = errors.New("expected exactly one title")
-	ErrExpectedOneReference = errors.New("expected exactly one ticket reference")
+	ErrExpectedOneReference = errors.New("expected exactly one reference")
 	ErrInvalidOption        = errors.New("is invalid")
 	ErrExpectedPair         = errors.New("expected KEY=VALUE")
 	ErrExpectedPairs        = errors.New("expected a ticket or doc reference and at least one KEY=VALUE")
@@ -63,4 +63,7 @@ var (
 	ErrExpectedAddCriterion = errors.New("expected ac add REF TEXT")
 	ErrExpectedDocsLs       = errors.New("expected docs ls")
 	ErrExpectedDocShow      = errors.New("expected doc show REF")
+	ErrExpectedOldAndNew    = errors.New("expected supersede OLD NEW")
+	ErrSupersedesItself     = errors.New("can't supersede itself")
+	ErrKindsDiffer          = errors.New("a doc is superseded only by one of its own kind")
 )

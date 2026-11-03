@@ -20,23 +20,27 @@ commands:
   ac add REF TEXT
   docs ls [--kind K] [--status S] [--json]
   doc show REF [--json]
+  backlinks REF [--json]
+  supersede OLD NEW      (marks the OLD doc superseded by NEW)
 `
 
 var Program = cli.Program{
 	Name:  "tix",
 	Usage: usage,
 	Commands: map[string]cli.Command{
-		"init":   runInit,
-		"add":    runAdd,
-		"show":   runShow,
-		"ls":     runLs,
-		"ready":  runReady,
-		"done":   runDone,
-		"set":    runSet,
-		"tick":   runTick,
-		"untick": runUntick,
-		"ac":     runAc,
-		"docs":   runDocs,
-		"doc":    runDoc,
+		"init":      runInit,
+		"add":       runAdd,
+		"show":      runShow,
+		"ls":        runLs,
+		"ready":     runReady,
+		"done":      runDone,
+		"set":       runSet,
+		"tick":      runTick,
+		"untick":    runUntick,
+		"ac":        runAc,
+		"docs":      runDocs,
+		"doc":       runDoc,
+		"backlinks": runBacklinks,
+		"supersede": runSupersede,
 	},
 }

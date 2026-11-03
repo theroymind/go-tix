@@ -26,7 +26,16 @@ type DocStore interface {
 	ReadDocText(id string) ([]byte, error)
 	// ApplyDoc makes every SetField change to the doc or none of them. Other changes fail with ErrUnsupported.
 	ApplyDoc(id string, changes []Change) error
+	// Backlinks returns the ids of every note that links to id, tickets, docs and unmapped notes alike, in id order.
+	Backlinks(id string) ([]string, error)
 }
+
+// Supersession is how a doc gives way to a newer one: its status becomes StatusSuperseded and SupersededByProperty
+// names the newer doc. A doc kind can be superseded only when its statuses include StatusSuperseded.
+const (
+	StatusSuperseded     = "superseded"
+	SupersededByProperty = "superseded_by"
+)
 
 // ErrNoDocs reports a doc command run on a backend that doesn't implement DocStore.
 var ErrNoDocs = errors.New("the backend has no docs")

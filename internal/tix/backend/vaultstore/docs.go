@@ -1,6 +1,7 @@
 package vaultstore
 
 import (
+	"errors"
 	"maps"
 	"path/filepath"
 	"slices"
@@ -46,7 +47,7 @@ func (store Store) docNote(id string) (docNote, error) {
 	}
 	found, exists := notes[id]
 	if !exists {
-		return docNote{}, backend.NoMatch(id)
+		return docNote{}, backend.NoDocMatch(id)
 	}
 	return found, nil
 }
@@ -57,7 +58,11 @@ func (store Store) ResolveDoc(reference string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return resolveReference(reference, slices.Sorted(maps.Keys(notes)))
+	id, err := resolveReference(reference, slices.Sorted(maps.Keys(notes)))
+	if errors.Is(err, backend.ErrNoMatch) {
+		return "", backend.NoDocMatch(reference)
+	}
+	return id, err
 }
 
 // ListDocs returns the docs of kind, or of every kind when kind is "", in slug order. A kind the profile doesn't
@@ -152,6 +157,19 @@ func docStatusOf(found docNote, value any) (string, error) {
 		return "", unknownStatus(found.note.Path, text, found.mapping.Statuses)
 	}
 	return text, nil
+}
+
+// Backlinks returns the slugs of every note under Root whose wikilinks name id, in slug order.
+func (store Store) Backlinks(id string) ([]string, error) {
+	var slugs []string
+	err := store.walkNotes(func(note *vault.Note) error {
+		if slices.Contains(vault.Wikilinks(string(note.Render())), id) {
+			slugs = append(slugs, note.Slug)
+		}
+		return nil
+	})
+	slices.Sort(slugs)
+	return slugs, err
 }
 
 // toDoc maps a doc note onto a doc: the slug is its id, the first H1 its title (else the slug), its status must be

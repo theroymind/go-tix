@@ -100,29 +100,41 @@ func openDocStore() (backend.DocStore, error) {
 	return docStore, nil
 }
 
-// resolveAny returns the ticket or doc that reference names, and the function that applies changes to it. An exact
-// id wins; a prefix must be unique across tickets and docs together, since the two share a namespace in a vault.
+// resolveAny returns the ticket or doc that reference names, and the function that applies changes to it.
 func resolveAny(store backend.Backend, reference string) (string, func(id string, changes []backend.Change) error, error) {
+	id, isDoc, err := resolveEither(store, reference)
+	if err != nil {
+		return "", nil, err
+	}
+	if isDoc {
+		return id, store.(backend.DocStore).ApplyDoc, nil
+	}
+	return id, store.Apply, nil
+}
+
+// resolveEither returns the id that reference names and whether it's a doc. An exact id wins; a prefix must be
+// unique across tickets and docs together, since the two share a namespace in a vault.
+func resolveEither(store backend.Backend, reference string) (string, bool, error) {
 	ticketID, ticketErr := store.Resolve(reference)
 	docStore, hasDocs := store.(backend.DocStore)
 	if !hasDocs || (ticketErr == nil && ticketID == reference) {
-		return ticketID, store.Apply, ticketErr
+		return ticketID, false, ticketErr
 	}
 	docID, docErr := docStore.ResolveDoc(reference)
 	switch {
 	case docErr == nil && docID == reference:
-		return docID, docStore.ApplyDoc, nil
+		return docID, true, nil
 	case ticketErr == nil && docErr == nil:
-		return "", nil, backend.Ambiguous(reference, []string{ticketID, docID})
+		return "", false, backend.Ambiguous(reference, []string{ticketID, docID})
 	case ticketErr == nil && errors.Is(docErr, backend.ErrNoMatch):
-		return ticketID, store.Apply, nil
+		return ticketID, false, nil
 	case docErr == nil && errors.Is(ticketErr, backend.ErrNoMatch):
-		return docID, docStore.ApplyDoc, nil
-	case ticketErr != nil && !errors.Is(ticketErr, backend.ErrNoMatch):
-		return "", nil, ticketErr
+		return docID, true, nil
+	case ticketErr == nil || errors.Is(ticketErr, backend.ErrNoMatch) && !errors.Is(docErr, backend.ErrNoMatch):
+		// One ticket beside several docs, or no ticket and several docs: the doc side's error says why.
+		return "", false, docErr
 	default:
-		// The reference matches no ticket, or one ticket beside several docs: either way the doc side's error says why.
-		return "", nil, docErr
+		return "", false, ticketErr
 	}
 }
 

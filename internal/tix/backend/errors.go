@@ -32,6 +32,17 @@ func NoMatch(reference string) error {
 	return fmt.Errorf("%w %s", ErrNoMatch, strconv.Quote(reference))
 }
 
+// NoDocMatch reports a reference that names no doc. It is an ErrNoMatch to errors.Is, worded for docs.
+func NoDocMatch(reference string) error {
+	return noDocMatch{reference: reference}
+}
+
+type noDocMatch struct{ reference string }
+
+func (err noDocMatch) Error() string { return "no doc matches " + strconv.Quote(err.reference) }
+
+func (noDocMatch) Is(target error) bool { return target == ErrNoMatch }
+
 func Ambiguous(reference string, matches []string) error {
 	return fmt.Errorf("%s %w: %s", strconv.Quote(reference), ErrAmbiguous, strings.Join(matches, matchSeparator))
 }

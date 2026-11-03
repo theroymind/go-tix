@@ -241,3 +241,29 @@ func TestApplyDoc(t *testing.T) {
 		})
 	}
 }
+
+func TestBacklinks(t *testing.T) {
+	tests := []struct {
+		name     string
+		id       string
+		expected []string
+	}{
+		{"Tickets, docs and unmapped notes alike, in slug order, templates skipped", "enemy-goals",
+			[]string{"README", "enemy-ai", "enemy-puzzle", "goal-scoring", "golem-guards", "harpy-hastes", "sim-queries", "weighted-step-choice"}},
+		{"A slug no note links to", "nobody-links-here", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := openDocFixture(t)
+
+			slugs, err := store.Backlinks(tt.id)
+
+			if err != nil {
+				t.Fatalf("Backlinks() error = %v", err)
+			}
+			if !reflect.DeepEqual(slugs, tt.expected) {
+				t.Errorf("Backlinks() = %v, want %v", slugs, tt.expected)
+			}
+		})
+	}
+}
