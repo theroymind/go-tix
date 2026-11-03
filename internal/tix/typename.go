@@ -2,7 +2,6 @@ package tix
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/theroymind/railyard/internal/cli"
@@ -45,15 +44,15 @@ func typeNames(store backend.Backend) []backend.TypeName {
 	return namer.TypeNames()
 }
 
-// typeNamesHint is the part of an invalid --type error that lists the project's own names, such as
-// ` or one of this project's "phase" (epic), "task" (task)`. It's empty when the project has none.
+// typeNamesHint is the part of an invalid --type error that lists the project's own names as default:project pairs,
+// such as `; this project names them epic:phase, task:task`. It's empty when the project has none.
 func typeNamesHint(names []backend.TypeName) string {
 	if len(names) == 0 {
 		return ""
 	}
 	listed := make([]string, len(names))
 	for index, name := range names {
-		listed[index] = fmt.Sprintf("%s (%s)", strconv.Quote(name.Name), name.Type)
+		listed[index] = string(name.Type) + typeNamePairSeparator + name.Name
 	}
 	return typeNamesHintStart + strings.Join(listed, typeNamesHintSeparator)
 }

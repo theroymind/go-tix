@@ -25,8 +25,9 @@ const (
 	subcommandShow    = "show"
 	optionType        = "type"
 
-	typeNamesHintStart     = " or one of this project's "
+	typeNamesHintStart     = "; this project names them "
 	typeNamesHintSeparator = ", "
+	typeNamePairSeparator  = ":"
 )
 
 const (
