@@ -44,7 +44,9 @@ func pairValue(key, value string) (any, error) {
 	switch key {
 	case ticket.FieldPriority:
 		return parsePriorityText(value)
-	case ticket.FieldTags, ticket.FieldDependencies, ticket.FieldAcceptance:
+	case ticket.FieldDependencies:
+		return nil, fmt.Errorf("%s %w; %s", key, ErrListField, dependenciesHint)
+	case ticket.FieldTags, ticket.FieldAcceptance:
 		return nil, fmt.Errorf("%s %w", key, ErrListField)
 	default:
 		return value, nil

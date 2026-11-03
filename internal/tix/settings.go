@@ -28,6 +28,9 @@ const (
 	typeNamesLegend        = "default|project: "
 	typeNamesHintSeparator = ", "
 	typeNameSeparator      = "|"
+
+	dependencyPathSeparator = " -> "
+	dependenciesHint        = "change dependencies with tix dep and tix undep"
 )
 
 const (
@@ -56,6 +59,9 @@ var (
 	ErrExpectedPairs         = errors.New("expected a ticket or doc reference and at least one KEY=VALUE")
 	ErrUnmetCriteria         = errors.New("has unmet criteria")
 	ErrListField             = errors.New("is a list; set takes single-value fields")
+	ErrExpectedDependencies  = errors.New("expected a ticket reference and at least one dependency reference")
+	ErrDependencyCycle       = errors.New("the dependency would form a cycle")
+	ErrNotDependency         = errors.New("does not depend on")
 	ErrExpectedNumbers       = errors.New("expected a ticket reference and at least one criterion number")
 	ErrInvalidNumber         = errors.New("is not a criterion number; expected a whole number from 1")
 	ErrExpectedSubcommand    = errors.New("expected ac set or ac add")
