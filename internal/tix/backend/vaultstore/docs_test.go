@@ -27,22 +27,22 @@ func openDocFixture(t *testing.T) backend.DocStore {
 func TestListDocs(t *testing.T) {
 	tests := []struct {
 		name          string
-		kind          string
+		docType       string
 		expected      []string
 		expectedError error
 		mentions      []string
 	}{
-		{"Every doc kind, in slug order", "", []string{"enemy-ai", "enemy-choice-is-a-weighted-argmax", "enemy-goals", "turn-order-is-a-wait-counter"}, nil, nil},
-		{"One kind", "decision", []string{"enemy-choice-is-a-weighted-argmax", "turn-order-is-a-wait-counter"}, nil, nil},
-		{"A kind with one note at the vault root", "spec", []string{"enemy-goals"}, nil, nil},
-		{"A kind the profile doesn't define names the kinds it does", "task", nil, vaultstore.ErrUnknownKind,
+		{"Every doc type, in slug order", "", []string{"enemy-ai", "enemy-choice-is-a-weighted-argmax", "enemy-goals", "turn-order-is-a-wait-counter"}, nil, nil},
+		{"One type", "decision", []string{"enemy-choice-is-a-weighted-argmax", "turn-order-is-a-wait-counter"}, nil, nil},
+		{"A type with one note at the vault root", "spec", []string{"enemy-goals"}, nil, nil},
+		{"A type the profile doesn't define names the types it does", "task", nil, vaultstore.ErrUnknownType,
 			[]string{`"task"`, `"decision", "idea", "spec"`}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := openDocFixture(t)
 
-			docs, err := store.ListDocs(tt.kind)
+			docs, err := store.ListDocs(tt.docType)
 
 			if !errors.Is(err, tt.expectedError) {
 				t.Fatalf("ListDocs() error = %v, want %v", err, tt.expectedError)
@@ -73,7 +73,7 @@ func TestReadDoc(t *testing.T) {
 		{"A decision without an H1 is titled by its slug, and its frontmatter less type and status fills the properties",
 			"enemy-choice-is-a-weighted-argmax",
 			backend.Doc{
-				ID: "enemy-choice-is-a-weighted-argmax", Kind: "decision", Title: "enemy-choice-is-a-weighted-argmax", Status: "accepted",
+				ID: "enemy-choice-is-a-weighted-argmax", Type: "decision", Title: "enemy-choice-is-a-weighted-argmax", Status: "accepted",
 				Properties: map[string]any{"decided_by": "user", "date": "2026-11-01",
 					"tasks": []any{"sim-queries", "goal-scoring", "weighted-step-choice", "golem-guards", "harpy-hastes"}},
 				Links: []string{"mana-pool"},
@@ -82,7 +82,7 @@ func TestReadDoc(t *testing.T) {
 		{"An idea is titled by its H1 and links each slug once",
 			"enemy-ai",
 			backend.Doc{
-				ID: "enemy-ai", Kind: "idea", Title: "Enemy AI: targeting, behaviour and planning", Status: "open",
+				ID: "enemy-ai", Type: "idea", Title: "Enemy AI: targeting, behaviour and planning", Status: "open",
 				Links: []string{"mana-pool", "enemy-goals", "turn-order-is-a-wait-counter", "intent", "pillars"},
 				Path:  filepath.Join("docs", "ideas", "enemy-ai.md"),
 			}, nil},
@@ -151,7 +151,7 @@ func TestReadDocTextIsTheNote(t *testing.T) {
 	}
 }
 
-func TestReadDocRejectsAStatusOutsideTheKind(t *testing.T) {
+func TestReadDocRejectsAStatusOutsideTheType(t *testing.T) {
 	store, root := copyFixture(t)
 	path := filepath.Join(root, "docs", "decisions", "turn-order-is-a-wait-counter.md")
 	original, err := os.ReadFile(path)
@@ -184,11 +184,11 @@ func TestApplyDoc(t *testing.T) {
 		expectedError error
 		mentions      []string
 	}{
-		{"A status in the kind's list changes one line, and a timestamp the note lacks is skipped",
+		{"A status in the type's list changes one line, and a timestamp the note lacks is skipped",
 			[]backend.Change{backend.SetField{Field: ticket.FieldStatus, Value: "accepted"},
 				backend.SetField{Field: ticket.FieldUpdatedAt, Value: "2026-11-02T10:00:00Z"}},
 			[2]string{"status: proposed\n", "status: accepted\n"}, nil, nil},
-		{"A status outside the kind's list names the note and the kind's statuses",
+		{"A status outside the type's list names the note and the type's statuses",
 			[]backend.Change{backend.SetField{Field: ticket.FieldStatus, Value: "done"}},
 			[2]string{}, vaultstore.ErrUnknownStatus, []string{"turn-order-is-a-wait-counter.md", `"done"`, `"proposed", "accepted", "deferred", "superseded"`}},
 		{"Any other field is written as a property",
@@ -274,7 +274,7 @@ func TestCreateDoc(t *testing.T) {
 	today := time.Now().Format(backend.DateLayout)
 	tests := []struct {
 		name          string
-		kind          string
+		docType       string
 		value         backend.Doc
 		expectedID    string
 		expectedPath  string
@@ -291,12 +291,12 @@ func TestCreateDoc(t *testing.T) {
 			"bosses-plan-with-goap", "docs/decisions/bosses-plan-with-goap.md",
 			"---\ntype: decision\nstatus: accepted\ndecided_by: user\ndate: \"" + today + "\"\ntasks: []\n---\n\n" +
 				"The decision, stated so it reads on its own.\n\n## Rejected\n\n- an alternative and why it lost\n", nil, nil},
-		{"A status outside the kind's list writes nothing",
+		{"A status outside the type's list writes nothing",
 			"decision", backend.Doc{Title: "Bosses plan with GOAP", Status: "done"}, "", "", "", vaultstore.ErrUnknownStatus, []string{`"done"`}},
-		{"A kind without a template writes nothing",
+		{"A type without a template writes nothing",
 			"idea", backend.Doc{Title: "Bosses"}, "", "", "", vaultstore.ErrNoDocTemplate, []string{`"idea"`}},
-		{"A kind outside the profile names the kinds in it",
-			"task", backend.Doc{Title: "Bosses"}, "", "", "", vaultstore.ErrUnknownKind, []string{`"task"`, `"decision", "idea", "spec"`}},
+		{"A type outside the profile names the types in it",
+			"task", backend.Doc{Title: "Bosses"}, "", "", "", vaultstore.ErrUnknownType, []string{`"task"`, `"decision", "idea", "spec"`}},
 		{"A slug a doc has is taken",
 			"decision", backend.Doc{Title: "Turn order is a wait counter"}, "", "", "", vaultstore.ErrSlugTaken,
 			[]string{`"turn-order-is-a-wait-counter"`, filepath.Join("docs", "decisions", "turn-order-is-a-wait-counter.md")}},
@@ -310,7 +310,7 @@ func TestCreateDoc(t *testing.T) {
 			store, root := copyFixture(t)
 			before := vaultFiles(t, root)
 
-			id, err := store.(backend.DocStore).CreateDoc(tt.kind, tt.value)
+			id, err := store.(backend.DocStore).CreateDoc(tt.docType, tt.value)
 
 			if !errors.Is(err, tt.expectedError) {
 				t.Fatalf("CreateDoc() error = %v, want %v", err, tt.expectedError)

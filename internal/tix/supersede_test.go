@@ -30,8 +30,8 @@ func TestSupersede(t *testing.T) {
 			[]string{"supersede", "turn", "nothing"}, cli.ExitCodeFailure, [2]string{}, []string{"no doc matches", `"nothing"`}},
 		{"A ticket isn't a decision",
 			[]string{"supersede", "golem-guards", "enemy-choice"}, cli.ExitCodeFailure, [2]string{}, []string{"no doc matches", `"golem-guards"`}},
-		{"A doc of a kind without a superseded status writes nothing",
-			[]string{"supersede", "enemy-ai", "enemy-goals"}, cli.ExitCodeFailure, [2]string{}, []string{"own kind", "enemy-ai", "idea", "spec"}},
+		{"A doc of a type without a superseded status writes nothing",
+			[]string{"supersede", "enemy-ai", "enemy-goals"}, cli.ExitCodeFailure, [2]string{}, []string{"own type", "enemy-ai", "idea", "spec"}},
 		{"A decision can't supersede itself",
 			[]string{"supersede", "turn", "turn"}, cli.ExitCodeFailure, [2]string{}, []string{"turn-order-is-a-wait-counter", "itself"}},
 		{"One reference is a usage error",
@@ -67,7 +67,7 @@ func TestSupersede(t *testing.T) {
 	}
 }
 
-func TestSupersedeOnAKindWithoutTheStatus(t *testing.T) {
+func TestSupersedeOnATypeWithoutTheStatus(t *testing.T) {
 	root := copyVault(t)
 	path := filepath.Join(root, "docs", "enemy-goals.md")
 	other := filepath.Join(root, "docs", "later-goals.md")

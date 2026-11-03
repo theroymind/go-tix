@@ -4,7 +4,6 @@ import "errors"
 
 const (
 	optionPrefix      = "prefix"
-	optionType        = "type"
 	optionPriority    = "priority"
 	optionTag         = "tag"
 	optionAcceptance  = "acceptance"
@@ -24,7 +23,7 @@ const (
 	subcommandAdd     = "add"
 	subcommandLs      = "ls"
 	subcommandShow    = "show"
-	optionKind        = "kind"
+	optionType        = "type"
 )
 
 const (
@@ -39,7 +38,7 @@ const (
 const (
 	tableHeader           = "ID\tTYPE\tSTATUS\tPRIORITY\tTITLE"
 	tableRow              = "%s\t%s\t%s\t%s\t%s\n"
-	docTableHeader        = "ID\tKIND\tSTATUS\tTITLE"
+	docTableHeader        = "ID	TYPE	STATUS\tTITLE"
 	docTableRow           = "%s\t%s\t%s\t%s\n"
 	tableAbsent           = "-"
 	tableMinimumWidth     = 0
@@ -64,8 +63,8 @@ var (
 	ErrExpectedDocsLs        = errors.New("expected docs ls")
 	ErrExpectedDocSubcommand = errors.New("expected doc show or doc add")
 	ErrExpectedDocShow       = errors.New("expected doc show REF")
-	ErrExpectedDocAdd        = errors.New("expected doc add --kind K TITLE")
+	ErrExpectedDocAdd        = errors.New("expected doc add --type T TITLE")
 	ErrExpectedOldAndNew     = errors.New("expected supersede OLD NEW")
 	ErrSupersedesItself      = errors.New("can't supersede itself")
-	ErrKindsDiffer           = errors.New("a doc is superseded only by one of its own kind")
+	ErrTypesDiffer           = errors.New("a doc is superseded only by one of its own type")
 )

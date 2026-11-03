@@ -18,9 +18,9 @@ commands:
   untick REF N...
   ac set REF N TEXT
   ac add REF TEXT
-  docs ls [--kind K] [--status S] [--json]
+  docs ls [--type T] [--status S] [--json]
   doc show REF [--json]
-  doc add --kind K TITLE
+  doc add --type T TITLE
   backlinks REF [--json]
   supersede OLD NEW      (marks the OLD doc superseded by NEW)
 `

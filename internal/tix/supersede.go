@@ -12,7 +12,7 @@ import (
 var supersedeSpecification = cli.Specification{AllowsPositionals: true}
 
 // runSupersede marks the old doc superseded by the new one, touching only the old doc's frontmatter. Both must be
-// docs of one kind, the new doc must already exist, and the kind's statuses must include superseded, which
+// docs of one type, the new doc must already exist, and the type's statuses must include superseded, which
 // ApplyDoc checks before it writes.
 func runSupersede(arguments []string, _ io.Reader, _ io.Writer) error {
 	parsed, err := cli.Parse(arguments, supersedeSpecification)
@@ -37,8 +37,8 @@ func runSupersede(arguments []string, _ io.Reader, _ io.Writer) error {
 	if old.ID == replacement.ID {
 		return fmt.Errorf("%s %w", strconv.Quote(old.ID), ErrSupersedesItself)
 	}
-	if old.Kind != replacement.Kind {
-		return fmt.Errorf("%w: %s is of kind %s, %s of kind %s", ErrKindsDiffer, old.ID, old.Kind, replacement.ID, replacement.Kind)
+	if old.Type != replacement.Type {
+		return fmt.Errorf("%w: %s is of type %s, %s of type %s", ErrTypesDiffer, old.ID, old.Type, replacement.ID, replacement.Type)
 	}
 	return store.ApplyDoc(old.ID, []backend.Change{
 		backend.SetField{Field: optionStatus, Value: backend.StatusSuperseded},

@@ -16,13 +16,13 @@ func TestSetOnADoc(t *testing.T) {
 		replace          [2]string
 		mentions         []string
 	}{
-		{"A status in the kind's list changes only the status line",
+		{"A status in the type's list changes only the status line",
 			[]string{"set", "turn-order-is-a-wait-counter", "status=accepted"}, cli.ExitCodeSuccess,
 			[2]string{"status: proposed\n", "status: accepted\n"}, nil},
 		{"A unique prefix resolves to the doc when no ticket matches",
 			[]string{"set", "turn", "status=deferred"}, cli.ExitCodeSuccess,
 			[2]string{"status: proposed\n", "status: deferred\n"}, nil},
-		{"A status outside the kind's list names the kind's statuses",
+		{"A status outside the type's list names the type's statuses",
 			[]string{"set", "turn-order-is-a-wait-counter", "status=done"}, cli.ExitCodeFailure,
 			[2]string{}, []string{`"done"`, `"proposed", "accepted", "deferred", "superseded"`}},
 		{"Any other key is written as a property",

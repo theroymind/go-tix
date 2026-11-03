@@ -2,11 +2,11 @@ package backend
 
 import "errors"
 
-// Doc is a typed note that isn't a ticket, such as a decision, idea or spec. Kind is the subtype the Profile
+// Doc is a typed note that isn't a ticket, such as a decision, idea or spec. Type is the note type the Profile
 // defines, Properties holds the note's other frontmatter, and Links the slugs its wikilinks name.
 type Doc struct {
 	ID         string         `json:"id"`
-	Kind       string         `json:"kind"`
+	Type       string         `json:"type"`
 	Title      string         `json:"title"`
 	Status     string         `json:"status,omitempty"`
 	Properties map[string]any `json:"properties,omitempty"`
@@ -19,16 +19,16 @@ type Doc struct {
 type DocStore interface {
 	// ResolveDoc returns the doc id that an exact id or a unique prefix refers to.
 	ResolveDoc(reference string) (string, error)
-	// ListDocs returns the docs of one kind, or of every kind when kind is "".
-	ListDocs(kind string) ([]Doc, error)
+	// ListDocs returns the docs of one type, or of every type when docType is "".
+	ListDocs(docType string) ([]Doc, error)
 	ReadDoc(id string) (Doc, error)
 	// ReadDocText returns the doc's source text, for tix doc show to print.
 	ReadDocText(id string) ([]byte, error)
 	// ApplyDoc makes every SetField change to the doc or none of them. Other changes fail with ErrUnsupported.
 	ApplyDoc(id string, changes []Change) error
-	// CreateDoc stores a new doc of kind under an id the backend assigns from value.Title, ignoring value.ID, and
-	// returns that id. An empty value.Status takes the kind's first status, and value.Properties are set on it.
-	CreateDoc(kind string, value Doc) (string, error)
+	// CreateDoc stores a new doc of type under an id the backend assigns from value.Title, ignoring value.ID, and
+	// returns that id. An empty value.Status takes the type's first status, and value.Properties are set on it.
+	CreateDoc(docType string, value Doc) (string, error)
 	// Backlinks returns the ids of every note that links to id, tickets, docs and unmapped notes alike, in id order.
 	Backlinks(id string) ([]string, error)
 }
@@ -41,7 +41,7 @@ const (
 )
 
 // Supersession is how a doc gives way to a newer one: its status becomes StatusSuperseded and SupersededByProperty
-// names the newer doc. A doc kind can be superseded only when its statuses include StatusSuperseded.
+// names the newer doc. A doc type can be superseded only when its statuses include StatusSuperseded.
 const (
 	StatusSuperseded     = "superseded"
 	SupersededByProperty = "superseded_by"

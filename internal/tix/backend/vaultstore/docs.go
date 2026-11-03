@@ -21,23 +21,23 @@ var _ backend.DocStore = Store{}
 // docNote is a note the Profile maps onto a doc.
 type docNote struct {
 	note    *vault.Note
-	kind    string
+	docType string
 	mapping backend.DocMapping
 }
 
-// docNotes parses every note under Root and returns those whose type is a doc kind, by slug.
+// docNotes parses every note under Root and returns those whose type is a doc type, by slug.
 func (store Store) docNotes() (map[string]docNote, error) {
 	notes := map[string]docNote{}
 	err := store.walkNotes(func(note *vault.Note) error {
-		kind := propertyText(note.Property(store.Profile.TypeProperty))
-		mapping, isDoc := store.Profile.Docs[kind]
+		docType := propertyText(note.Property(store.Profile.TypeProperty))
+		mapping, isDoc := store.Profile.Docs[docType]
 		if !isDoc {
 			return nil
 		}
 		if other, exists := notes[note.Slug]; exists {
 			return duplicateSlug(note.Path, other.note.Path)
 		}
-		notes[note.Slug] = docNote{note: note, kind: kind, mapping: mapping}
+		notes[note.Slug] = docNote{note: note, docType: docType, mapping: mapping}
 		return nil
 	})
 	return notes, err
@@ -68,12 +68,12 @@ func (store Store) ResolveDoc(reference string) (string, error) {
 	return id, err
 }
 
-// ListDocs returns the docs of kind, or of every kind when kind is "", in slug order. A kind the profile doesn't
-// define fails naming the kinds it does.
-func (store Store) ListDocs(kind string) ([]backend.Doc, error) {
-	kinds := slices.Sorted(maps.Keys(store.Profile.Docs))
-	if kind != "" && !slices.Contains(kinds, kind) {
-		return nil, unknownKind(kind, kinds)
+// ListDocs returns the docs of docType, or of every type when it is "", in slug order. A type the profile doesn't
+// define fails naming the types it does.
+func (store Store) ListDocs(docType string) ([]backend.Doc, error) {
+	types := slices.Sorted(maps.Keys(store.Profile.Docs))
+	if docType != "" && !slices.Contains(types, docType) {
+		return nil, unknownType(docType, types)
 	}
 	notes, err := store.docNotes()
 	if err != nil {
@@ -81,7 +81,7 @@ func (store Store) ListDocs(kind string) ([]backend.Doc, error) {
 	}
 	docs := []backend.Doc{}
 	for _, slug := range slices.Sorted(maps.Keys(notes)) {
-		if kind != "" && notes[slug].kind != kind {
+		if docType != "" && notes[slug].docType != docType {
 			continue
 		}
 		mapped, err := store.toDoc(notes[slug])
@@ -114,7 +114,7 @@ func (store Store) ReadDocText(id string) ([]byte, error) {
 }
 
 // ApplyDoc sets properties on the doc note in memory, checks it still maps onto a valid doc, and writes it
-// atomically; on any failure the note is left as it was. A status must be one of the kind's statuses.
+// atomically; on any failure the note is left as it was. A status must be one of the type's statuses.
 func (store Store) ApplyDoc(id string, changes []backend.Change) error {
 	found, err := store.docNote(id)
 	if err != nil {
@@ -153,7 +153,7 @@ func (store Store) applyDocChange(found docNote, change backend.Change) error {
 	}
 }
 
-// docStatusOf returns the status value names, which must be one of the kind's statuses when the kind lists any.
+// docStatusOf returns the status value names, which must be one of the type's statuses when the type lists any.
 func docStatusOf(found docNote, value any) (string, error) {
 	text := propertyTextOf(value)
 	if len(found.mapping.Statuses) > 0 && !slices.Contains(found.mapping.Statuses, text) {
@@ -162,17 +162,17 @@ func docStatusOf(found docNote, value any) (string, error) {
 	return text, nil
 }
 
-// CreateDoc writes a new note of kind and returns its slug, the slug of value.Title. The note starts from the kind's
-// template with {{title}} and {{date}} filled in, goes in the directory holding most notes of the kind, and takes
-// value.Status, or the kind's first status, and value.Properties. Nothing is written when the slug is taken by a
-// ticket, a doc or a file, or when the kind has no template.
-func (store Store) CreateDoc(kind string, value backend.Doc) (string, error) {
-	mapping, isDoc := store.Profile.Docs[kind]
+// CreateDoc writes a new note of type and returns its slug, the slug of value.Title. The note starts from the type's
+// template with {{title}} and {{date}} filled in, goes in the directory holding most notes of the type, and takes
+// value.Status, or the type's first status, and value.Properties. Nothing is written when the slug is taken by a
+// ticket, a doc or a file, or when the type has no template.
+func (store Store) CreateDoc(docType string, value backend.Doc) (string, error) {
+	mapping, isDoc := store.Profile.Docs[docType]
 	if !isDoc {
-		return "", unknownKind(kind, slices.Sorted(maps.Keys(store.Profile.Docs)))
+		return "", unknownType(docType, slices.Sorted(maps.Keys(store.Profile.Docs)))
 	}
 	if mapping.Template == "" {
-		return "", noDocTemplate(kind)
+		return "", noDocTemplate(docType)
 	}
 	slug := vault.Slugify(value.Title)
 	if slug == "" {
@@ -194,11 +194,11 @@ func (store Store) CreateDoc(kind string, value backend.Doc) (string, error) {
 	}
 	var paths []string
 	for _, found := range docs {
-		if found.kind == kind {
+		if found.docType == docType {
 			paths = append(paths, found.note.Path)
 		}
 	}
-	directory, err := store.typeDirectory(paths, kind)
+	directory, err := store.typeDirectory(paths, docType)
 	if err != nil {
 		return "", err
 	}
@@ -238,7 +238,7 @@ func (store Store) CreateDoc(kind string, value backend.Doc) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if _, err := store.toDoc(docNote{note: written, kind: kind, mapping: mapping}); err != nil {
+	if _, err := store.toDoc(docNote{note: written, docType: docType, mapping: mapping}); err != nil {
 		return "", err
 	}
 	return slug, backend.WriteAtomically(path, rendered)
@@ -258,7 +258,7 @@ func (store Store) Backlinks(id string) ([]string, error) {
 }
 
 // toDoc maps a doc note onto a doc: the slug is its id, the first H1 its title (else the slug), its status must be
-// one of the kind's statuses when the kind lists any, its other frontmatter fills Properties, the wikilinks in the
+// one of the type's statuses when the type lists any, its other frontmatter fills Properties, the wikilinks in the
 // whole note fill Links, and Path is relative to Base.
 func (store Store) toDoc(found docNote) (backend.Doc, error) {
 	note := found.note
@@ -280,7 +280,7 @@ func (store Store) toDoc(found docNote) (backend.Doc, error) {
 	}
 	return backend.Doc{
 		ID:         note.Slug,
-		Kind:       found.kind,
+		Type:       found.docType,
 		Title:      title,
 		Status:     status,
 		Properties: properties,

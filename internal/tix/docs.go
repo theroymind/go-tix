@@ -14,7 +14,7 @@ import (
 
 var docsSpecification = cli.Specification{
 	Options: []cli.Option{
-		{Name: optionKind, Type: cli.OptionTypeString},
+		{Name: optionType, Type: cli.OptionTypeString},
 		{Name: optionStatus, Type: cli.OptionTypeString},
 		{Name: optionJSON, Type: cli.OptionTypeBoolean},
 	},
@@ -24,7 +24,7 @@ var docsSpecification = cli.Specification{
 var docSpecification = cli.Specification{
 	Options: []cli.Option{
 		{Name: optionJSON, Type: cli.OptionTypeBoolean},
-		{Name: optionKind, Type: cli.OptionTypeString},
+		{Name: optionType, Type: cli.OptionTypeString},
 	},
 	AllowsPositionals: true,
 }
@@ -45,8 +45,8 @@ func runDocs(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	kind, _ := parsed.String(optionKind)
-	docs, err := store.ListDocs(kind)
+	docType, _ := parsed.String(optionType)
+	docs, err := store.ListDocs(docType)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func runDocs(arguments []string, _ io.Reader, stdout io.Writer) error {
 }
 
 // runDoc dispatches on its first positional: doc show REF prints the doc's text, or the doc as JSON, and
-// doc add --kind K TITLE creates one from the kind's template and prints its id.
+// doc add --type T TITLE creates one from the type's template and prints its id.
 func runDoc(arguments []string, _ io.Reader, stdout io.Writer) error {
 	parsed, err := cli.Parse(arguments, docSpecification)
 	if err != nil {
@@ -77,11 +77,11 @@ func runDoc(arguments []string, _ io.Reader, stdout io.Writer) error {
 		if len(rest) != 1 {
 			return cli.NewUsageError(ErrExpectedDocAdd)
 		}
-		kind, err := parsed.RequiredString(optionKind)
+		docType, err := parsed.RequiredString(optionType)
 		if err != nil {
 			return err
 		}
-		return addDoc(stdout, kind, rest[0])
+		return addDoc(stdout, docType, rest[0])
 	default:
 		return expectedDocSubcommand(ErrExpectedDocSubcommand, subcommand)
 	}
@@ -111,7 +111,7 @@ func showDoc(stdout io.Writer, reference string, isJSON bool) error {
 	return err
 }
 
-func addDoc(stdout io.Writer, kind, title string) error {
+func addDoc(stdout io.Writer, docType, title string) error {
 	title, err := ticket.NormalizeTitle(title)
 	if err != nil {
 		return err
@@ -120,7 +120,7 @@ func addDoc(stdout io.Writer, kind, title string) error {
 	if err != nil {
 		return err
 	}
-	id, err := store.CreateDoc(kind, backend.Doc{Title: title})
+	id, err := store.CreateDoc(docType, backend.Doc{Title: title})
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func withStatus(docs []backend.Doc, status string) []backend.Doc {
 	return matching
 }
 
-// writeDocs prints the docs as a JSON array when asked, and as an ID KIND STATUS TITLE table otherwise.
+// writeDocs prints the docs as a JSON array when asked, and as an ID TYPE STATUS TITLE table otherwise.
 func writeDocs(stdout io.Writer, docs []backend.Doc, isJSON bool) error {
 	if isJSON {
 		return cli.WriteJSON(stdout, docs)
@@ -203,7 +203,7 @@ func writeDocs(stdout io.Writer, docs []backend.Doc, isJSON bool) error {
 		if status == "" {
 			status = tableAbsent
 		}
-		if _, err := fmt.Fprintf(table, docTableRow, row.ID, row.Kind, status, row.Title); err != nil {
+		if _, err := fmt.Fprintf(table, docTableRow, row.ID, row.Type, status, row.Title); err != nil {
 			return err
 		}
 	}

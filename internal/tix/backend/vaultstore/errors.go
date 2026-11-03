@@ -14,15 +14,15 @@ const listSeparator = ", "
 
 var (
 	ErrUnknownStatus = errors.New("has a status the profile doesn't map")
-	// ErrUnknownKind reports a doc kind the profile doesn't define.
-	ErrUnknownKind    = errors.New("is not a doc kind in the profile")
+	// ErrUnknownType reports a doc type the profile doesn't define.
+	ErrUnknownType    = errors.New("is not a doc type in the profile")
 	ErrDuplicateSlug  = errors.New("shares its slug with")
 	ErrTooManyParents = errors.New("links more than one parent")
 	// ErrCriterionOutOfRange reports a criterion index below 1 or past the note's last criterion.
 	ErrCriterionOutOfRange = errors.New("is out of range")
 	// ErrNoTemplate reports a ticket type that no note type with a template in the profile maps onto.
 	ErrNoTemplate = errors.New("has no note type with a template in the profile")
-	// ErrNoDocTemplate reports a doc kind with no template in the profile.
+	// ErrNoDocTemplate reports a doc type with no template in the profile.
 	ErrNoDocTemplate = errors.New("has no template in the profile")
 	// ErrEmptySlug reports a title with no ASCII letter or digit to name a note by.
 	ErrEmptySlug = errors.New("has no letter or digit to name a note by")
@@ -42,12 +42,12 @@ func unknownStatus(path, status string, allowed []string) error {
 	return fmt.Errorf("%s %w: %s, expected one of %s", path, ErrUnknownStatus, strconv.Quote(status), strings.Join(quoted, listSeparator))
 }
 
-func unknownKind(kind string, allowed []string) error {
+func unknownType(docType string, allowed []string) error {
 	quoted := make([]string, len(allowed))
 	for index, name := range allowed {
 		quoted[index] = strconv.Quote(name)
 	}
-	return fmt.Errorf("kind %s %w, expected one of %s", strconv.Quote(kind), ErrUnknownKind, strings.Join(quoted, listSeparator))
+	return fmt.Errorf("type %s %w, expected one of %s", strconv.Quote(docType), ErrUnknownType, strings.Join(quoted, listSeparator))
 }
 
 func duplicateSlug(path, otherPath string) error {
@@ -62,8 +62,8 @@ func noTemplate(ticketType ticket.Type) error {
 	return fmt.Errorf("ticket type %s %w", strconv.Quote(string(ticketType)), ErrNoTemplate)
 }
 
-func noDocTemplate(kind string) error {
-	return fmt.Errorf("doc kind %s %w", strconv.Quote(kind), ErrNoDocTemplate)
+func noDocTemplate(docType string) error {
+	return fmt.Errorf("doc type %s %w", strconv.Quote(docType), ErrNoDocTemplate)
 }
 
 func emptySlug(title string) error {
