@@ -22,7 +22,7 @@ func TestTypeOptionTakesTheProjectsOwnNames(t *testing.T) {
 		{"ready --type task takes the shared name", []string{"ready", "--type", "task"}, cli.ExitCodeSuccess,
 			[]string{"weighted-step-choice"}, ""},
 		{"an unknown name lists both vocabularies", []string{"ls", "--type", "milestone"}, cli.ExitCodeUsage, nil,
-			`--type "milestone" is invalid: Invalid option: expected one of "epic"|"story"|"task" ; this project names them epic:phase, task:task`},
+			`--type "milestone" is invalid: Invalid option: expected one of "epic"|"story"|"task"; this project names them epic:phase, task:task`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
