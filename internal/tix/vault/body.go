@@ -2,6 +2,7 @@ package vault
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -47,19 +48,150 @@ func (note *Note) Section(heading string) (Range, error) {
 	return section, nil
 }
 
-// Heading returns the text of the first heading of the given level, skipping code fences, and
-// whether there is one.
-func (note *Note) Heading(level int) (string, bool) {
+// HeadingLine is an ATX heading. Line is its index in Body.
+type HeadingLine struct {
+	Line  int
+	Level int
+	Text  string
+}
+
+// Headings returns the note's headings in order, skipping code fences.
+func (note *Note) Headings() []HeadingLine {
+	var headings []HeadingLine
 	fence := fenceTracker{}
-	for _, line := range note.Body {
+	for index, line := range note.Body {
 		if fence.inCode(line) {
 			continue
 		}
-		if lineLevel, text, ok := parseHeading(line); ok && lineLevel == level {
-			return text, true
+		if level, text, ok := parseHeading(line); ok {
+			headings = append(headings, HeadingLine{Line: index, Level: level, Text: text})
+		}
+	}
+	return headings
+}
+
+// Heading returns the text of the first heading of the given level, skipping code fences, and
+// whether there is one.
+func (note *Note) Heading(level int) (string, bool) {
+	for _, heading := range note.Headings() {
+		if heading.Level == level {
+			return heading.Text, true
 		}
 	}
 	return "", false
+}
+
+// SetHeadingText replaces the text of the heading on Body line index line, keeping its level and line ending.
+func (note *Note) SetHeadingText(line int, text string) error {
+	if strings.ContainsAny(text, "\r\n") {
+		return fmt.Errorf("%s: %w", note.Path, ErrMultilineText)
+	}
+	level, err := note.headingAt(line)
+	if err != nil {
+		return err
+	}
+	_, ending := splitEnding(note.Body[line])
+	note.Body[line] = headingLine(level, text) + ending
+	return nil
+}
+
+// InsertHeading inserts a heading of the given level before the body's first text, with a blank line between it
+// and the text and between it and any frontmatter. It takes the line ending of the lines around it.
+func (note *Note) InsertHeading(level int, text string) error {
+	if strings.ContainsAny(text, "\r\n") {
+		return fmt.Errorf("%s: %w", note.Path, ErrMultilineText)
+	}
+	end := len(note.Body)
+	if end > 0 && note.Body[end-1] == "" {
+		// The empty string a trailing newline leaves is not a line.
+		end--
+	}
+	line := 0
+	for line < end && isBlank(note.Body[line]) {
+		line++
+	}
+	ending := note.endingNear(line)
+	inserted := []string{headingLine(level, text) + ending}
+	if line == 0 && len(note.head) > 0 {
+		inserted = append([]string{ending}, inserted...)
+	}
+	if line < end {
+		inserted = append(inserted, ending)
+	}
+	note.Body = slices.Insert(note.Body, line, inserted...)
+	return nil
+}
+
+// SetTextUnder replaces the text under the heading on Body line index line, up to the next heading of any level,
+// with text, keeping the blank lines around it. Where there is no text, text goes under the heading with a blank
+// line on either side. text's trailing newlines are dropped, and each of its lines takes the heading's line ending.
+func (note *Note) SetTextUnder(line int, text string) error {
+	if _, err := note.headingAt(line); err != nil {
+		return err
+	}
+	start, end := line+1, len(note.Body)
+	for _, heading := range note.Headings() {
+		if heading.Line > line {
+			end = heading.Line
+			break
+		}
+	}
+	first, last := start, end
+	for first < last && isBlank(note.Body[first]) {
+		first++
+	}
+	for last > first && isBlank(note.Body[last-1]) {
+		last--
+	}
+	_, ending := splitEnding(note.Body[line])
+	var lines []string
+	for textLine := range strings.SplitSeq(strings.TrimRight(text, "\r\n"), "\n") {
+		lines = append(lines, strings.TrimSuffix(textLine, carriageReturn)+ending)
+	}
+	if first == last {
+		first, last = start, start
+		lines = append([]string{ending}, lines...)
+		if start < len(note.Body) && !isBlank(note.Body[start]) {
+			lines = append(lines, ending)
+		}
+	}
+	note.Body = slices.Replace(note.Body, first, last, lines...)
+	return nil
+}
+
+// headingAt returns the level of the heading on Body line index line.
+func (note *Note) headingAt(line int) (int, error) {
+	if line < 0 || line >= len(note.Body) {
+		return 0, fmt.Errorf("%s: %w: %d", note.Path, ErrLineOutOfRange, line)
+	}
+	level, _, ok := parseHeading(note.Body[line])
+	if !ok {
+		return 0, fmt.Errorf("%s: line %d: %w", note.Path, line, ErrNotHeading)
+	}
+	return level, nil
+}
+
+// endingNear returns the line ending of the Body line at index line or the one before it, or of the frontmatter
+// when neither is a line: "\r" for CRLF, else "".
+func (note *Note) endingNear(line int) string {
+	for _, index := range []int{line, line - 1} {
+		if index >= 0 && index < len(note.Body) && note.Body[index] != "" {
+			_, ending := splitEnding(note.Body[index])
+			return ending
+		}
+	}
+	if usesCarriageReturns(note.head) {
+		return carriageReturn
+	}
+	return ""
+}
+
+func headingLine(level int, text string) string {
+	return strings.Repeat(headingMark, level) + " " + text
+}
+
+func isBlank(line string) bool {
+	return strings.TrimSpace(line) == ""
 }
 
 // Checkboxes returns the task-list items within lines, in order, skipping code fences.

@@ -1,0 +1,190 @@
+package vaultstore
+
+import (
+	"errors"
+	"io/fs"
+	"maps"
+	"os"
+	"path/filepath"
+	"slices"
+
+	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/railyard/internal/tix/backend"
+	"github.com/theroymind/railyard/internal/tix/vault"
+)
+
+// Create writes a new note for value and returns its slug, the slug of value's title. The note starts from the
+// template of the note type that maps onto value's type, and goes in the directory that holds most notes of that
+// type. Its status, parent and dependencies properties, H1, description paragraph and criteria are filled from
+// value; an empty field keeps the template's text. Priority, tags and timestamps aren't written. The
+// note must read back with value's title, status, links and criteria before it is written, and nothing is written
+// when its slug is taken.
+func (store Store) Create(value ticket.Ticket) (string, error) {
+	noteType, mapping, err := store.templatedType(value.Type)
+	if err != nil {
+		return "", err
+	}
+	slug := vault.Slugify(value.Title)
+	if slug == "" {
+		return "", emptySlug(value.Title)
+	}
+	notes, err := store.ticketNotes()
+	if err != nil {
+		return "", err
+	}
+	if existing, exists := notes[slug]; exists {
+		return "", slugTaken(slug, existing.note.Path)
+	}
+	directory, err := store.typeDirectory(notes, noteType)
+	if err != nil {
+		return "", err
+	}
+	path := filepath.Join(directory, slug+noteExtension)
+	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
+		if err != nil {
+			return "", err
+		}
+		return "", slugTaken(slug, path)
+	}
+	note, err := vault.Read(filepath.Join(store.Root, store.Profile.TicketTemplates[noteType]))
+	if err != nil {
+		return "", err
+	}
+	note.Path, note.Slug = path, slug
+	if err := store.fill(note, mapping, value); err != nil {
+		return "", err
+	}
+	text := note.Render()
+	written, err := vault.Parse(path, text)
+	if err != nil {
+		return "", err
+	}
+	created, err := toTicket(store.Profile, mapping, written)
+	if err != nil {
+		return "", err
+	}
+	if err := checkKept(path, value, created); err != nil {
+		return "", err
+	}
+	return slug, backend.WriteAtomically(path, text)
+}
+
+// templatedType returns the first note type, in name order, that maps onto ticketType and has a template.
+func (store Store) templatedType(ticketType ticket.Type) (string, backend.TicketMapping, error) {
+	for _, noteType := range slices.Sorted(maps.Keys(store.Profile.Tickets)) {
+		mapping := store.Profile.Tickets[noteType]
+		if mapping.TicketType == ticketType && store.Profile.TicketTemplates[noteType] != "" {
+			return noteType, mapping, nil
+		}
+	}
+	return "", backend.TicketMapping{}, noTemplate(ticketType)
+}
+
+// typeDirectory returns the directory holding the most notes of noteType, the first by name on a tie.
+func (store Store) typeDirectory(notes map[string]ticketNote, noteType string) (string, error) {
+	counts := map[string]int{}
+	for _, found := range notes {
+		if propertyText(found.note.Property(store.Profile.TypeProperty)) == noteType {
+			counts[filepath.Dir(found.note.Path)]++
+		}
+	}
+	directory := ""
+	for _, candidate := range slices.Sorted(maps.Keys(counts)) {
+		if counts[candidate] > counts[directory] {
+			directory = candidate
+		}
+	}
+	if directory == "" {
+		return "", noDestination(noteType)
+	}
+	return directory, nil
+}
+
+// fill writes value's status, links, title, description and criteria into the template's note.
+func (store Store) fill(note *vault.Note, mapping backend.TicketMapping, value ticket.Ticket) error {
+	noteStatus, err := noteStatusOf(mapping, note.Path, value.Status)
+	if err != nil {
+		return err
+	}
+	if err := note.SetProperty(statusProperty, noteStatus); err != nil {
+		return err
+	}
+	if value.Parent != "" {
+		if err := setLinkProperty(note, mapping, ticket.FieldParent, value.Parent); err != nil {
+			return err
+		}
+	}
+	if len(value.Dependencies) > 0 {
+		if err := setLinkProperty(note, mapping, ticket.FieldDependencies, value.Dependencies); err != nil {
+			return err
+		}
+	}
+	if err := setTitle(note, value.Title); err != nil {
+		return err
+	}
+	if value.Description != "" {
+		if err := setDescription(note, value.Description); err != nil {
+			return err
+		}
+	}
+	if len(value.Acceptance) > 0 {
+		return setCriteria(store.Profile, note, value.Acceptance)
+	}
+	return nil
+}
+
+// setLinkProperty writes links, as plain slugs, to the first property by name that the mapping maps to field.
+func setLinkProperty(note *vault.Note, mapping backend.TicketMapping, field string, links any) error {
+	for _, property := range slices.Sorted(maps.Keys(mapping.Fields)) {
+		if mapping.Fields[property] == field {
+			return note.SetProperty(property, links)
+		}
+	}
+	return fieldUnsupported(field)
+}
+
+// setTitle rewrites the first H1 to read title, or inserts one before the body's first text.
+func setTitle(note *vault.Note, title string) error {
+	for _, heading := range note.Headings() {
+		if heading.Level == titleLevel {
+			return note.SetHeadingText(heading.Line, title)
+		}
+	}
+	return note.InsertHeading(titleLevel, title)
+}
+
+// setDescription replaces the text under the first H1, up to the next heading, with description.
+func setDescription(note *vault.Note, description string) error {
+	for _, heading := range note.Headings() {
+		if heading.Level == titleLevel {
+			return note.SetTextUnder(heading.Line, description)
+		}
+	}
+	return nil
+}
+
+// checkKept fails when the created ticket doesn't read back the title, status, links and criteria value gives. An
+// empty link field or no criteria in value leave the template's.
+func checkKept(path string, value, created ticket.Ticket) error {
+	switch {
+	case created.Title != value.Title:
+		return notKept(path, ticket.FieldTitle)
+	case created.Status != value.Status:
+		return notKept(path, ticket.FieldStatus)
+	case value.Parent != "" && created.Parent != value.Parent:
+		return notKept(path, ticket.FieldParent)
+	case len(value.Dependencies) > 0 && !slices.Equal(created.Dependencies, value.Dependencies):
+		return notKept(path, ticket.FieldDependencies)
+	case len(value.Acceptance) > 0 && !slices.Equal(created.Acceptance, ticket.NewCriteria(criterionTexts(value.Acceptance))):
+		return notKept(path, ticket.FieldAcceptance)
+	}
+	return nil
+}
+
+func criterionTexts(criteria []ticket.Criterion) []string {
+	texts := make([]string, len(criteria))
+	for index, criterion := range criteria {
+		texts[index] = criterion.Text
+	}
+	return texts
+}

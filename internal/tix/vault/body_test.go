@@ -2,6 +2,7 @@ package vault
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -91,6 +92,27 @@ func TestHeading(t *testing.T) {
 	}
 }
 
+func TestHeadings(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		expected []HeadingLine
+	}{
+		{"every level in order", "intro\n# Title\ntext\n## Sub #\n",
+			[]HeadingLine{{Line: 1, Level: 1, Text: "Title"}, {Line: 3, Level: 2, Text: "Sub"}}},
+		{"fenced headings skipped", "```\n# Fenced\n```\n### Real\r\n",
+			[]HeadingLine{{Line: 3, Level: 3, Text: "Real"}}},
+		{"none", "text\n", nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := mustParse(t, test.text).Headings(); !slices.Equal(got, test.expected) {
+				t.Errorf("Headings() = %v, want %v", got, test.expected)
+			}
+		})
+	}
+}
+
 func TestSectionNotFound(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -162,6 +184,74 @@ func TestEditCheckboxErrors(t *testing.T) {
 		{name: "negative", edit: func() error { return note.SetCheckbox(-1, true) }, want: ErrLineOutOfRange},
 		{name: "past end", edit: func() error { return note.SetCheckbox(10, true) }, want: ErrLineOutOfRange},
 		{name: "multiline", edit: func() error { return note.SetCheckboxText(1, "a\nb") }, want: ErrMultilineText},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.edit(); !errors.Is(err, test.want) {
+				t.Errorf("error = %v, want %v", err, test.want)
+			}
+		})
+	}
+}
+
+func TestHeadingEdits(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		edit     func(note *Note) error
+		expected string
+	}{
+		{"SetHeadingText keeps the level and line ending", "# Title\r\ntext\r\n",
+			func(note *Note) error { return note.SetHeadingText(0, "New") }, "# New\r\ntext\r\n"},
+		{"SetHeadingText on a deeper heading", "## Sub ##\n",
+			func(note *Note) error { return note.SetHeadingText(0, "New") }, "## New\n"},
+		{"InsertHeading goes before the first text, set off by blank lines", "---\na: 1\n---\n\nText.\n",
+			func(note *Note) error { return note.InsertHeading(1, "New") }, "---\na: 1\n---\n\n# New\n\nText.\n"},
+		{"InsertHeading under frontmatter alone", "---\na: 1\n---\n",
+			func(note *Note) error { return note.InsertHeading(1, "New") }, "---\na: 1\n---\n\n# New\n"},
+		{"InsertHeading keeps CRLF from the frontmatter", "---\r\na: 1\r\n---\r\n",
+			func(note *Note) error { return note.InsertHeading(1, "New") }, "---\r\na: 1\r\n---\r\n\r\n# New\r\n"},
+		{"InsertHeading keeps CRLF from the text", "---\r\na: 1\r\n---\r\n\r\nText.\r\n",
+			func(note *Note) error { return note.InsertHeading(1, "New") }, "---\r\na: 1\r\n---\r\n\r\n# New\r\n\r\nText.\r\n"},
+		{"InsertHeading at the top of a note without frontmatter", "Text.\n",
+			func(note *Note) error { return note.InsertHeading(1, "New") }, "# New\n\nText.\n"},
+		{"SetTextUnder replaces the text up to the next heading", "# T\n\nOld\nlines.\n\n## Next\n",
+			func(note *Note) error { return note.SetTextUnder(0, "New.\nText.") }, "# T\n\nNew.\nText.\n\n## Next\n"},
+		{"SetTextUnder up to the end", "# T\n\nOld.\n",
+			func(note *Note) error { return note.SetTextUnder(0, "New.") }, "# T\n\nNew.\n"},
+		{"SetTextUnder adds text where there is none", "# T\n## Next\n",
+			func(note *Note) error { return note.SetTextUnder(0, "New.") }, "# T\n\nNew.\n\n## Next\n"},
+		{"SetTextUnder drops the text's trailing newlines and keeps CRLF", "# T\r\n\r\nOld.\r\n\r\n## Next\r\n",
+			func(note *Note) error { return note.SetTextUnder(0, "New.\r\nText.\r\n\n") }, "# T\r\n\r\nNew.\r\nText.\r\n\r\n## Next\r\n"},
+		{"SetTextUnder skips a heading in a fence", "# T\n\nOld.\n```\n# x\n```\n\n## Next\n",
+			func(note *Note) error { return note.SetTextUnder(0, "New.") }, "# T\n\nNew.\n\n## Next\n"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			note := mustParse(t, test.text)
+			if err := test.edit(note); err != nil {
+				t.Fatal(err)
+			}
+			if got := string(note.Render()); got != test.expected {
+				t.Errorf("Render() = %q, want %q", got, test.expected)
+			}
+		})
+	}
+}
+
+func TestHeadingEditErrors(t *testing.T) {
+	note := mustParse(t, "# A\nplain\n")
+	tests := []struct {
+		name string
+		edit func() error
+		want error
+	}{
+		{name: "not a heading", edit: func() error { return note.SetHeadingText(1, "x") }, want: ErrNotHeading},
+		{name: "text under a non-heading", edit: func() error { return note.SetTextUnder(1, "x") }, want: ErrNotHeading},
+		{name: "past end", edit: func() error { return note.SetHeadingText(10, "x") }, want: ErrLineOutOfRange},
+		{name: "negative", edit: func() error { return note.SetTextUnder(-1, "x") }, want: ErrLineOutOfRange},
+		{name: "multiline heading", edit: func() error { return note.SetHeadingText(0, "a\nb") }, want: ErrMultilineText},
+		{name: "multiline inserted heading", edit: func() error { return note.InsertHeading(1, "a\nb") }, want: ErrMultilineText},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

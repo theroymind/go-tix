@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/theroymind/railyard/internal/contracts/ticket"
 	"github.com/theroymind/railyard/internal/tix/backend"
 	"github.com/theroymind/railyard/internal/tix/vault"
 )
@@ -29,6 +30,46 @@ func (store Store) applyCriterionChange(note *vault.Note, change backend.Change)
 	default:
 		return backend.Unsupported(change, backend.KindVault)
 	}
+}
+
+// setCriteria replaces the checkboxes under the profile's criteria heading with one unticked checkbox per criterion.
+// The first checkbox's line is kept, so the criteria keep its marker and indent.
+func setCriteria(profile backend.Profile, note *vault.Note, criteria []ticket.Criterion) error {
+	section, boxes, err := criterionBoxes(profile, note)
+	if err != nil {
+		return err
+	}
+	if len(boxes) > 0 {
+		// Every item's lines are found before any is deleted, then deleted last to first so that the earlier ones
+		// stay where they were. The first item keeps its own line and loses only its wrapped lines.
+		items := make([]vault.Range, len(boxes))
+		for index, box := range boxes {
+			items[index] = vault.Range{Start: box.Line + 1, End: itemEnd(note.Body, box.Line, section.End)}
+			if index > 0 {
+				items[index].Start = box.Line
+			}
+		}
+		for index := len(items) - 1; index >= 0; index-- {
+			note.Body = slices.Delete(note.Body, items[index].Start, items[index].End)
+		}
+		if err := note.SetCheckbox(boxes[0].Line, false); err != nil {
+			return err
+		}
+		if err := note.SetCheckboxText(boxes[0].Line, criteria[0].Text); err != nil {
+			return err
+		}
+		criteria = criteria[1:]
+	}
+	for _, criterion := range criteria {
+		section, boxes, err := criterionBoxes(profile, note)
+		if err != nil {
+			return err
+		}
+		if err := addCriterion(note, section, boxes, criterion.Text); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // withCriterion runs edit on the Body line of the 1-based index-th criterion.

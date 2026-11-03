@@ -171,26 +171,6 @@ func TestReadText(t *testing.T) {
 	}
 }
 
-func TestUnsupportedWrites(t *testing.T) {
-	store := openFixture(t)
-	tests := []struct {
-		name  string
-		write func() error
-	}{
-		{"Create", func() error {
-			_, err := store.Create(ticket.Ticket{Title: "New", Type: ticket.TypeTask, Status: ticket.StatusOpen})
-			return err
-		}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.write(); !errors.Is(err, backend.ErrUnsupported) {
-				t.Errorf("%s() error = %v, want %v", tt.name, err, backend.ErrUnsupported)
-			}
-		})
-	}
-}
-
 const profile = `prefix: v
 backend: vault
 vault:

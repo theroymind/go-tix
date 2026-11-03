@@ -40,7 +40,7 @@ func (store Store) applyChange(found ticketNote, change backend.Change) error {
 	}
 	switch {
 	case set.Field == ticket.FieldStatus:
-		noteStatus, err := noteStatusOf(found, set.Value)
+		noteStatus, err := noteStatusOf(found.mapping, found.note.Path, set.Value)
 		if err != nil {
 			return err
 		}
@@ -56,16 +56,16 @@ func (store Store) applyChange(found ticketNote, change backend.Change) error {
 }
 
 // noteStatusOf returns the note status that value names: the note status a ticket status maps back from, or a note
-// status as written.
-func noteStatusOf(found ticketNote, value any) (string, error) {
+// status as written. An unmapped value fails naming path and the mapping's note statuses.
+func noteStatusOf(mapping backend.TicketMapping, path string, value any) (string, error) {
 	text := fmt.Sprint(value)
-	for noteStatus, status := range found.mapping.Statuses {
+	for noteStatus, status := range mapping.Statuses {
 		if string(status) == text {
 			return noteStatus, nil
 		}
 	}
-	if _, isNoteStatus := found.mapping.Statuses[text]; isNoteStatus {
+	if _, isNoteStatus := mapping.Statuses[text]; isNoteStatus {
 		return text, nil
 	}
-	return "", unknownStatus(found.note.Path, text, slices.Sorted(maps.Keys(found.mapping.Statuses)))
+	return "", unknownStatus(path, text, slices.Sorted(maps.Keys(mapping.Statuses)))
 }

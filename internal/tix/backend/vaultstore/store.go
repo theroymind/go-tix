@@ -163,8 +163,3 @@ func (store Store) ReadText(id string) ([]byte, error) {
 	}
 	return found.note.Render(), nil
 }
-
-// Create fails: the vault backend doesn't create notes yet.
-func (store Store) Create(ticket.Ticket) (string, error) {
-	return "", createUnsupported()
-}

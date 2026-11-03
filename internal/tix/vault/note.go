@@ -22,6 +22,7 @@ var (
 	ErrDuplicateKey            = errors.New("duplicate frontmatter key")
 	ErrSectionNotFound         = errors.New("section not found")
 	ErrNotCheckbox             = errors.New("line is not a checkbox")
+	ErrNotHeading              = errors.New("line is not a heading")
 	ErrLineOutOfRange          = errors.New("line out of range")
 	ErrMultilineText           = errors.New("text spans more than one line")
 )

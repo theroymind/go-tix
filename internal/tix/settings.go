@@ -13,6 +13,7 @@ const (
 	optionJSON        = "json"
 	optionStatus      = "status"
 	optionParent      = "parent"
+	optionDependency  = "dependency"
 	optionAll         = "all"
 	optionForce       = "force"
 	pairSeparator     = "="

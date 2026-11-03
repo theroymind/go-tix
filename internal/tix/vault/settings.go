@@ -11,6 +11,8 @@ const (
 	undoneMark           = " "
 	maxFenceIndent       = 3
 	stringTag            = "!!str"
+	slugSeparator        = "-"
+	headingMark          = "#"
 )
 
 var (

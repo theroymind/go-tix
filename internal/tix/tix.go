@@ -7,7 +7,7 @@ const usage = `usage: tix <command> [arguments]
 
 commands:
   init --prefix PREFIX
-  add --type TYPE [--priority N] [--tag T]... [--acceptance A]... [--description D] [--draft] TITLE
+  add --type TYPE [--parent REF] [--priority N] [--tag T]... [--dependency REF]... [--acceptance A]... [--description D] [--draft] TITLE
   show REF [--json]
   ls [--status S] [--type T] [--tag T] [--parent REF] [--all] [--json]
   ready [--type T] [--json]
