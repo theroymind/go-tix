@@ -2,11 +2,13 @@ package vaultstore_test
 
 import (
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/theroymind/railyard/internal/contracts/ticket"
 	"github.com/theroymind/railyard/internal/tix/backend"
@@ -265,5 +267,94 @@ func TestBacklinks(t *testing.T) {
 				t.Errorf("Backlinks() = %v, want %v", slugs, tt.expected)
 			}
 		})
+	}
+}
+
+func TestCreateDoc(t *testing.T) {
+	today := time.Now().Format(backend.DateLayout)
+	tests := []struct {
+		name          string
+		kind          string
+		value         backend.Doc
+		expectedID    string
+		expectedPath  string
+		expectedText  string
+		expectedError error
+		mentions      []string
+	}{
+		{"A decision starts from its template with the first status and today's date, beside the other decisions",
+			"decision", backend.Doc{Title: "Bosses plan with GOAP"}, "bosses-plan-with-goap", "docs/decisions/bosses-plan-with-goap.md",
+			"---\ntype: decision\nstatus: proposed\ndecided_by:\ndate: \"" + today + "\"\ntasks: []\n---\n\n" +
+				"The decision, stated so it reads on its own.\n\n## Rejected\n\n- an alternative and why it lost\n", nil, nil},
+		{"A given status and properties are written",
+			"decision", backend.Doc{Title: "Bosses plan with GOAP", Status: "accepted", Properties: map[string]any{"decided_by": "user"}},
+			"bosses-plan-with-goap", "docs/decisions/bosses-plan-with-goap.md",
+			"---\ntype: decision\nstatus: accepted\ndecided_by: user\ndate: \"" + today + "\"\ntasks: []\n---\n\n" +
+				"The decision, stated so it reads on its own.\n\n## Rejected\n\n- an alternative and why it lost\n", nil, nil},
+		{"A status outside the kind's list writes nothing",
+			"decision", backend.Doc{Title: "Bosses plan with GOAP", Status: "done"}, "", "", "", vaultstore.ErrUnknownStatus, []string{`"done"`}},
+		{"A kind without a template writes nothing",
+			"idea", backend.Doc{Title: "Bosses"}, "", "", "", vaultstore.ErrNoDocTemplate, []string{`"idea"`}},
+		{"A kind outside the profile names the kinds in it",
+			"task", backend.Doc{Title: "Bosses"}, "", "", "", vaultstore.ErrUnknownKind, []string{`"task"`, `"decision", "idea", "spec"`}},
+		{"A slug a doc has is taken",
+			"decision", backend.Doc{Title: "Turn order is a wait counter"}, "", "", "", vaultstore.ErrSlugTaken,
+			[]string{`"turn-order-is-a-wait-counter"`, filepath.Join("docs", "decisions", "turn-order-is-a-wait-counter.md")}},
+		{"A slug a ticket has is taken",
+			"decision", backend.Doc{Title: "Golem guards"}, "", "", "", vaultstore.ErrSlugTaken, []string{`"golem-guards"`, filepath.Join("docs", "tasks", "golem-guards.md")}},
+		{"A title with nothing to slug is refused",
+			"decision", backend.Doc{Title: "!!!"}, "", "", "", vaultstore.ErrEmptySlug, []string{`"!!!"`}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, root := copyFixture(t)
+			before := vaultFiles(t, root)
+
+			id, err := store.(backend.DocStore).CreateDoc(tt.kind, tt.value)
+
+			if !errors.Is(err, tt.expectedError) {
+				t.Fatalf("CreateDoc() error = %v, want %v", err, tt.expectedError)
+			}
+			for _, mention := range tt.mentions {
+				if !strings.Contains(err.Error(), mention) {
+					t.Errorf("CreateDoc() error = %q, want it to mention %s", err, mention)
+				}
+			}
+			if id != tt.expectedID {
+				t.Errorf("CreateDoc() = %q, want %q", id, tt.expectedID)
+			}
+			if tt.expectedPath != "" {
+				before[tt.expectedPath] = tt.expectedText
+			}
+			if after := vaultFiles(t, root); !maps.Equal(before, after) {
+				t.Errorf("files after CreateDoc() =\n%v\nwant\n%v", after, before)
+			}
+		})
+	}
+}
+
+func TestCreateDocFillsTheTitlePlaceholder(t *testing.T) {
+	store, root := copyFixture(t)
+	template := filepath.Join(root, "docs", "templates", "decision.md")
+	text, err := os.ReadFile(template)
+	if err != nil {
+		t.Fatal(err)
+	}
+	withTitle := strings.Replace(string(text), "---\n\nThe decision", "---\n\n# {{title}}\n\nThe decision", 1)
+	if err := os.WriteFile(template, []byte(withTitle), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	id, err := store.(backend.DocStore).CreateDoc("decision", backend.Doc{Title: "Bosses plan with GOAP"})
+
+	if err != nil {
+		t.Fatalf("CreateDoc() error = %v", err)
+	}
+	created, err := store.(backend.DocStore).ReadDoc(id)
+	if err != nil {
+		t.Fatalf("ReadDoc() error = %v", err)
+	}
+	if created.Title != "Bosses plan with GOAP" {
+		t.Errorf("created doc's title = %q, want the title given", created.Title)
 	}
 }

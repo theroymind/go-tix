@@ -8,6 +8,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/theroymind/railyard/internal/cli"
+	"github.com/theroymind/railyard/internal/contracts/ticket"
 	"github.com/theroymind/railyard/internal/tix/backend"
 )
 
@@ -21,7 +22,10 @@ var docsSpecification = cli.Specification{
 }
 
 var docSpecification = cli.Specification{
-	Options:           []cli.Option{{Name: optionJSON, Type: cli.OptionTypeBoolean}},
+	Options: []cli.Option{
+		{Name: optionJSON, Type: cli.OptionTypeBoolean},
+		{Name: optionKind, Type: cli.OptionTypeString},
+	},
 	AllowsPositionals: true,
 }
 
@@ -52,27 +56,47 @@ func runDocs(arguments []string, _ io.Reader, stdout io.Writer) error {
 	return writeDocs(stdout, docs, parsed.IsEnabled(optionJSON))
 }
 
-// runDoc dispatches on its first positional: doc show REF prints the doc's text, or the doc as JSON.
+// runDoc dispatches on its first positional: doc show REF prints the doc's text, or the doc as JSON, and
+// doc add --kind K TITLE creates one from the kind's template and prints its id.
 func runDoc(arguments []string, _ io.Reader, stdout io.Writer) error {
 	parsed, err := cli.Parse(arguments, docSpecification)
 	if err != nil {
 		return err
 	}
-	if len(parsed.Positionals) == 0 || (parsed.Positionals[0] == subcommandShow && len(parsed.Positionals) != 2) {
-		return cli.NewUsageError(ErrExpectedDocShow)
+	if len(parsed.Positionals) == 0 {
+		return cli.NewUsageError(ErrExpectedDocSubcommand)
 	}
-	if parsed.Positionals[0] != subcommandShow {
-		return expectedDocSubcommand(ErrExpectedDocShow, parsed.Positionals[0])
+	subcommand, rest := parsed.Positionals[0], parsed.Positionals[1:]
+	switch subcommand {
+	case subcommandShow:
+		if len(rest) != 1 {
+			return cli.NewUsageError(ErrExpectedDocShow)
+		}
+		return showDoc(stdout, rest[0], parsed.IsEnabled(optionJSON))
+	case subcommandAdd:
+		if len(rest) != 1 {
+			return cli.NewUsageError(ErrExpectedDocAdd)
+		}
+		kind, err := parsed.RequiredString(optionKind)
+		if err != nil {
+			return err
+		}
+		return addDoc(stdout, kind, rest[0])
+	default:
+		return expectedDocSubcommand(ErrExpectedDocSubcommand, subcommand)
 	}
+}
+
+func showDoc(stdout io.Writer, reference string, isJSON bool) error {
 	store, err := openDocStore()
 	if err != nil {
 		return err
 	}
-	id, err := store.ResolveDoc(parsed.Positionals[1])
+	id, err := store.ResolveDoc(reference)
 	if err != nil {
 		return err
 	}
-	if parsed.IsEnabled(optionJSON) {
+	if isJSON {
 		shown, err := store.ReadDoc(id)
 		if err != nil {
 			return err
@@ -84,6 +108,23 @@ func runDoc(arguments []string, _ io.Reader, stdout io.Writer) error {
 		return err
 	}
 	_, err = stdout.Write(text)
+	return err
+}
+
+func addDoc(stdout io.Writer, kind, title string) error {
+	title, err := ticket.NormalizeTitle(title)
+	if err != nil {
+		return err
+	}
+	store, err := openDocStore()
+	if err != nil {
+		return err
+	}
+	id, err := store.CreateDoc(kind, backend.Doc{Title: title})
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(stdout, id)
 	return err
 }
 

@@ -22,6 +22,8 @@ var (
 	ErrCriterionOutOfRange = errors.New("is out of range")
 	// ErrNoTemplate reports a ticket type that no note type with a template in the profile maps onto.
 	ErrNoTemplate = errors.New("has no note type with a template in the profile")
+	// ErrNoDocTemplate reports a doc kind with no template in the profile.
+	ErrNoDocTemplate = errors.New("has no template in the profile")
 	// ErrEmptySlug reports a title with no ASCII letter or digit to name a note by.
 	ErrEmptySlug = errors.New("has no letter or digit to name a note by")
 	// ErrSlugTaken reports a new note's slug that a ticket note, or a file at its path, already has.
@@ -58,6 +60,10 @@ func tooManyParents(path, property string, links []string) error {
 
 func noTemplate(ticketType ticket.Type) error {
 	return fmt.Errorf("ticket type %s %w", strconv.Quote(string(ticketType)), ErrNoTemplate)
+}
+
+func noDocTemplate(kind string) error {
+	return fmt.Errorf("doc kind %s %w", strconv.Quote(kind), ErrNoDocTemplate)
 }
 
 func emptySlug(title string) error {

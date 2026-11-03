@@ -2,10 +2,13 @@ package vaultstore
 
 import (
 	"errors"
+	"io/fs"
 	"maps"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"go.yaml.in/yaml/v3"
 
@@ -157,6 +160,88 @@ func docStatusOf(found docNote, value any) (string, error) {
 		return "", unknownStatus(found.note.Path, text, found.mapping.Statuses)
 	}
 	return text, nil
+}
+
+// CreateDoc writes a new note of kind and returns its slug, the slug of value.Title. The note starts from the kind's
+// template with {{title}} and {{date}} filled in, goes in the directory holding most notes of the kind, and takes
+// value.Status, or the kind's first status, and value.Properties. Nothing is written when the slug is taken by a
+// ticket, a doc or a file, or when the kind has no template.
+func (store Store) CreateDoc(kind string, value backend.Doc) (string, error) {
+	mapping, isDoc := store.Profile.Docs[kind]
+	if !isDoc {
+		return "", unknownKind(kind, slices.Sorted(maps.Keys(store.Profile.Docs)))
+	}
+	if mapping.Template == "" {
+		return "", noDocTemplate(kind)
+	}
+	slug := vault.Slugify(value.Title)
+	if slug == "" {
+		return "", emptySlug(value.Title)
+	}
+	tickets, err := store.ticketNotes()
+	if err != nil {
+		return "", err
+	}
+	if existing, exists := tickets[slug]; exists {
+		return "", slugTaken(slug, existing.note.Path)
+	}
+	docs, err := store.docNotes()
+	if err != nil {
+		return "", err
+	}
+	if existing, exists := docs[slug]; exists {
+		return "", slugTaken(slug, existing.note.Path)
+	}
+	var paths []string
+	for _, found := range docs {
+		if found.kind == kind {
+			paths = append(paths, found.note.Path)
+		}
+	}
+	directory, err := store.typeDirectory(paths, kind)
+	if err != nil {
+		return "", err
+	}
+	path := filepath.Join(directory, slug+noteExtension)
+	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
+		if err != nil {
+			return "", err
+		}
+		return "", slugTaken(slug, path)
+	}
+	template, err := os.ReadFile(filepath.Join(store.Root, mapping.Template))
+	if err != nil {
+		return "", err
+	}
+	text := strings.ReplaceAll(string(template), backend.PlaceholderTitle, value.Title)
+	text = strings.ReplaceAll(text, backend.PlaceholderDate, time.Now().Format(backend.DateLayout))
+	note, err := vault.Parse(path, []byte(text))
+	if err != nil {
+		return "", err
+	}
+	status := value.Status
+	if status == "" && len(mapping.Statuses) > 0 {
+		status = mapping.Statuses[0]
+	}
+	if status != "" {
+		if err := note.SetProperty(statusProperty, status); err != nil {
+			return "", err
+		}
+	}
+	for _, property := range slices.Sorted(maps.Keys(value.Properties)) {
+		if err := note.SetProperty(property, value.Properties[property]); err != nil {
+			return "", err
+		}
+	}
+	rendered := note.Render()
+	written, err := vault.Parse(path, rendered)
+	if err != nil {
+		return "", err
+	}
+	if _, err := store.toDoc(docNote{note: written, kind: kind, mapping: mapping}); err != nil {
+		return "", err
+	}
+	return slug, backend.WriteAtomically(path, rendered)
 }
 
 // Backlinks returns the slugs of every note under Root whose wikilinks name id, in slug order.

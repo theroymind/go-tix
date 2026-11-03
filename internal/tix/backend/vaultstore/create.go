@@ -35,7 +35,7 @@ func (store Store) Create(value ticket.Ticket) (string, error) {
 	if existing, exists := notes[slug]; exists {
 		return "", slugTaken(slug, existing.note.Path)
 	}
-	directory, err := store.typeDirectory(notes, noteType)
+	directory, err := store.typeDirectory(store.pathsOfType(notes, noteType), noteType)
 	if err != nil {
 		return "", err
 	}
@@ -80,13 +80,11 @@ func (store Store) templatedType(ticketType ticket.Type) (string, backend.Ticket
 	return "", backend.TicketMapping{}, noTemplate(ticketType)
 }
 
-// typeDirectory returns the directory holding the most notes of noteType, the first by name on a tie.
-func (store Store) typeDirectory(notes map[string]ticketNote, noteType string) (string, error) {
+// typeDirectory returns the directory holding the most notes of noteType among paths, the first by name on a tie.
+func (store Store) typeDirectory(paths []string, noteType string) (string, error) {
 	counts := map[string]int{}
-	for _, found := range notes {
-		if propertyText(found.note.Property(store.Profile.TypeProperty)) == noteType {
-			counts[filepath.Dir(found.note.Path)]++
-		}
+	for _, path := range paths {
+		counts[filepath.Dir(path)]++
 	}
 	directory := ""
 	for _, candidate := range slices.Sorted(maps.Keys(counts)) {
@@ -98,6 +96,17 @@ func (store Store) typeDirectory(notes map[string]ticketNote, noteType string) (
 		return "", noDestination(noteType)
 	}
 	return directory, nil
+}
+
+// pathsOfType returns the paths of the ticket notes whose type property is noteType.
+func (store Store) pathsOfType(notes map[string]ticketNote, noteType string) []string {
+	var paths []string
+	for _, found := range notes {
+		if propertyText(found.note.Property(store.Profile.TypeProperty)) == noteType {
+			paths = append(paths, found.note.Path)
+		}
+	}
+	return paths
 }
 
 // fill writes value's status, links, title, description and criteria into the template's note.

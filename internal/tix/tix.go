@@ -20,6 +20,7 @@ commands:
   ac add REF TEXT
   docs ls [--kind K] [--status S] [--json]
   doc show REF [--json]
+  doc add --kind K TITLE
   backlinks REF [--json]
   supersede OLD NEW      (marks the OLD doc superseded by NEW)
 `

@@ -26,9 +26,19 @@ type DocStore interface {
 	ReadDocText(id string) ([]byte, error)
 	// ApplyDoc makes every SetField change to the doc or none of them. Other changes fail with ErrUnsupported.
 	ApplyDoc(id string, changes []Change) error
+	// CreateDoc stores a new doc of kind under an id the backend assigns from value.Title, ignoring value.ID, and
+	// returns that id. An empty value.Status takes the kind's first status, and value.Properties are set on it.
+	CreateDoc(kind string, value Doc) (string, error)
 	// Backlinks returns the ids of every note that links to id, tickets, docs and unmapped notes alike, in id order.
 	Backlinks(id string) ([]string, error)
 }
+
+// Template placeholders a new note's template may use: the title given, and today's date as YYYY-MM-DD.
+const (
+	PlaceholderTitle = "{{title}}"
+	PlaceholderDate  = "{{date}}"
+	DateLayout       = "2006-01-02"
+)
 
 // Supersession is how a doc gives way to a newer one: its status becomes StatusSuperseded and SupersededByProperty
 // names the newer doc. A doc kind can be superseded only when its statuses include StatusSuperseded.

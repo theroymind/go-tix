@@ -2,9 +2,11 @@ package tix_test
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/theroymind/railyard/internal/cli"
 	"github.com/theroymind/railyard/internal/tix/backend"
@@ -89,9 +91,9 @@ func TestDocShow(t *testing.T) {
 		{"JSON shows the doc", []string{"doc", "show", "--json", "enemy-ai"}, cli.ExitCodeSuccess, false,
 			[]string{`"id": "enemy-ai"`, `"kind": "idea"`, `"title": "Enemy AI: targeting, behaviour and planning"`, `"status": "open"`}},
 		{"A ticket slug is no doc", []string{"doc", "show", "golem-guards"}, cli.ExitCodeFailure, false, []string{"no doc matches", `"golem-guards"`}},
-		{"doc alone is a usage error", []string{"doc"}, cli.ExitCodeUsage, false, []string{"expected doc show REF"}},
+		{"doc alone is a usage error", []string{"doc"}, cli.ExitCodeUsage, false, []string{"expected doc show or doc add"}},
 		{"doc show without a reference is a usage error", []string{"doc", "show"}, cli.ExitCodeUsage, false, []string{"expected doc show REF"}},
-		{"A subcommand other than show is a usage error", []string{"doc", "ls"}, cli.ExitCodeUsage, false, []string{"expected doc show REF", `"ls"`}},
+		{"A subcommand other than show or add is a usage error", []string{"doc", "ls"}, cli.ExitCodeUsage, false, []string{"expected doc show or doc add", `"ls"`}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -135,6 +137,69 @@ func TestDocCommandsOnTheYAMLBackend(t *testing.T) {
 			}
 			if !strings.Contains(output, backend.ErrNoDocs.Error()) {
 				t.Errorf("output %q does not say the backend has no docs", output)
+			}
+		})
+	}
+}
+
+func TestDocAdd(t *testing.T) {
+	today := time.Now().Format(backend.DateLayout)
+	const created = "docs/decisions/bosses-plan-with-goap.md"
+	tests := []struct {
+		name             string
+		arguments        []string
+		expectedExitCode cli.ExitCode
+		expectedOutput   string
+		writes           bool
+		mentions         []string
+	}{
+		{"A decision is created from its template with status proposed and today's date, and its id printed",
+			[]string{"doc", "add", "--kind", "decision", "Bosses plan with GOAP"}, cli.ExitCodeSuccess, "bosses-plan-with-goap\n", true, nil},
+		{"An existing slug exits 1 and writes nothing",
+			[]string{"doc", "add", "--kind", "decision", "Turn order is a wait counter"}, cli.ExitCodeFailure, "", false,
+			[]string{`"turn-order-is-a-wait-counter"`, "is taken by"}},
+		{"A kind with no template exits 1 and writes nothing",
+			[]string{"doc", "add", "--kind", "idea", "Bosses"}, cli.ExitCodeFailure, "", false, []string{`"idea"`, "has no template"}},
+		{"A kind outside the profile names the kinds in it",
+			[]string{"doc", "add", "--kind", "task", "Bosses"}, cli.ExitCodeFailure, "", false, []string{`"task"`, `"decision", "idea", "spec"`}},
+		{"The kind is required",
+			[]string{"doc", "add", "Bosses"}, cli.ExitCodeUsage, "", false, []string{"--kind"}},
+		{"The title is required",
+			[]string{"doc", "add", "--kind", "decision"}, cli.ExitCodeUsage, "", false, []string{"expected doc add --kind K TITLE"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := copyVault(t)
+			before := snapshot(t, root)
+
+			exitCode, output := run(t, root, tt.arguments...)
+
+			if exitCode != tt.expectedExitCode {
+				t.Fatalf("exit code = %d, expected %d; output %q", exitCode, tt.expectedExitCode, output)
+			}
+			if tt.expectedOutput != "" && output != tt.expectedOutput {
+				t.Errorf("output = %q, expected %q", output, tt.expectedOutput)
+			}
+			for _, mention := range tt.mentions {
+				if !strings.Contains(output, mention) {
+					t.Errorf("output %q does not mention %q", output, mention)
+				}
+			}
+			path := filepath.Join(root, created)
+			if tt.writes {
+				text, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatalf("the decision was not written: %v", err)
+				}
+				for _, line := range []string{"type: decision\n", "status: proposed\n", "date: \"" + today + "\"\n"} {
+					if !strings.Contains(string(text), line) {
+						t.Errorf("note lacks %q:\n%s", line, text)
+					}
+				}
+				before[path] = string(text)
+			}
+			if after := snapshot(t, root); !equalSnapshots(before, after) {
+				t.Errorf("other notes changed:\n%s", snapshotDiff(before, after))
 			}
 		})
 	}
