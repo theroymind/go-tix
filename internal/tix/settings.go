@@ -25,9 +25,9 @@ const (
 	subcommandShow    = "show"
 	optionType        = "type"
 
-	typeNamesHintStart     = "; this project names them "
+	typeNamesLegend        = "default|project: "
 	typeNamesHintSeparator = ", "
-	typeNamePairSeparator  = ":"
+	typeNameSeparator      = "|"
 )
 
 const (

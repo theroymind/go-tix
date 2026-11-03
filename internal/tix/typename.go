@@ -6,7 +6,6 @@ import (
 
 	"github.com/theroymind/railyard/internal/cli"
 	"github.com/theroymind/railyard/internal/contracts/ticket"
-	"github.com/theroymind/railyard/internal/contracts/validation"
 	"github.com/theroymind/railyard/internal/tix/backend"
 )
 
@@ -20,7 +19,8 @@ func parseType(parsed cli.Arguments, store backend.Backend) (ticket.Type, error)
 	return resolveType(value, store)
 }
 
-// resolveType returns the ticket type value names, as parseType does, and a usage error for any other value.
+// resolveType returns the ticket type value names, as parseType does, and a usage error for any other value. The
+// error lists the types, paired with the project's names when it has them: `default|project: epic|phase, story, task|task`.
 func resolveType(value string, store backend.Backend) (ticket.Type, error) {
 	if ticket.Type(value).IsValid() {
 		return ticket.Type(value), nil
@@ -31,8 +31,26 @@ func resolveType(value string, store backend.Backend) (ticket.Type, error) {
 			return name.Type, nil
 		}
 	}
-	return "", cli.NewUsageError(fmt.Errorf("%s%s %q %w: %s%s", longOptionStart, optionType, value, ErrInvalidOption,
-		validation.InvalidOption(ticket.Types), typeNamesHint(names)))
+	return "", cli.NewUsageError(fmt.Errorf("%s%s %q %w: expected %s", longOptionStart, optionType, value, ErrInvalidOption, typeChoices(names)))
+}
+
+// typeChoices lists the ticket types, each followed by the project's names for it: `default|project: epic|phase,
+// story, task|task`. With no project names it's `epic, story, task`.
+func typeChoices(names []backend.TypeName) string {
+	listed := make([]string, len(ticket.Types))
+	for index, ticketType := range ticket.Types {
+		listed[index] = string(ticketType)
+		for _, name := range names {
+			if name.Type == ticketType {
+				listed[index] += typeNameSeparator + name.Name
+			}
+		}
+	}
+	choices := strings.Join(listed, typeNamesHintSeparator)
+	if len(names) == 0 {
+		return choices
+	}
+	return typeNamesLegend + choices
 }
 
 // typeNames returns the project's own names for the ticket types, or none when the backend has no such names.
@@ -42,17 +60,4 @@ func typeNames(store backend.Backend) []backend.TypeName {
 		return nil
 	}
 	return namer.TypeNames()
-}
-
-// typeNamesHint is the part of an invalid --type error that lists the project's own names as default:project pairs,
-// such as `; this project names them epic:phase, task:task`. It's empty when the project has none.
-func typeNamesHint(names []backend.TypeName) string {
-	if len(names) == 0 {
-		return ""
-	}
-	listed := make([]string, len(names))
-	for index, name := range names {
-		listed[index] = string(name.Type) + typeNamePairSeparator + name.Name
-	}
-	return typeNamesHintStart + strings.Join(listed, typeNamesHintSeparator)
 }

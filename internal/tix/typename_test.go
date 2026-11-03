@@ -22,7 +22,7 @@ func TestTypeOptionTakesTheProjectsOwnNames(t *testing.T) {
 		{"ready --type task takes the shared name", []string{"ready", "--type", "task"}, cli.ExitCodeSuccess,
 			[]string{"weighted-step-choice"}, ""},
 		{"an unknown name lists both vocabularies", []string{"ls", "--type", "milestone"}, cli.ExitCodeUsage, nil,
-			`--type "milestone" is invalid: Invalid option: expected one of "epic"|"story"|"task"; this project names them epic:phase, task:task`},
+			`--type "milestone" is invalid: expected default|project: epic|phase, story, task|task`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -44,5 +44,18 @@ func TestTypeOptionTakesTheProjectsOwnNames(t *testing.T) {
 				t.Errorf("output has %d rows, expected %d:\n%s", lines, len(tt.expectedRows), output)
 			}
 		})
+	}
+}
+
+func TestTypeOptionWithoutProjectNames(t *testing.T) {
+	root, _ := yamlRepository(t)
+
+	exitCode, output := run(t, root, "ls", "--type", "phase")
+
+	if exitCode != cli.ExitCodeUsage {
+		t.Fatalf("exit code = %d, output %q", exitCode, output)
+	}
+	if expected := `--type "phase" is invalid: expected epic, story, task`; !strings.Contains(output, expected) {
+		t.Errorf("output = %q, expected it to contain %q", output, expected)
 	}
 }
