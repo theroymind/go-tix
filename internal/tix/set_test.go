@@ -8,6 +8,60 @@ import (
 	"github.com/theroymind/railyard/internal/cli"
 )
 
+func TestSetOnADoc(t *testing.T) {
+	tests := []struct {
+		name             string
+		arguments        []string
+		expectedExitCode cli.ExitCode
+		replace          [2]string
+		mentions         []string
+	}{
+		{"A status in the kind's list changes only the status line",
+			[]string{"set", "turn-order-is-a-wait-counter", "status=accepted"}, cli.ExitCodeSuccess,
+			[2]string{"status: proposed\n", "status: accepted\n"}, nil},
+		{"A unique prefix resolves to the doc when no ticket matches",
+			[]string{"set", "turn", "status=deferred"}, cli.ExitCodeSuccess,
+			[2]string{"status: proposed\n", "status: deferred\n"}, nil},
+		{"A status outside the kind's list names the kind's statuses",
+			[]string{"set", "turn-order-is-a-wait-counter", "status=done"}, cli.ExitCodeFailure,
+			[2]string{}, []string{`"done"`, `"proposed", "accepted", "deferred", "superseded"`}},
+		{"Any other key is written as a property",
+			[]string{"set", "turn-order-is-a-wait-counter", "decided_by=user"}, cli.ExitCodeSuccess,
+			[2]string{"decided_by:\n", "decided_by: user\n"}, nil},
+		{"A reference matching neither a ticket nor a doc has no match",
+			[]string{"set", "nothing", "status=accepted"}, cli.ExitCodeFailure,
+			[2]string{}, []string{"no ticket matches", `"nothing"`}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := copyVault(t)
+			path := filepath.Join(root, "docs", "decisions", "turn-order-is-a-wait-counter.md")
+			original := readFile(t, path)
+			if tt.replace[0] != "" && !strings.Contains(original, tt.replace[0]) {
+				t.Fatalf("fixture lacks %q", tt.replace[0])
+			}
+
+			exitCode, output := run(t, root, tt.arguments...)
+
+			if exitCode != tt.expectedExitCode {
+				t.Fatalf("exit code = %d, expected %d; output %q", exitCode, tt.expectedExitCode, output)
+			}
+			for _, mention := range tt.mentions {
+				if !strings.Contains(output, mention) {
+					t.Errorf("output %q does not mention %q", output, mention)
+				}
+			}
+			expected := original
+			if tt.replace[0] != "" {
+				expected = strings.Replace(original, tt.replace[0], tt.replace[1], 1)
+			}
+			if actual := readFile(t, path); actual != expected {
+				t.Errorf("note =\n%s\nexpected\n%s", actual, expected)
+			}
+		})
+	}
+}
+
 func TestSetOnAVault(t *testing.T) {
 	tests := []struct {
 		name             string

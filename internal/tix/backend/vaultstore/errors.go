@@ -13,7 +13,9 @@ import (
 const listSeparator = ", "
 
 var (
-	ErrUnknownStatus  = errors.New("has a status the profile doesn't map")
+	ErrUnknownStatus = errors.New("has a status the profile doesn't map")
+	// ErrUnknownKind reports a doc kind the profile doesn't define.
+	ErrUnknownKind    = errors.New("is not a doc kind in the profile")
 	ErrDuplicateSlug  = errors.New("shares its slug with")
 	ErrTooManyParents = errors.New("links more than one parent")
 	// ErrCriterionOutOfRange reports a criterion index below 1 or past the note's last criterion.
@@ -36,6 +38,14 @@ func unknownStatus(path, status string, allowed []string) error {
 		quoted[index] = strconv.Quote(name)
 	}
 	return fmt.Errorf("%s %w: %s, expected one of %s", path, ErrUnknownStatus, strconv.Quote(status), strings.Join(quoted, listSeparator))
+}
+
+func unknownKind(kind string, allowed []string) error {
+	quoted := make([]string, len(allowed))
+	for index, name := range allowed {
+		quoted[index] = strconv.Quote(name)
+	}
+	return fmt.Errorf("kind %s %w, expected one of %s", strconv.Quote(kind), ErrUnknownKind, strings.Join(quoted, listSeparator))
 }
 
 func duplicateSlug(path, otherPath string) error {

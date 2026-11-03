@@ -31,11 +31,11 @@ func runSet(arguments []string, _ io.Reader, _ io.Writer) error {
 	if err != nil {
 		return err
 	}
-	id, err := store.Resolve(parsed.Positionals[0])
+	id, apply, err := resolveAny(store, parsed.Positionals[0])
 	if err != nil {
 		return err
 	}
-	return store.Apply(id, changes)
+	return apply(id, changes)
 }
 
 // pairValue gives a value the type its field holds: a priority is an integer, and a list field is refused, since

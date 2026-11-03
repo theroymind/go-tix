@@ -20,4 +20,6 @@ var (
 		ticket.FieldAcceptance: true, ticket.FieldDependencies: true, ticket.FieldParent: true,
 		ticket.FieldPriority: true, ticket.FieldTags: true,
 	}
+	// unheldDocFields are doc fields a note doesn't keep as a property of the same name: the slug and the H1.
+	unheldDocFields = map[string]bool{ticket.FieldID: true, ticket.FieldTitle: true}
 )

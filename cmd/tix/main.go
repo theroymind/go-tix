@@ -2,7 +2,7 @@
 // an Obsidian vault when .tix/config.yml names the vault backend and its profile.
 //
 // Run tix init --prefix PREFIX once, then tix add, tix show, tix ls, tix ready, tix set, tix done,
-// tix tick, tix untick and tix ac.
+// tix tick, tix untick and tix ac. On a vault, tix docs ls and tix doc show read its decisions, ideas and specs.
 package main
 
 import (

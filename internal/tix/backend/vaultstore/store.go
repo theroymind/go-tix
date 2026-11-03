@@ -14,9 +14,11 @@ import (
 	"github.com/theroymind/railyard/internal/tix/vault"
 )
 
-// Store reads the ticket notes under Root. Its Profile has its defaults filled in.
+// Store reads the ticket and doc notes under Root. Its Profile has its defaults filled in, and Base is the directory
+// holding .tix, which a doc's path is given relative to.
 type Store struct {
 	Root    string
+	Base    string
 	Profile backend.Profile
 }
 
@@ -42,18 +44,18 @@ func Open(tixDirectory string, config backend.Config) (backend.Backend, error) {
 		profile = *config.Vault
 	}
 	profile = profile.WithDefaults()
-	return Store{Root: filepath.Join(filepath.Dir(tixDirectory), profile.Root), Profile: profile}, nil
+	base := filepath.Dir(tixDirectory)
+	return Store{Root: filepath.Join(base, profile.Root), Base: base, Profile: profile}, nil
 }
 
-// ticketNotes parses every note under Root and returns those whose type is a ticket type, by slug. Hidden
-// directories and the templates the Profile names are skipped.
-func (store Store) ticketNotes() (map[string]ticketNote, error) {
+// walkNotes parses every note under Root and calls visit on each. Hidden directories and the templates the Profile
+// names are skipped.
+func (store Store) walkNotes(visit func(note *vault.Note) error) error {
 	templates := map[string]bool{}
 	for _, template := range store.Profile.Templates() {
 		templates[filepath.Join(store.Root, template)] = true
 	}
-	notes := map[string]ticketNote{}
-	err := filepath.WalkDir(store.Root, func(path string, entry fs.DirEntry, err error) error {
+	return filepath.WalkDir(store.Root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -70,12 +72,20 @@ func (store Store) ticketNotes() (map[string]ticketNote, error) {
 		if err != nil {
 			return err
 		}
+		return visit(note)
+	})
+}
+
+// ticketNotes returns the notes whose type is a ticket type, by slug.
+func (store Store) ticketNotes() (map[string]ticketNote, error) {
+	notes := map[string]ticketNote{}
+	err := store.walkNotes(func(note *vault.Note) error {
 		mapping, isTicket := ticketMapping(store.Profile, note)
 		if !isTicket {
 			return nil
 		}
 		if other, exists := notes[note.Slug]; exists {
-			return duplicateSlug(path, other.note.Path)
+			return duplicateSlug(note.Path, other.note.Path)
 		}
 		notes[note.Slug] = ticketNote{note: note, mapping: mapping}
 		return nil
