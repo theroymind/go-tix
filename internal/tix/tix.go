@@ -9,21 +9,24 @@ const usage = `usage: tix <command> [arguments]
 commands:
   init --prefix PREFIX
   add --type TYPE [--parent REF] [--priority N] [--tag T]... [--dependency REF]... [--acceptance A]... [--description D] [--draft] TITLE
-  show REF [--json]      (a ticket, or a doc when no ticket matches)
+                         (prints the new id)
+  show REF [--json]      (the ticket's own text with its criteria numbered, or a doc when no ticket matches)
   ls [--status S] [--type T] [--tag T] [--parent REF] [--all] [--json]
   ready [--type T] [--json]
-  done [--force] REF
-  set REF KEY=VALUE...   (raw write to a ticket or doc; does not check criteria, use done)
+  done [--force] REF     (refuses while a criterion is unticked)
+  set REF KEY=VALUE...   (raw write to a ticket or doc; takes the values the file holds, not the ones ls shows)
   tick REF N...          (N is a criterion number from show)
   untick REF N...
   ac set REF N TEXT
   ac add REF TEXT
   docs ls [--type T] [--status S] [--json]
   doc show REF [--json]
-  doc add --type T TITLE
+  doc add --type T TITLE (prints the new id)
   backlinks REF [--json]
   supersede OLD NEW      (marks the OLD doc superseded by NEW)
   help
+
+A ref is an id or a unique prefix of one. The table output is the one to read; --json is for a program.
 `
 
 var Program = cli.Program{
