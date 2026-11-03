@@ -8,6 +8,7 @@ const (
 	yamlIndent           = 2
 	carriageReturn       = "\r"
 	doneMark             = "x"
+	numberedMarker       = "."
 	undoneMark           = " "
 	maxFenceIndent       = 3
 	stringTag            = "!!str"
@@ -16,9 +17,10 @@ const (
 )
 
 var (
-	headingPattern  = regexp.MustCompile(`^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$`)
-	fencePattern    = regexp.MustCompile("^ {0,3}(`{3,}|~{3,})")
-	checkboxPattern = regexp.MustCompile(`^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\](?:[ \t]+|$))(.*)$`)
-	wikilinkPattern = regexp.MustCompile(`!?\[\[([^\[\]\n]*)\]\]`)
-	backtickRun     = regexp.MustCompile("`+")
+	headingPattern    = regexp.MustCompile(`^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$`)
+	fencePattern      = regexp.MustCompile("^ {0,3}(`{3,}|~{3,})")
+	listMarkerPattern = regexp.MustCompile(`^(\s*)(?:[-*+]|\d+[.)])(\s+\[)$`)
+	checkboxPattern   = regexp.MustCompile(`^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\](?:[ \t]+|$))(.*)$`)
+	wikilinkPattern   = regexp.MustCompile(`!?\[\[([^\[\]\n]*)\]\]`)
+	backtickRun       = regexp.MustCompile("`+")
 )

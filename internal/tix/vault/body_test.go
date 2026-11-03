@@ -172,6 +172,41 @@ func TestEditCheckbox(t *testing.T) {
 	}
 }
 
+func TestNumbered(t *testing.T) {
+	tests := []struct {
+		name      string
+		text      string
+		wantLines []string
+	}{
+		{"Bullets become numbers", "## Acceptance criteria\n\n- [ ] One\n- [x] Two\n", []string{"1. [ ] One", "2. [x] Two"}},
+		{"Indent and numbered markers are kept", "## Acceptance criteria\n\n  * [ ] One\n  3) [ ] Two\n", []string{"  1. [ ] One", "  2. [ ] Two"}},
+		{"A CRLF line keeps its ending", "## Acceptance criteria\r\n\r\n- [ ] One\r\n", []string{"1. [ ] One\r"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			note := mustParse(t, test.text)
+			section, err := note.Section("Acceptance criteria")
+			if err != nil {
+				t.Fatal(err)
+			}
+			boxes := note.Checkboxes(section)
+
+			numbered := note.Numbered(boxes)
+
+			var lines []string
+			for _, box := range boxes {
+				lines = append(lines, numbered.Body[box.Line])
+			}
+			if !slices.Equal(lines, test.wantLines) {
+				t.Errorf("numbered lines = %q, want %q", lines, test.wantLines)
+			}
+			if string(note.Render()) != test.text {
+				t.Errorf("the note itself changed: %q", note.Render())
+			}
+		})
+	}
+}
+
 func TestEditCheckboxErrors(t *testing.T) {
 	note := mustParse(t, "# A\n- [ ] box\nplain\n")
 	tests := []struct {

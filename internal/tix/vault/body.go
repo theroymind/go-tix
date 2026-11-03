@@ -3,6 +3,7 @@ package vault
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -208,6 +209,26 @@ func (note *Note) Checkboxes(lines Range) []Checkbox {
 		}
 	}
 	return boxes
+}
+
+// Numbered returns a copy of the note whose boxes carry their 1-based position as the list marker, so "- [ ] text"
+// reads "1. [ ] text" and a reader can name a checkbox by number. The note itself is unchanged.
+func (note *Note) Numbered(boxes []Checkbox) *Note {
+	numbered := *note
+	numbered.Body = slices.Clone(note.Body)
+	for index, box := range boxes {
+		parts, ok := parseCheckbox(numbered.Body[box.Line])
+		if !ok {
+			continue
+		}
+		match := listMarkerPattern.FindStringSubmatch(parts.prefix)
+		if match == nil {
+			continue
+		}
+		parts.prefix = match[1] + strconv.Itoa(index+1) + numberedMarker + match[2]
+		numbered.Body[box.Line] = parts.String()
+	}
+	return &numbered
 }
 
 // SetCheckbox ticks or unticks the checkbox on Body line index line, changing only its mark.

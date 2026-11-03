@@ -2,11 +2,43 @@ package tix
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/theroymind/railyard/internal/contracts/ticket"
 )
+
+func TestWriteTicketsJSONOmitsAcceptance(t *testing.T) {
+	tests := []struct {
+		name       string
+		acceptance []ticket.Criterion
+	}{
+		{"A ticket with criteria lists without them", []ticket.Criterion{{Text: "One"}, {Text: "Two", Done: true}}},
+		{"A ticket without criteria is unchanged", nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var output bytes.Buffer
+			row := ticket.Ticket{ID: "t-0001", Type: ticket.TypeTask, Status: ticket.StatusOpen, Title: "Title", Acceptance: tt.acceptance}
+
+			if err := writeTickets(&output, []ticket.Ticket{row}, true); err != nil {
+				t.Fatalf("writeTickets() error = %v", err)
+			}
+			var rows []ticket.Ticket
+			if err := json.Unmarshal(output.Bytes(), &rows); err != nil {
+				t.Fatalf("output is not a JSON array: %v\n%s", err, output.String())
+			}
+			if len(rows) != 1 || rows[0].ID != row.ID || rows[0].Acceptance != nil {
+				t.Errorf("rows = %+v, want one row for %s with no acceptance", rows, row.ID)
+			}
+			if len(row.Acceptance) != len(tt.acceptance) {
+				t.Errorf("the input ticket lost its criteria")
+			}
+		})
+	}
+}
 
 func TestWriteTicketsPriorityColumn(t *testing.T) {
 	tests := []struct {

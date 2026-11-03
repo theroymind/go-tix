@@ -27,12 +27,9 @@ const (
 )
 
 const (
-	criteriaHeading    = "criteria:"
-	criteriaSeparator  = "\n"
-	criterionLine      = "  %d. %s%s\n"
-	criterionMet       = "[x] "
-	criterionUnmet     = "[ ] "
-	criterionUntracked = ""
+	criteriaHeading   = "criteria:"
+	criteriaSeparator = "\n"
+	criterionLine     = "  %d. %s\n"
 )
 
 const (

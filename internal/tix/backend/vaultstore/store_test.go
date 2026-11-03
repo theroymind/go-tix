@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -166,8 +167,15 @@ func TestReadText(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(text) != string(expected) {
-		t.Errorf("ReadText() = %q, want the note's bytes", text)
+	numbered := string(expected)
+	for index, prefix := range []string{"- [x] `score_goal`", "- [x] `score_step`", "- [x] `goal_category`"} {
+		numbered = strings.Replace(numbered, prefix, strconv.Itoa(index+1)+". "+prefix[2:], 1)
+	}
+	if string(text) != numbered {
+		t.Errorf("ReadText() = %q, want the note's bytes with numbered criteria", text)
+	}
+	if again, _ := store.(backend.TextReader).ReadText("goal-scoring"); string(again) != numbered {
+		t.Errorf("a second ReadText() differs, so numbering changed the note")
 	}
 }
 

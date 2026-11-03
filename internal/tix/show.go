@@ -44,17 +44,20 @@ func runShow(arguments []string, _ io.Reader, stdout io.Writer) error {
 		if _, err := stdout.Write(text); err != nil {
 			return err
 		}
+		if _, tracksCriteria := store.(backend.CriterionTracker); tracksCriteria {
+			// The text numbers its own checkboxes, so listing the criteria again would only repeat them.
+			return nil
+		}
 		shown, err := store.Read(id)
 		if err != nil {
 			return err
 		}
-		_, tracksCriteria := store.(backend.CriterionTracker)
 		separator := criteriaSeparator
 		if len(text) > 0 && text[len(text)-1] != '\n' {
 			// End the text's last line first, so the criteria still follow one blank line.
 			separator = "\n" + separator
 		}
-		return writeCriteria(stdout, shown.Acceptance, tracksCriteria, separator)
+		return writeCriteria(stdout, shown.Acceptance, separator)
 	}
 	shown, err := store.Read(id)
 	if err != nil {
@@ -63,9 +66,9 @@ func runShow(arguments []string, _ io.Reader, stdout io.Writer) error {
 	return cli.WriteJSON(stdout, shown)
 }
 
-// writeCriteria numbers the criteria after separator, with the numbers tick and ac set take, and a box only when
-// the backend tracks whether each is met. It writes nothing for a ticket without criteria.
-func writeCriteria(stdout io.Writer, criteria []ticket.Criterion, tracksCriteria bool, separator string) error {
+// writeCriteria numbers the criteria after separator, with the numbers tick and ac set take, for a backend whose
+// text doesn't number them itself. It writes nothing for a ticket without criteria.
+func writeCriteria(stdout io.Writer, criteria []ticket.Criterion, separator string) error {
 	if len(criteria) == 0 {
 		return nil
 	}
@@ -73,14 +76,7 @@ func writeCriteria(stdout io.Writer, criteria []ticket.Criterion, tracksCriteria
 		return err
 	}
 	for index, criterion := range criteria {
-		box := criterionUntracked
-		if tracksCriteria {
-			box = criterionUnmet
-			if criterion.Done {
-				box = criterionMet
-			}
-		}
-		if _, err := fmt.Fprintf(stdout, criterionLine, index+1, box, criterion.Text); err != nil {
+		if _, err := fmt.Fprintf(stdout, criterionLine, index+1, criterion.Text); err != nil {
 			return err
 		}
 	}

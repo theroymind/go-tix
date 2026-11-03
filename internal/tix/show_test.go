@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -18,12 +19,6 @@ func TestShowNumbersCriteria(t *testing.T) {
 		reference string
 		block     string
 	}{
-		{"A note's criteria are numbered with their boxes after the note", true, "weighted-step-choice",
-			"\ncriteria:\n" +
-				"  1. [x] `scoring_target` returns the `Pick` target for a `Pick` rule and the lowest-stat candidate for a `Weighted_Roll`, tested on both.\n" +
-				"  2. [ ] The argmax takes the higher score, the earlier step on a tie, and falls through to Attack when every other step is unaffordable or fails `check_command`; each case has a test on a constructed world.\n" +
-				"  3. [ ] Only the winning step draws from the random state, tested by comparing the state after a choice to one draw.\n" +
-				"  4. [ ] A parity test runs the determinism test's scripted fight and asserts every `last_action` matches the pre-change choices, and the roster test still asserts Attack in every profile.\n"},
 		{"A YAML ticket's criteria are numbered without boxes after the file", false, yamlID,
 			"\ncriteria:\n" +
 				"  1. Policy buys the cheapest affordable purchasable each tick\n" +
@@ -48,6 +43,27 @@ func TestShowNumbersCriteria(t *testing.T) {
 				t.Errorf("output =\n%s\nexpected\n%s", output, expected)
 			}
 		})
+	}
+}
+
+func TestShowNumbersANotesCheckboxesInPlace(t *testing.T) {
+	root := copyVault(t)
+	text := readFile(t, filepath.Join(root, "docs", "tasks", "weighted-step-choice.md"))
+
+	exitCode, output := run(t, root, "show", "weighted-step-choice")
+
+	if exitCode != cli.ExitCodeSuccess {
+		t.Fatalf("exit code = %d, output %q", exitCode, output)
+	}
+	expected := text
+	for index, text := range []string{"- [x] `scoring_target`", "- [ ] The argmax", "- [ ] Only the winning", "- [ ] A parity test"} {
+		expected = strings.Replace(expected, text, strconv.Itoa(index+1)+". "+text[2:], 1)
+	}
+	if output != expected {
+		t.Errorf("output =\n%s\nexpected\n%s", output, expected)
+	}
+	if strings.Contains(output, "criteria:") {
+		t.Errorf("output repeats the criteria after the note:\n%s", output)
 	}
 }
 

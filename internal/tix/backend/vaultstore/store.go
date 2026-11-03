@@ -162,7 +162,9 @@ func (store Store) Read(id string) (ticket.Ticket, error) {
 	return toTicket(store.Profile, found.mapping, found.note)
 }
 
-// ReadText returns the note's Markdown, once it has mapped onto a valid ticket.
+// ReadText returns the note's Markdown, once it has mapped onto a valid ticket, with each criterion's checkbox
+// carrying its 1-based number as its list marker, the number tick, untick and ac set take. The note on disk is
+// unchanged.
 func (store Store) ReadText(id string) ([]byte, error) {
 	found, err := store.ticketNote(id)
 	if err != nil {
@@ -171,5 +173,9 @@ func (store Store) ReadText(id string) ([]byte, error) {
 	if _, err := toTicket(store.Profile, found.mapping, found.note); err != nil {
 		return nil, err
 	}
-	return found.note.Render(), nil
+	_, boxes, err := criterionBoxes(store.Profile, found.note)
+	if err != nil {
+		return nil, err
+	}
+	return found.note.Numbered(boxes).Render(), nil
 }
