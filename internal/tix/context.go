@@ -94,7 +94,8 @@ func contextNotes(store backend.Backend) ([]backend.ContextNote, error) {
 }
 
 // walkCards walks from start over each note's links and backlinks to the notes the backend holds, and returns their
-// cards in walk order. A link to a note the backend doesn't hold is left out.
+// cards in walk order. A link to a note the backend doesn't hold is left out, and a note that stops the walk is
+// reached but not walked through, unless it is the start.
 func walkCards(notes []backend.ContextNote, start string, depth int) ([]card.Card, error) {
 	byID := make(map[string]backend.ContextNote, len(notes))
 	for _, note := range notes {
@@ -102,6 +103,9 @@ func walkCards(notes []backend.ContextNote, start string, depth int) ([]card.Car
 	}
 	neighbours := func(id string) []string {
 		note := byID[id]
+		if note.StopsWalk && id != start {
+			return nil
+		}
 		var held []string
 		for _, neighbour := range slices.Concat(note.Links, note.Backlinks) {
 			if _, isHeld := byID[neighbour]; isHeld {

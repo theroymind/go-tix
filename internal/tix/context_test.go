@@ -55,9 +55,18 @@ var contextNotes = map[string]string{
 
 func contextVault(t *testing.T) string {
 	t.Helper()
+	return contextVaultWith(t, "", nil)
+}
+
+// contextVaultWith writes the context vault with more profile lines and more notes.
+func contextVaultWith(t *testing.T, profileLines string, notes map[string]string) string {
+	t.Helper()
 	root := t.TempDir()
-	files := map[string]string{filepath.Join(".tix", "config.yml"): contextConfig}
+	files := map[string]string{filepath.Join(".tix", "config.yml"): contextConfig + profileLines}
 	for path, text := range contextNotes {
+		files[filepath.Join("docs", path)] = text
+	}
+	for path, text := range notes {
 		files[filepath.Join("docs", path)] = text
 	}
 	for path, text := range files {
@@ -109,6 +118,64 @@ func TestContextWalk(t *testing.T) {
 				t.Errorf("reached %v, expected %v", reached, tt.expected)
 			}
 		})
+	}
+}
+
+// hubNotes add a home note that links to start and to lonely, an idea nothing else links to.
+var hubNotes = map[string]string{
+	"home.md":   "---\ntype: home\n---\n\n# Home\n\nStart at [[start]]; also [[lonely]].\n",
+	"lonely.md": "---\ntype: idea\nstatus: open\nsummary: Linked only from home.\n---\n\n# Lonely\n",
+}
+
+func TestContextStopTypes(t *testing.T) {
+	const homeDoc = "    home:\n      statuses: []\n"
+	tests := []struct {
+		name         string
+		profileLines string
+		arguments    []string
+		expected     []reachedCard
+	}{
+		{"Without stop types the hub walks on to lonely", "", []string{"start", "--depth", "2"},
+			[]reachedCard{{"start", 0}, {"dependency", 1}, {"home", 1}, {"phase", 1}, {"spec", 1}, {"far", 2}, {"idea", 2}, {"lonely", 2}}},
+		{"A hub at distance 1 gets its card but blocks its neighbours at 2", "  context_stop_types: [home]\n",
+			[]string{"start", "--depth", "2"},
+			[]reachedCard{{"start", 0}, {"dependency", 1}, {"home", 1}, {"phase", 1}, {"spec", 1}, {"far", 2}, {"idea", 2}}},
+		{"A walk that starts at the hub still expands", "  context_stop_types: [home]\n", []string{"home", "--depth", "1"},
+			[]reachedCard{{"home", 0}, {"lonely", 1}, {"start", 1}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := strings.Replace(contextConfig, "  docs:\n", "  docs:\n"+homeDoc, 1)
+			root := contextVaultWith(t, "", hubNotes)
+			writeConfig(t, root, config+tt.profileLines)
+
+			cards := runContextJSON(t, root, tt.arguments...)
+
+			var reached []reachedCard
+			for _, value := range cards {
+				reached = append(reached, reachedCard{value.ID, value.Distance})
+			}
+			if !reflect.DeepEqual(reached, tt.expected) {
+				t.Errorf("reached %v, expected %v", reached, tt.expected)
+			}
+		})
+	}
+}
+
+func TestContextStopTypeMustBeANoteType(t *testing.T) {
+	root := contextVaultWith(t, "  context_stop_types: [hub]\n", nil)
+
+	exitCode, output := run(t, root, "context", "start")
+
+	if exitCode != cli.ExitCodeFailure || !strings.Contains(output, "context_stop_types.0") {
+		t.Errorf("exit code = %d, output %q; expected a failure naming context_stop_types.0", exitCode, output)
+	}
+}
+
+func writeConfig(t *testing.T, root, config string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(root, ".tix", "config.yml"), []byte(config), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
 
