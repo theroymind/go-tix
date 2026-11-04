@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/theroymind/railyard/internal/tix/backend"
+	"github.com/theroymind/go-tix/internal/tix/backend"
 )
 
 // Rule names, in the order Check applies them.

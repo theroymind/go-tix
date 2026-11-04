@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/tix/backend"
-	"github.com/theroymind/railyard/internal/tix/lint"
+	"github.com/theroymind/go-tix/internal/tix/backend"
+	"github.com/theroymind/go-tix/internal/tix/lint"
 )
 
 func TestCheck(t *testing.T) {

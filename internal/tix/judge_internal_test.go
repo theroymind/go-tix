@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/contracts/verdict"
-	"github.com/theroymind/railyard/internal/tix/backend"
-	"github.com/theroymind/railyard/internal/tix/judge"
+	"github.com/theroymind/go-tix/contracts/verdict"
+	"github.com/theroymind/go-tix/internal/tix/backend"
+	"github.com/theroymind/go-tix/internal/tix/judge"
 )
 
 const judgeConfig = `prefix: odin

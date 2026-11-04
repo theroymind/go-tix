@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/theroymind/railyard/internal/contracts/verdict"
+	"github.com/theroymind/go-tix/contracts/verdict"
 )
 
 var (

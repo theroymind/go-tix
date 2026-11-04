@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/cli"
+	"github.com/theroymind/railyard-cli"
 )
 
 const gatesConfig = `prefix: odin

@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/theroymind/railyard/internal/contracts/validation"
+	"github.com/theroymind/go-tix/contracts/validation"
 )
 
 const (

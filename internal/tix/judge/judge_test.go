@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/contracts/verdict"
-	"github.com/theroymind/railyard/internal/tix/judge"
+	"github.com/theroymind/go-tix/contracts/verdict"
+	"github.com/theroymind/go-tix/internal/tix/judge"
+	"github.com/theroymind/railyard-cli"
 )
 
 func TestClaudeJudge(t *testing.T) {

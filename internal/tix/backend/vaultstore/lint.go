@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/theroymind/railyard/internal/tix/backend"
-	"github.com/theroymind/railyard/internal/tix/vault"
+	"github.com/theroymind/go-tix/internal/tix/backend"
+	"github.com/theroymind/go-tix/internal/tix/vault"
 )
 
 var _ backend.LintReader = Store{}

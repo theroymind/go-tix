@@ -6,8 +6,8 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/tix/backend"
+	"github.com/theroymind/go-tix/internal/tix/backend"
+	"github.com/theroymind/railyard-cli"
 )
 
 var gateSpecification = cli.Specification{

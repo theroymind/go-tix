@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/contracts/verdict"
+	"github.com/theroymind/go-tix/contracts/verdict"
+	"github.com/theroymind/railyard-cli"
 )
 
 // Claude is the Judge that asks Model through Command, which takes claude -p's arguments, run in Directory.
