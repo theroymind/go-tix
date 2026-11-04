@@ -7,7 +7,7 @@ import "github.com/theroymind/railyard-cli"
 const usage = `usage: tix <command> [arguments]
 
 commands:
-  init --prefix PREFIX
+  init [--prefix PREFIX]  (without --prefix, asks for each setting)
   add --type TYPE [--parent REF] [--priority N] [--tag T]... [--dependency REF]... [--acceptance A]... [--description D] [--draft] TITLE
                          (prints the new id)
   show REF [--json]      (the ticket's own text with its criteria numbered, or a doc when no ticket matches)

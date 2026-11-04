@@ -58,6 +58,28 @@ const (
 	tablePaddingCharacter = ' '
 )
 
+const (
+	promptPlain                = "%s: "
+	promptWithDefault          = "%s [%s]: "
+	promptProblem              = "%v\n"
+	listItemSeparator          = ","
+	initializedMessage         = "wrote %s\n"
+	questionPrefix             = "Ticket id prefix"
+	questionBackend            = "Backend (yaml or vault)"
+	questionDocsDirectory      = "Docs directory, relative to this one"
+	questionTypeProperty       = "Note property holding the note type"
+	questionCriteriaHeading    = "Heading of the acceptance criteria section"
+	questionTicketNoteTypes    = "Note types that are tickets, comma-separated"
+	questionTicketType         = "Ticket type of %s notes (epic, story or task)"
+	questionTicketStatuses     = "Statuses of %s notes, as note=ticket pairs"
+	questionDocNoteTypes       = "Note types that are docs, comma-separated (blank for none)"
+	questionDocStatuses        = "Statuses of %s docs, comma-separated (blank for any)"
+	questionEmbeddingsEndpoint = "Embeddings endpoint, such as http://localhost:11434/v1 (blank to skip)"
+	questionEmbeddingsModel    = "Embeddings model"
+	defaultTicketNoteTypes     = "task"
+	defaultTicketStatuses      = "todo=open, in_progress=in_progress, done=completed"
+)
+
 // DefaultContextDepth is how many hops tix context walks from its note when --depth isn't given.
 const DefaultContextDepth = 2
 
@@ -79,32 +101,40 @@ const (
 )
 
 var (
-	ErrExpectedOneTitle      = errors.New("expected exactly one title")
-	ErrExpectedOneReference  = errors.New("expected exactly one reference")
-	ErrInvalidOption         = errors.New("is invalid")
-	ErrExpectedPair          = errors.New("expected KEY=VALUE")
-	ErrExpectedPairs         = errors.New("expected a ticket or doc reference and at least one KEY=VALUE")
-	ErrUnmetCriteria         = errors.New("has unmet criteria")
-	ErrListField             = errors.New("is a list; set takes single-value fields")
-	ErrInvalidList           = errors.New("is not a list of strings, such as [a, b]")
-	ErrExpectedKeys          = errors.New("expected a ticket or doc reference and at least one KEY")
-	ErrExpectedDependencies  = errors.New("expected a ticket reference and at least one dependency reference")
-	ErrDependencyCycle       = errors.New("the dependency would form a cycle")
-	ErrNotDependency         = errors.New("does not depend on")
-	ErrExpectedNumbers       = errors.New("expected a ticket reference and at least one criterion number")
-	ErrInvalidNumber         = errors.New("is not a criterion number; expected a whole number from 1")
-	ErrExpectedSubcommand    = errors.New("expected ac set or ac add")
-	ErrExpectedSetCriterion  = errors.New("expected ac set REF N TEXT")
-	ErrExpectedAddCriterion  = errors.New("expected ac add REF TEXT")
-	ErrExpectedDocsLs        = errors.New("expected docs ls")
-	ErrExpectedDocSubcommand = errors.New("expected doc show or doc add")
-	ErrExpectedDocShow       = errors.New("expected doc show REF")
-	ErrExpectedDocAdd        = errors.New("expected doc add --type T TITLE")
-	ErrExpectedOldAndNew     = errors.New("expected supersede OLD NEW")
-	ErrSupersedesItself      = errors.New("can't supersede itself")
-	ErrTypesDiffer           = errors.New("a doc is superseded only by one of its own type")
-	ErrInvalidDepth          = errors.New("is not a depth; expected a whole number of hops from 0")
-	ErrInvalidTop            = errors.New("is not a count; expected a whole number from 1")
-	ErrExpectedOneQuery      = errors.New("expected exactly one query")
-	ErrNoEmbeddings          = errors.New("config names no embeddings endpoint and model")
+	ErrExpectedOneTitle       = errors.New("expected exactly one title")
+	ErrExpectedOneReference   = errors.New("expected exactly one reference")
+	ErrInvalidOption          = errors.New("is invalid")
+	ErrExpectedPair           = errors.New("expected KEY=VALUE")
+	ErrExpectedPairs          = errors.New("expected a ticket or doc reference and at least one KEY=VALUE")
+	ErrUnmetCriteria          = errors.New("has unmet criteria")
+	ErrListField              = errors.New("is a list; set takes single-value fields")
+	ErrInvalidList            = errors.New("is not a list of strings, such as [a, b]")
+	ErrExpectedKeys           = errors.New("expected a ticket or doc reference and at least one KEY")
+	ErrExpectedDependencies   = errors.New("expected a ticket reference and at least one dependency reference")
+	ErrDependencyCycle        = errors.New("the dependency would form a cycle")
+	ErrNotDependency          = errors.New("does not depend on")
+	ErrExpectedNumbers        = errors.New("expected a ticket reference and at least one criterion number")
+	ErrInvalidNumber          = errors.New("is not a criterion number; expected a whole number from 1")
+	ErrExpectedSubcommand     = errors.New("expected ac set or ac add")
+	ErrExpectedSetCriterion   = errors.New("expected ac set REF N TEXT")
+	ErrExpectedAddCriterion   = errors.New("expected ac add REF TEXT")
+	ErrExpectedDocsLs         = errors.New("expected docs ls")
+	ErrExpectedDocSubcommand  = errors.New("expected doc show or doc add")
+	ErrExpectedDocShow        = errors.New("expected doc show REF")
+	ErrExpectedDocAdd         = errors.New("expected doc add --type T TITLE")
+	ErrExpectedOldAndNew      = errors.New("expected supersede OLD NEW")
+	ErrSupersedesItself       = errors.New("can't supersede itself")
+	ErrTypesDiffer            = errors.New("a doc is superseded only by one of its own type")
+	ErrInvalidDepth           = errors.New("is not a depth; expected a whole number of hops from 0")
+	ErrInvalidTop             = errors.New("is not a count; expected a whole number from 1")
+	ErrExpectedOneQuery       = errors.New("expected exactly one query")
+	ErrNoEmbeddings           = errors.New("config names no embeddings endpoint and model")
+	ErrSetupEnded             = errors.New("input ended before setup finished")
+	ErrAnswerRequired         = errors.New("expected an answer")
+	ErrPrefixMismatch         = errors.New("is not a prefix; expected one matching")
+	ErrDocsDirectoryNotLocal  = errors.New("is not a directory inside this one")
+	ErrEndpointNotURL         = errors.New("is not an absolute URL, such as http://localhost:11434/v1")
+	ErrExpectedStatusPair     = errors.New("is not a note=ticket status pair, such as todo=open")
+	ErrExpectedTicketNoteType = errors.New("expected at least one note type")
+	ErrTicketAndDocType       = errors.New("is already a ticket note type")
 )
