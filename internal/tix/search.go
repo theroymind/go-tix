@@ -121,26 +121,43 @@ func runSearch(arguments []string, _ io.Reader, stdout io.Writer) error {
 
 // openRepository opens the backend the working directory is in, and fails when its config names no embeddings.
 func openRepository() (repository, error) {
-	workingDirectory, err := os.Getwd()
+	opened, err := openWorkspace()
 	if err != nil {
 		return repository{}, err
+	}
+	if opened.config.Embeddings == nil {
+		return repository{}, fmt.Errorf("%s: %w", backend.ConfigPath(opened.tixDirectory), ErrNoEmbeddings)
+	}
+	return repository{store: opened.store, root: opened.root, embeddings: *opened.config.Embeddings}, nil
+}
+
+// workspace is an open backend with its config, its .tix directory and the directory holding it.
+type workspace struct {
+	store        backend.Backend
+	config       backend.Config
+	tixDirectory string
+	root         string
+}
+
+// openWorkspace opens the backend the working directory is in, with its config.
+func openWorkspace() (workspace, error) {
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		return workspace{}, err
 	}
 	tixDirectory, err := backend.FindDirectory(workingDirectory)
 	if err != nil {
-		return repository{}, err
+		return workspace{}, err
 	}
 	config, err := backend.ReadConfig(tixDirectory)
 	if err != nil {
-		return repository{}, err
-	}
-	if config.Embeddings == nil {
-		return repository{}, fmt.Errorf("%s: %w", backend.ConfigPath(tixDirectory), ErrNoEmbeddings)
+		return workspace{}, err
 	}
 	store, err := backend.Open(workingDirectory)
 	if err != nil {
-		return repository{}, err
+		return workspace{}, err
 	}
-	return repository{store: store, root: filepath.Dir(tixDirectory), embeddings: *config.Embeddings}, nil
+	return workspace{store: store, config: config, tixDirectory: tixDirectory, root: filepath.Dir(tixDirectory)}, nil
 }
 
 func indexPath(root string) (string, error) {

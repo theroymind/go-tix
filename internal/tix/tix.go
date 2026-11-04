@@ -37,6 +37,8 @@ commands:
                          (the N notes closest to QUERY, default 10, by cosine similarity over the index)
   lint (REF... | --all)  (checks each note's required sections, summary and links; prints PATH: RULE: MESSAGE for
                          each problem and exits 1 when there is any)
+  judge REF...           (asks the config's judge whether each note duplicates or conflicts with its context and
+                         search neighbours; exits 1 naming the notes it refuses)
   help
 
 A set VALUE written as a list, such as [a, b], replaces the value with that list, and [] empties it; a wikilink
@@ -69,5 +71,6 @@ var Program = cli.Program{
 		"index":     runIndex,
 		"search":    runSearch,
 		"lint":      runLint,
+		"judge":     runJudge,
 	},
 }
