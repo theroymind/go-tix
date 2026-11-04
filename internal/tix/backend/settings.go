@@ -40,6 +40,8 @@ const (
 	DefaultVaultRoot       = "docs"
 	DefaultTypeProperty    = "type"
 	DefaultCriteriaHeading = "Acceptance criteria"
+	DefaultSummaryProperty = "summary"
+	DefaultCommitsProperty = "commits"
 )
 
 const (

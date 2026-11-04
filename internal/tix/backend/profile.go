@@ -12,7 +12,8 @@ import (
 
 // Profile describes a vault's conventions: where its notes are, which note types are tickets and which are docs,
 // and how a ticket note's properties and statuses map onto a ticket. A note whose type is in neither map is ignored.
-// Empty Root, TypeProperty and CriteriaHeading take the defaults WithDefaults fills in.
+// Empty Root, TypeProperty, CriteriaHeading, SummaryProperty and CommitsProperty take the defaults WithDefaults fills
+// in. An empty FilesHeading means the vault's notes list no files.
 type Profile struct {
 	// Root is the vault's directory, relative to the directory holding .tix.
 	Root         string `yaml:"root,omitempty"`
@@ -24,6 +25,14 @@ type Profile struct {
 	CriteriaHeading string                `yaml:"criteria_heading,omitempty"`
 	// TicketTemplates maps a ticket note type to the template, relative to Root, that new notes of the type start from.
 	TicketTemplates map[string]string `yaml:"ticket_templates,omitempty"`
+	// SummaryProperty names the property holding a note's one-line summary, kept apart from a ticket's description,
+	// which is the note's body.
+	SummaryProperty string `yaml:"summary_property,omitempty"`
+	// CommitsProperty names the list property holding the full hashes of the commits that changed a note's code,
+	// newest first.
+	CommitsProperty string `yaml:"commits_property,omitempty"`
+	// FilesHeading names the section listing the files a note expects to touch.
+	FilesHeading string `yaml:"files_heading,omitempty"`
 }
 
 // TicketMapping is how notes of one type become tickets.
@@ -42,7 +51,8 @@ type DocMapping struct {
 	Template string `yaml:"template,omitempty"`
 }
 
-// WithDefaults returns the profile with an empty Root, TypeProperty or CriteriaHeading set to its default.
+// WithDefaults returns the profile with an empty Root, TypeProperty, CriteriaHeading, SummaryProperty or
+// CommitsProperty set to its default.
 func (profile Profile) WithDefaults() Profile {
 	if profile.Root == "" {
 		profile.Root = DefaultVaultRoot
@@ -52,6 +62,12 @@ func (profile Profile) WithDefaults() Profile {
 	}
 	if profile.CriteriaHeading == "" {
 		profile.CriteriaHeading = DefaultCriteriaHeading
+	}
+	if profile.SummaryProperty == "" {
+		profile.SummaryProperty = DefaultSummaryProperty
+	}
+	if profile.CommitsProperty == "" {
+		profile.CommitsProperty = DefaultCommitsProperty
 	}
 	return profile
 }

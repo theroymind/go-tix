@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -120,14 +121,16 @@ func TestProfileWithDefaults(t *testing.T) {
 		expected backend.Profile
 	}{
 		{"Empty values take the defaults", backend.Profile{},
-			backend.Profile{Root: backend.DefaultVaultRoot, TypeProperty: backend.DefaultTypeProperty, CriteriaHeading: backend.DefaultCriteriaHeading}},
-		{"Set values are kept", backend.Profile{Root: "vault", TypeProperty: "kind", CriteriaHeading: "Done when"},
-			backend.Profile{Root: "vault", TypeProperty: "kind", CriteriaHeading: "Done when"}},
+			backend.Profile{Root: backend.DefaultVaultRoot, TypeProperty: backend.DefaultTypeProperty, CriteriaHeading: backend.DefaultCriteriaHeading,
+				SummaryProperty: backend.DefaultSummaryProperty, CommitsProperty: backend.DefaultCommitsProperty}},
+		{"Set values are kept, and the files heading stays unset unless named",
+			backend.Profile{Root: "vault", TypeProperty: "kind", CriteriaHeading: "Done when", SummaryProperty: "gist", CommitsProperty: "hashes"},
+			backend.Profile{Root: "vault", TypeProperty: "kind", CriteriaHeading: "Done when", SummaryProperty: "gist", CommitsProperty: "hashes"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.profile.WithDefaults()
-			if got.Root != tt.expected.Root || got.TypeProperty != tt.expected.TypeProperty || got.CriteriaHeading != tt.expected.CriteriaHeading {
+			if !reflect.DeepEqual(got, tt.expected) {
 				t.Errorf("WithDefaults() = %+v, want %+v", got, tt.expected)
 			}
 		})
