@@ -16,6 +16,7 @@ const (
 	optionAll         = "all"
 	optionForce       = "force"
 	optionDepth       = "depth"
+	optionTop         = "top"
 	pairSeparator     = "="
 	longOptionStart   = "--"
 	integerPattern    = `^-?\d+$`
@@ -60,6 +61,15 @@ const (
 // DefaultContextDepth is how many hops tix context walks from its note when --depth isn't given.
 const DefaultContextDepth = 2
 
+// DefaultSearchTop is how many hits tix search prints when --top isn't given.
+const DefaultSearchTop = 10
+
+const (
+	hitTableHeader = "SCORE\tID\tTYPE\tSUMMARY"
+	hitTableRow    = "%.3f\t%s\t%s\t%s\n"
+	indexedMessage = "indexed %d notes (%d embedded) at %s\n"
+)
+
 const (
 	cardTableHeader = "DISTANCE\tRELATION\tID\tTYPE\tCOMMITS\tSUMMARY"
 	cardTableRow    = "%d\t%s\t%s\t%s\t%s\t%s\n"
@@ -94,4 +104,7 @@ var (
 	ErrSupersedesItself      = errors.New("can't supersede itself")
 	ErrTypesDiffer           = errors.New("a doc is superseded only by one of its own type")
 	ErrInvalidDepth          = errors.New("is not a depth; expected a whole number of hops from 0")
+	ErrInvalidTop            = errors.New("is not a count; expected a whole number from 1")
+	ErrExpectedOneQuery      = errors.New("expected exactly one query")
+	ErrNoEmbeddings          = errors.New("config names no embeddings endpoint and model")
 )
