@@ -9,6 +9,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/timestamp"
 	"github.com/theroymind/go-tix/internal/tix/backend"
 	"github.com/theroymind/go-tix/internal/tix/vault"
 )
@@ -32,7 +33,11 @@ func toTicket(profile backend.Profile, mapping backend.TicketMapping, note *vaul
 	if !hasTitle || strings.TrimSpace(title) == "" {
 		title = note.Slug
 	}
-	mapped := ticket.Ticket{ID: note.Slug, Title: title, Type: mapping.TicketType, Status: status}
+	createdAt := heldTimestamp(note, ticket.FieldCreatedAt)
+	updatedAt := heldTimestamp(note, ticket.FieldUpdatedAt)
+	mapped := ticket.Ticket{
+		ID: note.Slug, Title: title, Type: mapping.TicketType, Status: status, CreatedAt: createdAt, UpdatedAt: updatedAt,
+	}
 	for _, property := range slices.Sorted(maps.Keys(mapping.Fields)) {
 		links := propertyLinks(note.Property(property))
 		switch mapping.Fields[property] {
@@ -79,6 +84,15 @@ func criterionBoxes(profile backend.Profile, note *vault.Note) (vault.Range, []v
 		return vault.Range{}, nil, err
 	}
 	return section, note.Checkboxes(section), nil
+}
+
+func heldTimestamp(note *vault.Note, key string) timestamp.Timestamp {
+	property := note.Property(key)
+	held := timestamp.Timestamp(propertyText(property))
+	if !held.IsValid() {
+		return ""
+	}
+	return held
 }
 
 // propertyText is a scalar property's value, or "" for an absent or non-scalar one.

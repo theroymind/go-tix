@@ -284,17 +284,48 @@ func TestCreateInASmallVault(t *testing.T) {
 			},
 			ticket.Ticket{Title: "New", Type: ticket.TypeTask, Status: ticket.StatusOpen, Description: "Said."},
 			"tasks/new.md", "---\r\ntype: task\r\nstatus: todo\r\n---\r\n\r\n# New\r\n\r\nSaid.\r\n"},
+		{"The created and updated timestamps are added to the frontmatter",
+			map[string]string{
+				".tix/config.yml":   smallProfile(""),
+				"templates/task.md": "---\ntype: task\nstatus: todo\n---\n\n# Title\n",
+				"tasks/existing.md": smallNote,
+			},
+			ticket.Ticket{Title: "New", Type: ticket.TypeTask, Status: ticket.StatusOpen,
+				CreatedAt: "2026-10-25T09:00:00Z", UpdatedAt: "2026-10-25T09:00:00Z"},
+			"tasks/new.md",
+			"---\ntype: task\nstatus: todo\ncreated_at: 2026-10-25T09:00:00Z\nupdated_at: 2026-10-25T09:00:00Z\n---\n\n# New\n"},
+		{"A timestamp the template holds is replaced",
+			map[string]string{
+				".tix/config.yml":   smallProfile(""),
+				"templates/task.md": "---\ntype: task\ncreated_at:\nstatus: todo\n---\n\n# Title\n",
+				"tasks/existing.md": smallNote,
+			},
+			ticket.Ticket{Title: "New", Type: ticket.TypeTask, Status: ticket.StatusOpen,
+				CreatedAt: "2026-10-25T09:00:00Z", UpdatedAt: "2026-10-26T10:30:00Z"},
+			"tasks/new.md",
+			"---\ntype: task\ncreated_at: 2026-10-25T09:00:00Z\nstatus: todo\nupdated_at: 2026-10-26T10:30:00Z\n---\n\n# New\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store, root := writeVault(t, tt.files)
 
-			if _, err := store.Create(tt.value); err != nil {
+			slug, err := store.Create(tt.value)
+			if err != nil {
 				t.Fatalf("Create() error = %v", err)
 			}
 
 			if text := vaultFiles(t, root)[tt.expectedPath]; text != tt.expectedText {
 				t.Errorf("%s = %q, expected %q", tt.expectedPath, text, tt.expectedText)
+			}
+			listed, err := store.List()
+			if err != nil {
+				t.Fatalf("List() error = %v", err)
+			}
+			for _, found := range listed {
+				if found.ID == slug && (found.CreatedAt != tt.value.CreatedAt || found.UpdatedAt != tt.value.UpdatedAt) {
+					t.Errorf("List() has %s created %q and updated %q, expected %q and %q",
+						slug, found.CreatedAt, found.UpdatedAt, tt.value.CreatedAt, tt.value.UpdatedAt)
+				}
 			}
 		})
 	}

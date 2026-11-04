@@ -220,9 +220,20 @@ func TestAddOnAVault(t *testing.T) {
 			if slug := strings.TrimSpace(output); slug != tt.expectedSlug {
 				t.Errorf("printed %q, expected %q", slug, tt.expectedSlug)
 			}
+			shown := showJSON(t, root, tt.expectedSlug)
+			if shown.Type != ticket.TypeTask || shown.Status != ticket.StatusOpen || shown.Parent != tt.expectedParent ||
+				!slices.Equal(shown.Dependencies, tt.expectedDependencies) || !slices.Equal(shown.Acceptance, tt.expectedAcceptance) {
+				t.Errorf("show = %+v, expected type task, status open, parent %q, dependencies %q and criteria %+v",
+					shown, tt.expectedParent, tt.expectedDependencies, tt.expectedAcceptance)
+			}
+			if !shown.CreatedAt.IsValid() || shown.UpdatedAt != shown.CreatedAt {
+				t.Errorf("show has created %q and updated %q, expected one valid timestamp for both", shown.CreatedAt, shown.UpdatedAt)
+			}
 			path := filepath.Join("docs", "tasks", tt.expectedSlug+".md")
 			expected := before[filepath.FromSlash(template)]
-			for _, replacement := range tt.replacements {
+			timestamps := "\ncreated_at: " + string(shown.CreatedAt) + "\nupdated_at: " + string(shown.UpdatedAt) + "\n---\n"
+			replacements := slices.Concat(tt.replacements, [][2]string{{"\n---\n", timestamps}})
+			for _, replacement := range replacements {
 				if !strings.Contains(expected, replacement[0]) {
 					t.Fatalf("template lacks %q", replacement[0])
 				}
@@ -230,12 +241,6 @@ func TestAddOnAVault(t *testing.T) {
 			}
 			if text := readFile(t, filepath.Join(root, path)); text != expected {
 				t.Errorf("%s =\n%s\nexpected\n%s", path, text, expected)
-			}
-			shown := showJSON(t, root, tt.expectedSlug)
-			if shown.Type != ticket.TypeTask || shown.Status != ticket.StatusOpen || shown.Parent != tt.expectedParent ||
-				!slices.Equal(shown.Dependencies, tt.expectedDependencies) || !slices.Equal(shown.Acceptance, tt.expectedAcceptance) {
-				t.Errorf("show = %+v, expected type task, status open, parent %q, dependencies %q and criteria %+v",
-					shown, tt.expectedParent, tt.expectedDependencies, tt.expectedAcceptance)
 			}
 		})
 	}

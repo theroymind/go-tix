@@ -9,14 +9,15 @@ import (
 	"slices"
 
 	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/timestamp"
 	"github.com/theroymind/go-tix/internal/tix/backend"
 	"github.com/theroymind/go-tix/internal/tix/vault"
 )
 
 // Create writes a new note for value and returns its slug, the slug of value's title. The note starts from the
 // template of the note type that maps onto value's type, and goes in the directory that holds most notes of that
-// type. Its status, parent and dependencies properties, H1, description paragraph and criteria are filled from
-// value; an empty field keeps the template's text. Priority, tags and timestamps aren't written. The
+// type. Its status, created_at, updated_at, parent and dependencies properties, H1, description paragraph and criteria
+// are filled from value; an empty field keeps the template's text. Priority and tags aren't written. The
 // note must read back with value's title, status, links and criteria before it is written, and nothing is written
 // when its slug is taken.
 func (store Store) Create(value ticket.Ticket) (string, error) {
@@ -109,13 +110,16 @@ func (store Store) pathsOfType(notes map[string]ticketNote, noteType string) []s
 	return paths
 }
 
-// fill writes value's status, links, title, description and criteria into the template's note.
+// fill writes value's status, timestamps, links, title, description and criteria into the template's note.
 func (store Store) fill(note *vault.Note, mapping backend.TicketMapping, value ticket.Ticket) error {
 	noteStatus, err := noteStatusOf(mapping, note.Path, value.Status)
 	if err != nil {
 		return err
 	}
 	if err := note.SetProperty(statusProperty, noteStatus); err != nil {
+		return err
+	}
+	if err := setTimestamps(note, value); err != nil {
 		return err
 	}
 	if value.Parent != "" {
@@ -138,6 +142,22 @@ func (store Store) fill(note *vault.Note, mapping backend.TicketMapping, value t
 	}
 	if len(value.Acceptance) > 0 {
 		return setCriteria(store.Profile, note, value.Acceptance)
+	}
+	return nil
+}
+
+func setTimestamps(note *vault.Note, value ticket.Ticket) error {
+	stamps := []struct {
+		field  string
+		moment timestamp.Timestamp
+	}{{ticket.FieldCreatedAt, value.CreatedAt}, {ticket.FieldUpdatedAt, value.UpdatedAt}}
+	for _, stamp := range stamps {
+		if stamp.moment == "" {
+			continue
+		}
+		if err := note.SetProperty(stamp.field, stamp.moment); err != nil {
+			return err
+		}
 	}
 	return nil
 }

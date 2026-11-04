@@ -78,6 +78,42 @@ func TestList(t *testing.T) {
 	}
 }
 
+func TestListReadsTimestamps(t *testing.T) {
+	tests := []struct {
+		name              string
+		frontmatter       string
+		expectedCreatedAt string
+		expectedUpdatedAt string
+	}{
+		{"A note without timestamps has none", "", "", ""},
+		{"A note's timestamps are read", "created_at: 2026-10-25T09:00:00Z\nupdated_at: 2026-10-26T10:30:00-04:00\n",
+			"2026-10-25T09:00:00Z", "2026-10-26T10:30:00-04:00"},
+		{"A quoted timestamp is read", "created_at: \"2026-10-25T09:00:00Z\"\n", "2026-10-25T09:00:00Z", ""},
+		{"A date without a time is left as a plain property", "created_at: 2026-10-25\nupdated_at: 2026-11-01\n", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, _ := writeVault(t, map[string]string{
+				".tix/config.yml":   smallProfile(""),
+				"tasks/existing.md": "---\ntype: task\nstatus: todo\n" + tt.frontmatter + "---\n\n# Existing\n",
+			})
+
+			listed, err := store.List()
+
+			if err != nil {
+				t.Fatalf("List() error = %v", err)
+			}
+			if len(listed) != 1 {
+				t.Fatalf("List() = %+v, expected one ticket", listed)
+			}
+			if string(listed[0].CreatedAt) != tt.expectedCreatedAt || string(listed[0].UpdatedAt) != tt.expectedUpdatedAt {
+				t.Errorf("List() has created %q and updated %q, expected %q and %q",
+					listed[0].CreatedAt, listed[0].UpdatedAt, tt.expectedCreatedAt, tt.expectedUpdatedAt)
+			}
+		})
+	}
+}
+
 func TestReadyPicksTodoTasksWhoseDependenciesAreDone(t *testing.T) {
 	tickets, err := openFixture(t).List()
 	if err != nil {
