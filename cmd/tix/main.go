@@ -4,7 +4,8 @@
 // Run tix init --prefix PREFIX once, then tix add, tix show, tix ls, tix ready, tix set, tix done,
 // tix tick, tix untick and tix ac. On a vault, tix docs ls, tix doc show, tix backlinks and tix supersede work on
 // its decisions, ideas and specs. tix index and tix search embed the notes through the embeddings endpoint
-// .tix/config.yml names and rank them against a query.
+// .tix/config.yml names and rank them against a query. tix lint checks notes' structure, tix judge asks a model
+// whether a note duplicates or conflicts with its neighbours, and tix gate --staged runs both from a pre-commit hook.
 package main
 
 import (

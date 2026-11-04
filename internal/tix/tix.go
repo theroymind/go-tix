@@ -39,6 +39,9 @@ commands:
                          each problem and exits 1 when there is any)
   judge REF...           (asks the config's judge whether each note duplicates or conflicts with its context and
                          search neighbours; exits 1 naming the notes it refuses)
+  gate (REF... | --staged)
+                         (lint on the staged ticket and doc notes, or the REFs, then judge on the new ones, stopping
+                         at the first that fails; for a pre-commit hook)
   help
 
 A set VALUE written as a list, such as [a, b], replaces the value with that list, and [] empties it; a wikilink
@@ -72,5 +75,6 @@ var Program = cli.Program{
 		"search":    runSearch,
 		"lint":      runLint,
 		"judge":     runJudge,
+		"gate":      runGate,
 	},
 }
