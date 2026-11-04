@@ -32,13 +32,8 @@ func (store Store) ContextNotes() ([]backend.ContextNote, error) {
 		if err != nil {
 			return nil, err
 		}
-		var links []string
-		if mapped.Parent != "" {
-			links = append(links, mapped.Parent)
-		}
-		links = append(links, mapped.Dependencies...)
 		noteType := propertyText(found.note.Property(store.Profile.TypeProperty))
-		notes[slug], wikilinks[slug], err = store.contextNote(found.note, noteType, mapped.Title, links)
+		notes[slug], wikilinks[slug], err = store.contextNote(found.note, noteType, mapped.Title, mapped.Parent, mapped.Dependencies)
 		if err != nil {
 			return nil, err
 		}
@@ -51,7 +46,7 @@ func (store Store) ContextNotes() ([]backend.ContextNote, error) {
 		if err != nil {
 			return nil, err
 		}
-		notes[slug], wikilinks[slug], err = store.contextNote(found.note, mapped.Type, mapped.Title, nil)
+		notes[slug], wikilinks[slug], err = store.contextNote(found.note, mapped.Type, mapped.Title, "", nil)
 		if err != nil {
 			return nil, err
 		}
@@ -59,24 +54,25 @@ func (store Store) ContextNotes() ([]backend.ContextNote, error) {
 	return withBacklinks(notes, wikilinks), nil
 }
 
-// contextNote reads a note's summary, commits and files through the profile, and links it to the given ids and to
-// every note its wikilinks name, each once and never to itself. It returns the wikilinks apart as well.
-func (store Store) contextNote(note *vault.Note, noteType, title string, links []string) (backend.ContextNote, []string, error) {
+// contextNote reads a note's summary, commits and files through the profile, and links it to its parent, its
+// dependencies and every note its wikilinks name, each once and never to itself. It returns the wikilinks apart as well.
+func (store Store) contextNote(note *vault.Note, noteType, title, parent string, dependencies []string) (backend.ContextNote, []string, error) {
 	files, err := store.files(note)
 	if err != nil {
 		return backend.ContextNote{}, nil, err
 	}
-	wikilinks := withoutSelf(vault.Wikilinks(string(note.Render())), note.Slug)
-	links = withoutSelf(uniqueLinks(append(links, wikilinks...)), note.Slug)
+	wikilinks := withoutSelf(uniqueLinks(vault.Wikilinks(string(note.Render()))), note.Slug)
 	return backend.ContextNote{
-		ID:        note.Slug,
-		Type:      noteType,
-		Title:     title,
-		Summary:   strings.TrimSpace(propertyText(note.Property(store.Profile.SummaryProperty))),
-		Commits:   propertyTexts(note.Property(store.Profile.CommitsProperty)),
-		Files:     files,
-		Links:     links,
-		StopsWalk: slices.Contains(store.Profile.ContextStopTypes, noteType),
+		ID:           note.Slug,
+		Type:         noteType,
+		Title:        title,
+		Summary:      strings.TrimSpace(propertyText(note.Property(store.Profile.SummaryProperty))),
+		Commits:      propertyTexts(note.Property(store.Profile.CommitsProperty)),
+		Files:        files,
+		Parent:       parent,
+		Dependencies: withoutSelf(slices.Clone(dependencies), note.Slug),
+		Wikilinks:    wikilinks,
+		StopsWalk:    slices.Contains(store.Profile.ContextStopTypes, noteType),
 	}, wikilinks, nil
 }
 

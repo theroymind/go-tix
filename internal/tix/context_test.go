@@ -186,12 +186,13 @@ func TestContextCards(t *testing.T) {
 
 	expected := []card.Card{
 		{ID: "start", Type: "task", Title: "Start", Summary: "Starts the walk.", HasSummary: true, Distance: 0,
-			Commits: []string{"2222222222", "1111111111"}, Files: []string{"a.go", "b.go"}},
-		{ID: "dependency", Type: "task", Title: "Dependency", Distance: 1, Commits: []string{}, Files: []string{"c.go", "d.go"}},
+			Relation: card.RelationStart, Commits: []string{"2222222222", "1111111111"}, Files: []string{"a.go", "b.go"}},
+		{ID: "dependency", Type: "task", Title: "Dependency", Distance: 1, Relation: card.RelationDependency,
+			Commits: []string{}, Files: []string{"c.go", "d.go"}},
 		{ID: "phase", Type: "phase", Title: "Phase", Summary: "Holds the start.", HasSummary: true, Distance: 1,
-			Commits: []string{}, Files: []string{}},
+			Relation: card.RelationParent, Commits: []string{}, Files: []string{}},
 		{ID: "spec", Type: "spec", Title: "Spec", Summary: "Specifies it.", HasSummary: true, Distance: 1,
-			Commits: []string{}, Files: []string{}},
+			Relation: card.RelationWikilink, Commits: []string{}, Files: []string{}},
 	}
 	if !reflect.DeepEqual(cards, expected) {
 		t.Errorf("cards =\n%+v\nexpected\n%+v", cards, expected)
@@ -208,11 +209,11 @@ func TestContextTable(t *testing.T) {
 	}
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	expectedRows := [][]string{
-		{"DISTANCE", "ID", "TYPE", "COMMITS", "SUMMARY"},
-		{"0", "start", "task", "2222222,1111111", "Starts the walk."},
-		{"1", "dependency", "task", "-", "(no summary)"},
-		{"1", "phase", "phase", "-", "Holds the start."},
-		{"1", "spec", "spec", "-", "Specifies it."},
+		{"DISTANCE", "RELATION", "ID", "TYPE", "COMMITS", "SUMMARY"},
+		{"0", "start", "start", "task", "2222222,1111111", "Starts the walk."},
+		{"1", "dependency", "dependency", "task", "-", "(no summary)"},
+		{"1", "parent", "phase", "phase", "-", "Holds the start."},
+		{"1", "wikilink", "spec", "spec", "-", "Specifies it."},
 	}
 	if len(lines) != len(expectedRows) {
 		t.Fatalf("output has %d lines, expected %d:\n%s", len(lines), len(expectedRows), output)
@@ -223,6 +224,26 @@ func TestContextTable(t *testing.T) {
 				t.Errorf("line %q does not hold %q", lines[index], cell)
 			}
 		}
+	}
+}
+
+// TestContextRelations checks the relation of each hop: spec reaches dependency through its own wikilink, and idea
+// and start through theirs, so those two are backlinks; two hops out, far is reached as dependency's dependency.
+func TestContextRelations(t *testing.T) {
+	root := contextVault(t)
+
+	cards := runContextJSON(t, root, "spec", "--depth", "2")
+
+	relations := map[string]string{}
+	for _, value := range cards {
+		relations[value.ID] = value.Relation
+	}
+	expected := map[string]string{
+		"spec": card.RelationStart, "dependency": card.RelationWikilink, "idea": card.RelationBacklink,
+		"start": card.RelationBacklink, "far": card.RelationDependency, "phase": card.RelationParent,
+	}
+	if !reflect.DeepEqual(relations, expected) {
+		t.Errorf("relations = %v, expected %v", relations, expected)
 	}
 }
 

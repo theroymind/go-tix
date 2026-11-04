@@ -3,14 +3,15 @@ package card
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/theroymind/railyard/internal/contracts/validation"
 )
 
 // Card is one note a walk reached: its id, note type and title, its one-line summary, the hops it took to reach,
-// the commits that changed its code, newest first, and the files it expects to touch. HasSummary is false for a
-// note without a summary, whose Summary is then empty.
+// the relation of the hop that reached it, the commits that changed its code, newest first, and the files it
+// expects to touch. HasSummary is false for a note without a summary, whose Summary is then empty.
 type Card struct {
 	ID         string   `json:"id"`
 	Type       string   `json:"type"`
@@ -18,9 +19,14 @@ type Card struct {
 	Summary    string   `json:"summary"`
 	HasSummary bool     `json:"has_summary"`
 	Distance   int      `json:"distance"`
+	Relation   string   `json:"relation"`
 	Commits    []string `json:"commits"`
 	Files      []string `json:"files"`
 }
+
+// Relations are the hops a walk follows, strongest first: the start itself, then a note's parent, the notes it
+// depends on, the notes its text links to, and the notes whose text links to it.
+var Relations = []string{RelationStart, RelationParent, RelationDependency, RelationWikilink, RelationBacklink}
 
 func (value Card) Validate() error {
 	var problems validation.Errors
@@ -38,6 +44,12 @@ func (value Card) Validate() error {
 	}
 	if value.Distance < minimumDistance {
 		problems.Add(FieldDistance, validation.TooSmall(minimumDistance))
+	}
+	if !slices.Contains(Relations, value.Relation) {
+		problems.Add(FieldRelation, problemRelationUnknown)
+	}
+	if (value.Relation == RelationStart) != (value.Distance == minimumDistance) {
+		problems.Add(FieldRelation, problemStartMismatch)
 	}
 	addEmptyItems(&problems, FieldCommits, value.Commits)
 	addEmptyItems(&problems, FieldFiles, value.Files)

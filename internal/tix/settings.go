@@ -61,8 +61,8 @@ const (
 const DefaultContextDepth = 2
 
 const (
-	cardTableHeader = "DISTANCE\tID\tTYPE\tCOMMITS\tSUMMARY"
-	cardTableRow    = "%d\t%s\t%s\t%s\t%s\n"
+	cardTableHeader = "DISTANCE\tRELATION\tID\tTYPE\tCOMMITS\tSUMMARY"
+	cardTableRow    = "%d\t%s\t%s\t%s\t%s\t%s\n"
 	missingSummary  = "(no summary)"
 	shortHashLength = 7
 	commitSeparator = ","

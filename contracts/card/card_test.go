@@ -10,7 +10,7 @@ import (
 
 func TestCardValidate(t *testing.T) {
 	valid := Card{ID: "grid-screen", Type: "task", Title: "Grid screen", Summary: "Builds the grid.", HasSummary: true,
-		Commits: []string{"78c3fac"}, Files: []string{"client/main.odin"}}
+		Distance: 1, Relation: RelationDependency, Commits: []string{"78c3fac"}, Files: []string{"client/main.odin"}}
 	tests := []struct {
 		name           string
 		change         func(value *Card)
@@ -23,6 +23,10 @@ func TestCardValidate(t *testing.T) {
 		{"Identity fields are required", func(value *Card) { value.ID, value.Type, value.Title = "", " ", "" },
 			[]string{FieldID, FieldType, FieldTitle}},
 		{"A negative distance", func(value *Card) { value.Distance = minimumDistance - 1 }, []string{FieldDistance}},
+		{"The start at distance 0", func(value *Card) { value.Distance, value.Relation = 0, RelationStart }, nil},
+		{"An unknown relation", func(value *Card) { value.Relation = "sibling" }, []string{FieldRelation}},
+		{"The start relation past distance 0", func(value *Card) { value.Relation = RelationStart }, []string{FieldRelation}},
+		{"A hop relation at distance 0", func(value *Card) { value.Distance = 0 }, []string{FieldRelation}},
 		{"Empty commits and files", func(value *Card) { value.Commits, value.Files = []string{""}, []string{"a", " "} },
 			[]string{FieldCommits + ".0", FieldFiles + ".1"}},
 	}

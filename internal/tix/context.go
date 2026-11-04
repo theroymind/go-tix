@@ -3,7 +3,6 @@ package tix
 import (
 	"fmt"
 	"io"
-	"slices"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -83,32 +82,30 @@ func contextNotes(store backend.Backend) ([]backend.ContextNote, error) {
 	}
 	notes := make([]backend.ContextNote, 0, len(tickets))
 	for _, listed := range tickets {
-		var links []string
-		if listed.Parent != "" {
-			links = append(links, listed.Parent)
-		}
-		links = append(links, listed.Dependencies...)
-		notes = append(notes, backend.ContextNote{ID: listed.ID, Type: string(listed.Type), Title: listed.Title, Links: links})
+		notes = append(notes, backend.ContextNote{
+			ID: listed.ID, Type: string(listed.Type), Title: listed.Title,
+			Parent: listed.Parent, Dependencies: listed.Dependencies,
+		})
 	}
 	return notes, nil
 }
 
-// walkCards walks from start over each note's links and backlinks to the notes the backend holds, and returns their
-// cards in walk order. A link to a note the backend doesn't hold is left out, and a note that stops the walk is
-// reached but not walked through, unless it is the start.
+// walkCards walks from start over each note's parent, dependencies, wikilinks and backlinks, in that order, to the
+// notes the backend holds, and returns their cards in walk order. A link to a note the backend doesn't hold is left
+// out, and a note that stops the walk is reached but not walked through, unless it is the start.
 func walkCards(notes []backend.ContextNote, start string, depth int) ([]card.Card, error) {
 	byID := make(map[string]backend.ContextNote, len(notes))
 	for _, note := range notes {
 		byID[note.ID] = note
 	}
-	neighbours := func(id string) []string {
+	neighbours := func(id string) []graph.Neighbour {
 		note := byID[id]
 		if note.StopsWalk && id != start {
 			return nil
 		}
-		var held []string
-		for _, neighbour := range slices.Concat(note.Links, note.Backlinks) {
-			if _, isHeld := byID[neighbour]; isHeld {
+		var held []graph.Neighbour
+		for _, neighbour := range noteNeighbours(note) {
+			if _, isHeld := byID[neighbour.ID]; isHeld {
 				held = append(held, neighbour)
 			}
 		}
@@ -116,7 +113,7 @@ func walkCards(notes []backend.ContextNote, start string, depth int) ([]card.Car
 	}
 	cards := []card.Card{}
 	for _, reached := range graph.Walk(start, depth, neighbours) {
-		value := toCard(byID[reached.ID], reached.Distance)
+		value := toCard(byID[reached.ID], reached.Distance, reached.Relation)
 		if err := value.Validate(); err != nil {
 			return nil, fmt.Errorf("%s: %w", reached.ID, err)
 		}
@@ -125,7 +122,25 @@ func walkCards(notes []backend.ContextNote, start string, depth int) ([]card.Car
 	return cards, nil
 }
 
-func toCard(note backend.ContextNote, distance int) card.Card {
+// noteNeighbours lists a note's hops strongest first: its parent, its dependencies, its wikilinks, its backlinks.
+func noteNeighbours(note backend.ContextNote) []graph.Neighbour {
+	var neighbours []graph.Neighbour
+	if note.Parent != "" {
+		neighbours = append(neighbours, graph.Neighbour{ID: note.Parent, Relation: card.RelationParent})
+	}
+	for _, dependency := range note.Dependencies {
+		neighbours = append(neighbours, graph.Neighbour{ID: dependency, Relation: card.RelationDependency})
+	}
+	for _, wikilink := range note.Wikilinks {
+		neighbours = append(neighbours, graph.Neighbour{ID: wikilink, Relation: card.RelationWikilink})
+	}
+	for _, backlink := range note.Backlinks {
+		neighbours = append(neighbours, graph.Neighbour{ID: backlink, Relation: card.RelationBacklink})
+	}
+	return neighbours
+}
+
+func toCard(note backend.ContextNote, distance int, relation string) card.Card {
 	return card.Card{
 		ID:         note.ID,
 		Type:       note.Type,
@@ -133,6 +148,7 @@ func toCard(note backend.ContextNote, distance int) card.Card {
 		Summary:    note.Summary,
 		HasSummary: note.Summary != "",
 		Distance:   distance,
+		Relation:   relation,
 		Commits:    nonNil(note.Commits),
 		Files:      nonNil(note.Files),
 	}
@@ -146,7 +162,7 @@ func nonNil(values []string) []string {
 	return values
 }
 
-// writeCards prints the cards as a DISTANCE ID TYPE COMMITS SUMMARY table, each commit by its short hash.
+// writeCards prints the cards as a DISTANCE RELATION ID TYPE COMMITS SUMMARY table, each commit by its short hash.
 func writeCards(stdout io.Writer, cards []card.Card) error {
 	table := tabwriter.NewWriter(stdout, tableMinimumWidth, tableTabWidth, tablePadding, tablePaddingCharacter, 0)
 	if _, err := fmt.Fprintln(table, cardTableHeader); err != nil {
@@ -157,7 +173,7 @@ func writeCards(stdout io.Writer, cards []card.Card) error {
 		if !row.HasSummary {
 			summary = missingSummary
 		}
-		if _, err := fmt.Fprintf(table, cardTableRow, row.Distance, row.ID, row.Type, commitsCell(row.Commits), summary); err != nil {
+		if _, err := fmt.Fprintf(table, cardTableRow, row.Distance, row.Relation, row.ID, row.Type, commitsCell(row.Commits), summary); err != nil {
 			return err
 		}
 	}
