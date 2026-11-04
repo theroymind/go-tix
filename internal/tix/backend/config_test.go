@@ -76,6 +76,13 @@ func TestReadConfig(t *testing.T) {
 			backend.ErrInvalidFile, []string{"vault.docs.task"}},
 		{"A template for a non-ticket type is rejected", strings.Replace(vaultConfig, "    task: templates/task.md\n", "    spec: templates/spec.md\n", 1),
 			backend.ErrInvalidFile, []string{"vault.ticket_templates.spec"}},
+		{"An embeddings endpoint and model load", "prefix: ry\nembeddings:\n  endpoint: http://localhost:11434/v1\n  model: all-minilm\n", nil, nil},
+		{"An embeddings endpoint that isn't an absolute URL is named", "prefix: ry\nembeddings:\n  endpoint: localhost:11434\n  model: all-minilm\n",
+			backend.ErrInvalidFile, []string{"embeddings.endpoint", "absolute URL"}},
+		{"An embeddings model is required", "prefix: ry\nembeddings:\n  endpoint: http://localhost:11434/v1\n",
+			backend.ErrInvalidFile, []string{"embeddings.model"}},
+		{"An unknown embeddings key is named", "prefix: ry\nembeddings:\n  endpoint: http://localhost:11434/v1\n  model: m\n  key: x\n",
+			backend.ErrInvalidFile, []string{"key"}},
 		{"A profile with no ticket types is rejected", "prefix: ry\nbackend: vault\nvault:\n  root: docs\n", backend.ErrInvalidFile,
 			[]string{"vault.tickets"}},
 	}

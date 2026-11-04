@@ -7,16 +7,21 @@ import (
 )
 
 const (
-	configFieldPrefix     = "prefix"
-	configFieldBackend    = "backend"
-	configFieldVault      = "vault"
-	problemPrefixMismatch = "prefix must match "
-	problemVaultRequired  = "Invalid input: the vault backend needs a profile"
-	temporaryFileSuffix   = ".tmp"
-	yamlIndent            = 2
-	fieldSeparator        = "."
-	clashMapsTo           = " map to "
-	clashSeparator        = "; "
+	configFieldPrefix       = "prefix"
+	configFieldBackend      = "backend"
+	configFieldVault        = "vault"
+	configFieldEmbeddings   = "embeddings"
+	problemPrefixMismatch   = "prefix must match "
+	problemVaultRequired    = "Invalid input: the vault backend needs a profile"
+	problemEndpointNotURL   = "Invalid input: expected an absolute URL, such as http://localhost:11434/v1"
+	problemModelRequired    = "Invalid input: expected a model name"
+	embeddingsFieldEndpoint = "endpoint"
+	embeddingsFieldModel    = "model"
+	temporaryFileSuffix     = ".tmp"
+	yamlIndent              = 2
+	fieldSeparator          = "."
+	clashMapsTo             = " map to "
+	clashSeparator          = "; "
 )
 
 const (

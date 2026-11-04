@@ -1,8 +1,10 @@
 package backend
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/theroymind/railyard/internal/contracts/ticket"
 	"github.com/theroymind/railyard/internal/contracts/validation"
@@ -15,6 +17,27 @@ type Config struct {
 	Backend Kind `yaml:"backend,omitempty"`
 	// Vault is the vault backend's Profile, which that backend requires.
 	Vault *Profile `yaml:"vault,omitempty"`
+	// Embeddings names the endpoint and model tix index and tix search embed through. Without it they refuse to run.
+	Embeddings *Embeddings `yaml:"embeddings,omitempty"`
+}
+
+// Embeddings is an OpenAI-compatible embeddings server: the base URL that /embeddings is appended to, such as
+// http://localhost:11434/v1, and the model it serves.
+type Embeddings struct {
+	Endpoint string `yaml:"endpoint"`
+	Model    string `yaml:"model"`
+}
+
+func (embeddings Embeddings) Validate() error {
+	var problems validation.Errors
+	parsed, err := url.Parse(embeddings.Endpoint)
+	if err != nil || !parsed.IsAbs() || parsed.Host == "" {
+		problems.Add(embeddingsFieldEndpoint, problemEndpointNotURL)
+	}
+	if strings.TrimSpace(embeddings.Model) == "" {
+		problems.Add(embeddingsFieldModel, problemModelRequired)
+	}
+	return problems.Err()
 }
 
 func (config Config) Validate() error {
@@ -29,6 +52,9 @@ func (config Config) Validate() error {
 		problems.AddNested(configFieldVault, config.Vault.Validate())
 	} else if config.Backend == KindVault {
 		problems.Add(configFieldVault, problemVaultRequired)
+	}
+	if config.Embeddings != nil {
+		problems.AddNested(configFieldEmbeddings, config.Embeddings.Validate())
 	}
 	return problems.Err()
 }

@@ -10,6 +10,7 @@ const (
 	FieldRelation   = "relation"
 	FieldCommits    = "commits"
 	FieldFiles      = "files"
+	FieldScore      = "score"
 )
 
 const (
@@ -22,6 +23,9 @@ const (
 
 const (
 	minimumDistance        = 0
+	minimumScore           = -1.0
+	maximumScore           = 1.0
+	problemScoreRange      = "must be between -1 and 1"
 	problemRelationUnknown = "must be start, parent, dependency, wikilink or backlink"
 	problemStartMismatch   = "must be start exactly at distance 0"
 	problemRequired        = "is required"
