@@ -20,17 +20,19 @@ const (
 )
 
 const (
-	profileFieldTickets         = "tickets"
-	profileFieldDocs            = "docs"
-	profileFieldTicketTemplates = "ticket_templates"
-	mappingFieldTicketType      = "ticket_type"
-	mappingFieldStatuses        = "statuses"
-	mappingFieldFields          = "fields"
+	profileFieldTickets          = "tickets"
+	profileFieldDocs             = "docs"
+	profileFieldTicketTemplates  = "ticket_templates"
+	profileFieldContextStopTypes = "context_stop_types"
+	mappingFieldTicketType       = "ticket_type"
+	mappingFieldStatuses         = "statuses"
+	mappingFieldFields           = "fields"
 
 	problemNoTicketTypes     = "Invalid input: expected at least one ticket note type"
 	problemNoStatuses        = "Invalid input: expected at least one status"
 	problemTicketAndDoc      = "Invalid input: a note type can't be both a ticket and a doc"
 	problemTemplateNotTicket = "Invalid input: expected a note type listed in tickets"
+	problemStopTypeUnknown   = "Invalid input: expected a note type listed in tickets or docs"
 	problemStatusNamedOther  = "Invalid input: expected a note status named after a ticket status to map to it, but "
 	problemSharedStatus      = "Invalid input: expected each note status to map to its own ticket status, but "
 )

@@ -33,6 +33,9 @@ type Profile struct {
 	CommitsProperty string `yaml:"commits_property,omitempty"`
 	// FilesHeading names the section listing the files a note expects to touch.
 	FilesHeading string `yaml:"files_heading,omitempty"`
+	// ContextStopTypes are the note types, such as a vault's home note, that tix context reaches but doesn't walk
+	// through, unless the walk starts there.
+	ContextStopTypes []string `yaml:"context_stop_types,omitempty,flow"`
 }
 
 // TicketMapping is how notes of one type become tickets.
@@ -100,6 +103,13 @@ func (profile Profile) Validate() error {
 	for _, noteType := range slices.Sorted(maps.Keys(profile.TicketTemplates)) {
 		if _, isTicket := profile.Tickets[noteType]; !isTicket {
 			problems.Add(profileFieldTicketTemplates+fieldSeparator+noteType, problemTemplateNotTicket)
+		}
+	}
+	for index, noteType := range profile.ContextStopTypes {
+		_, isTicket := profile.Tickets[noteType]
+		_, isDoc := profile.Docs[noteType]
+		if !isTicket && !isDoc {
+			problems.Add(profileFieldContextStopTypes+fieldSeparator+strconv.Itoa(index), problemStopTypeUnknown)
 		}
 	}
 	return problems.Err()

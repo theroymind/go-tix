@@ -69,13 +69,14 @@ func (store Store) contextNote(note *vault.Note, noteType, title string, links [
 	wikilinks := withoutSelf(vault.Wikilinks(string(note.Render())), note.Slug)
 	links = withoutSelf(uniqueLinks(append(links, wikilinks...)), note.Slug)
 	return backend.ContextNote{
-		ID:      note.Slug,
-		Type:    noteType,
-		Title:   title,
-		Summary: strings.TrimSpace(propertyText(note.Property(store.Profile.SummaryProperty))),
-		Commits: propertyTexts(note.Property(store.Profile.CommitsProperty)),
-		Files:   files,
-		Links:   links,
+		ID:        note.Slug,
+		Type:      noteType,
+		Title:     title,
+		Summary:   strings.TrimSpace(propertyText(note.Property(store.Profile.SummaryProperty))),
+		Commits:   propertyTexts(note.Property(store.Profile.CommitsProperty)),
+		Files:     files,
+		Links:     links,
+		StopsWalk: slices.Contains(store.Profile.ContextStopTypes, noteType),
 	}, wikilinks, nil
 }
 
