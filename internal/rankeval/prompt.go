@@ -3,7 +3,7 @@ package rankeval
 import (
 	"strings"
 
-	"github.com/theroymind/railyard/internal/contracts/card"
+	"github.com/theroymind/go-tix/contracts/card"
 )
 
 // rankPrompt asks the model to score every card against the task's title, summary and criteria.

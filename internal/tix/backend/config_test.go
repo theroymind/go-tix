@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/contracts/ticket"
-	"github.com/theroymind/railyard/internal/tix/backend"
+	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/go-tix/internal/tix/backend"
 )
 
 const vaultConfig = `prefix: odin

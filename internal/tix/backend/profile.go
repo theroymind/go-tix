@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/theroymind/railyard/internal/contracts/ticket"
-	"github.com/theroymind/railyard/internal/contracts/validation"
+	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/validation"
 )
 
 // Profile describes a vault's conventions: where its notes are, which note types are tickets and which are docs,

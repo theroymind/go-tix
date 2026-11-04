@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/ticket"
 )
 
 func TestSlugify(t *testing.T) {

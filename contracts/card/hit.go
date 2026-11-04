@@ -3,7 +3,7 @@ package card
 import (
 	"strings"
 
-	"github.com/theroymind/railyard/internal/contracts/validation"
+	"github.com/theroymind/go-tix/contracts/validation"
 )
 
 // Hit is one note tix search ranked against a query: its id, note type, title and one-line summary, and its score,

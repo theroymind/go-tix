@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/tix/index"
+	"github.com/theroymind/go-tix/internal/tix/index"
 )
 
 const tolerance = 1e-9

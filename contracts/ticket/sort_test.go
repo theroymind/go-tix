@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/contracts/timestamp"
+	"github.com/theroymind/go-tix/contracts/timestamp"
 )
 
 const (

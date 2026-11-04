@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/theroymind/railyard/internal/contracts/card"
+	"github.com/theroymind/go-tix/contracts/card"
 )
 
 // rankRequest is what a ranker sees of a case: the task's text and the candidate cards, never the cut or the

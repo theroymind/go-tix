@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/contracts/ticket"
-	"github.com/theroymind/railyard/internal/contracts/validation"
+	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/validation"
+	"github.com/theroymind/railyard-cli"
 )
 
 var lsSpecification = cli.Specification{

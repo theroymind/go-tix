@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/contracts/ticket"
-	"github.com/theroymind/railyard/internal/contracts/timestamp"
-	"github.com/theroymind/railyard/internal/tix/backend"
+	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/timestamp"
+	"github.com/theroymind/go-tix/internal/tix/backend"
+	"github.com/theroymind/railyard-cli"
 )
 
 var doneSpecification = cli.Specification{

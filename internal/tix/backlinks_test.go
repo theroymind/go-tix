@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/cli"
+	"github.com/theroymind/railyard-cli"
 )
 
 func TestBacklinks(t *testing.T) {

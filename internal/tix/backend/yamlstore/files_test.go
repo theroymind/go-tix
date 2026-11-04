@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/tix/backend"
+	"github.com/theroymind/go-tix/internal/tix/backend"
 )
 
 func makeDirectory(t *testing.T, path string) {

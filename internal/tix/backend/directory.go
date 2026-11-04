@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/ticket"
 )
 
 func FindDirectory(startDirectory string) (string, error) {

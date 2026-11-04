@@ -1,6 +1,6 @@
 # tix
 
-> Imported from tix v1 (go-tix, now deleted) on 2026-10-25. Railyard's tix uses these terms. Code paths mentioned here are from the old repo.
+> Imported from tix v1 on 2026-10-25, then developed inside Railyard and split back out into go-tix on 2026-11-04. tix uses these terms. Code paths mentioned here are from v1.
 
 A per-repo CLI ticket tracker. Tickets live as YAML files in `.tix/`, committed with the code they describe.
 

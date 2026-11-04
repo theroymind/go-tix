@@ -7,12 +7,12 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/contracts/ticket"
-	"github.com/theroymind/railyard/internal/tix"
-	"github.com/theroymind/railyard/internal/tix/backend"
-	"github.com/theroymind/railyard/internal/tix/backend/vaultstore"
-	"github.com/theroymind/railyard/internal/tix/backend/yamlstore"
+	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/go-tix/internal/tix"
+	"github.com/theroymind/go-tix/internal/tix/backend"
+	"github.com/theroymind/go-tix/internal/tix/backend/vaultstore"
+	"github.com/theroymind/go-tix/internal/tix/backend/yamlstore"
+	"github.com/theroymind/railyard-cli"
 )
 
 const (

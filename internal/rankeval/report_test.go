@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/theroymind/railyard/internal/contracts/card"
+	"github.com/theroymind/go-tix/contracts/card"
 )
 
 const floatTolerance = 1e-9

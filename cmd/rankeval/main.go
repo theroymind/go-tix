@@ -8,7 +8,7 @@ package main
 import (
 	"os"
 
-	"github.com/theroymind/railyard/internal/rankeval"
+	"github.com/theroymind/go-tix/internal/rankeval"
 )
 
 func main() {

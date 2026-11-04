@@ -4,7 +4,7 @@ package graph
 import (
 	"slices"
 
-	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/ticket"
 )
 
 // Ready returns, sorted, the open tickets whose dependencies are all resolved and whose children are all resolved.

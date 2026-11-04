@@ -4,9 +4,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/theroymind/railyard/internal/contracts/ticket"
-	"github.com/theroymind/railyard/internal/tix/backend"
-	"github.com/theroymind/railyard/internal/tix/vault"
+	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/go-tix/internal/tix/backend"
+	"github.com/theroymind/go-tix/internal/tix/vault"
 )
 
 // newCheckbox is the line an added criterion starts from when the section has no checkbox to copy.

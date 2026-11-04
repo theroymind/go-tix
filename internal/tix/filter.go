@@ -3,7 +3,7 @@ package tix
 import (
 	"slices"
 
-	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/ticket"
 )
 
 // filter holds ls's options; an empty field matches every ticket.

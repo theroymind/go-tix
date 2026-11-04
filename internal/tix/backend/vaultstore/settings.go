@@ -1,6 +1,6 @@
 package vaultstore
 
-import "github.com/theroymind/railyard/internal/contracts/ticket"
+import "github.com/theroymind/go-tix/contracts/ticket"
 
 const (
 	noteExtension  = ".md"

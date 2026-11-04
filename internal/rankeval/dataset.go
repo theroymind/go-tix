@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/theroymind/railyard/internal/contracts/card"
-	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/card"
+	"github.com/theroymind/go-tix/contracts/ticket"
 )
 
 // evalCase is one done task as the ranker would see it before its own commits: the task's text, the cut, the

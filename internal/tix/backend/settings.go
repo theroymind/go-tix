@@ -3,7 +3,7 @@ package backend
 import (
 	"io/fs"
 
-	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/ticket"
 )
 
 const (

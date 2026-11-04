@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/tix/backend"
+	"github.com/theroymind/go-tix/internal/tix/backend"
+	"github.com/theroymind/railyard-cli"
 )
 
 func TestDocsLs(t *testing.T) {

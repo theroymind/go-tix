@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/tix/index"
+	"github.com/theroymind/go-tix/internal/tix/index"
 )
 
 type fakeRequest struct {

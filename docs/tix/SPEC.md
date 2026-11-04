@@ -1,6 +1,6 @@
 # Spec: tix v1
 
-> Imported from tix v1 (go-tix, now deleted) on 2026-10-25. The `.tix/` format, commands and rules here are what Railyard's tix keeps compatible with. Its build commands and code layout describe the old repo, not Railyard.
+> Imported from tix v1 on 2026-10-25, then developed inside Railyard and split back out into go-tix on 2026-11-04. The `.tix/` format, commands and rules here are what tix keeps compatible with. The build commands and code layout below describe v1, not the current repo. See `CLAUDE.md` for those.
 
 ## Objective
 
