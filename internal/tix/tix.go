@@ -35,6 +35,8 @@ commands:
                          repository's index under the state directory; only changed notes are embedded again)
   search QUERY [--type T] [--top N] [--json]
                          (the N notes closest to QUERY, default 10, by cosine similarity over the index)
+  lint (REF... | --all)  (checks each note's required sections, summary and links; prints PATH: RULE: MESSAGE for
+                         each problem and exits 1 when there is any)
   help
 
 A set VALUE written as a list, such as [a, b], replaces the value with that list, and [] empties it; a wikilink
@@ -66,5 +68,6 @@ var Program = cli.Program{
 		"supersede": runSupersede,
 		"index":     runIndex,
 		"search":    runSearch,
+		"lint":      runLint,
 	},
 }
