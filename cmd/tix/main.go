@@ -11,10 +11,10 @@ package main
 import (
 	"os"
 
-	"github.com/theroymind/railyard/internal/tix"
-	"github.com/theroymind/railyard/internal/tix/backend"
-	"github.com/theroymind/railyard/internal/tix/backend/vaultstore"
-	"github.com/theroymind/railyard/internal/tix/backend/yamlstore"
+	"github.com/theroymind/go-tix/internal/tix"
+	"github.com/theroymind/go-tix/internal/tix/backend"
+	"github.com/theroymind/go-tix/internal/tix/backend/vaultstore"
+	"github.com/theroymind/go-tix/internal/tix/backend/yamlstore"
 )
 
 func main() {

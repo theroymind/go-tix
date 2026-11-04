@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/theroymind/railyard/internal/contracts/timestamp"
-	"github.com/theroymind/railyard/internal/contracts/validation"
+	"github.com/theroymind/go-tix/contracts/timestamp"
+	"github.com/theroymind/go-tix/contracts/validation"
 )
 
 const (

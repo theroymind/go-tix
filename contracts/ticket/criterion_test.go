@@ -8,7 +8,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/theroymind/railyard/internal/contracts/strictjson"
+	"github.com/theroymind/railyard-cli/strictjson"
 )
 
 func TestCriterionYAMLIsAPlainString(t *testing.T) {

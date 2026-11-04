@@ -6,7 +6,7 @@ package rankeval
 import (
 	"errors"
 
-	"github.com/theroymind/railyard/internal/cli"
+	"github.com/theroymind/railyard-cli"
 )
 
 const usage = `usage: rankeval <command> [arguments]

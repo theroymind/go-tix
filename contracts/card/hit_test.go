@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/contracts/validation"
+	"github.com/theroymind/go-tix/contracts/validation"
 )
 
 func TestHitValidate(t *testing.T) {

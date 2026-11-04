@@ -12,8 +12,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/contracts/strictjson"
+	"github.com/theroymind/railyard-cli"
+	"github.com/theroymind/railyard-cli/strictjson"
 )
 
 // Index is the embedded notes of one repository, built with one model. Entries are sorted by id.

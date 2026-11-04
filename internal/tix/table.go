@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"text/tabwriter"
 
-	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/railyard-cli"
 )
 
 // writeTickets prints the tickets as a JSON array when asked, and as an ID TYPE STATUS PRIORITY TITLE table otherwise.

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/theroymind/railyard/internal/cli"
+	"github.com/theroymind/railyard-cli"
 )
 
 var runSpecification = cli.Specification{

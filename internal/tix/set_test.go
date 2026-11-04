@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/cli"
+	"github.com/theroymind/railyard-cli"
 )
 
 func TestSetOnADoc(t *testing.T) {

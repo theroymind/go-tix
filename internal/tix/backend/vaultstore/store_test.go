@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/contracts/ticket"
-	"github.com/theroymind/railyard/internal/tix/backend"
-	"github.com/theroymind/railyard/internal/tix/backend/vaultstore"
-	"github.com/theroymind/railyard/internal/tix/graph"
+	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/go-tix/internal/tix/backend"
+	"github.com/theroymind/go-tix/internal/tix/backend/vaultstore"
+	"github.com/theroymind/go-tix/internal/tix/graph"
 )
 
 // fixture is a subset of odin-tbc's docs/, with some tasks set back to todo so that ready has something to pick.

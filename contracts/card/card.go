@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/theroymind/railyard/internal/contracts/validation"
+	"github.com/theroymind/go-tix/contracts/validation"
 )
 
 // Card is one note a walk reached: its id, note type and title, its one-line summary, the hops it took to reach,

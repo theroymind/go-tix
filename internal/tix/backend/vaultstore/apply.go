@@ -7,9 +7,9 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/theroymind/railyard/internal/contracts/ticket"
-	"github.com/theroymind/railyard/internal/tix/backend"
-	"github.com/theroymind/railyard/internal/tix/vault"
+	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/go-tix/internal/tix/backend"
+	"github.com/theroymind/go-tix/internal/tix/vault"
 )
 
 // Apply makes every change to the note in memory, checks it then maps onto a valid ticket, and writes it atomically;

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/contracts/card"
-	"github.com/theroymind/railyard/internal/contracts/strictjson"
-	"github.com/theroymind/railyard/internal/tix"
+	"github.com/theroymind/go-tix/contracts/card"
+	"github.com/theroymind/go-tix/internal/tix"
+	"github.com/theroymind/railyard-cli"
+	"github.com/theroymind/railyard-cli/strictjson"
 )
 
 const contextConfig = `prefix: ctx

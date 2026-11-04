@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/theroymind/railyard/internal/cli"
+	"github.com/theroymind/railyard-cli"
 )
 
 // claudeCompleter asks a hosted model through claude -p, with no tools, and takes its result text.

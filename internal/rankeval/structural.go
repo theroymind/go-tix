@@ -3,7 +3,7 @@ package rankeval
 import (
 	"slices"
 
-	"github.com/theroymind/railyard/internal/contracts/card"
+	"github.com/theroymind/go-tix/contracts/card"
 )
 
 // structuralOrder sorts cards the way odin-tbc's warm_up.py packs them: nearest first, then parent and

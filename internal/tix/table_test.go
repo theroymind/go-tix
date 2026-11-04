@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/ticket"
 )
 
 func TestWriteTicketsJSONOmitsAcceptance(t *testing.T) {

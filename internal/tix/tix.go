@@ -2,7 +2,7 @@
 // directory, and list, show and change the docs a backend holds beside them.
 package tix
 
-import "github.com/theroymind/railyard/internal/cli"
+import "github.com/theroymind/railyard-cli"
 
 const usage = `usage: tix <command> [arguments]
 

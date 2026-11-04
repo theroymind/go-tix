@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/contracts/ticket"
-	"github.com/theroymind/railyard/internal/contracts/timestamp"
+	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/timestamp"
 )
 
 const createdAt timestamp.Timestamp = "2026-10-25T09:00:00Z"

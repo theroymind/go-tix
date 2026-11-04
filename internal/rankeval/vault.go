@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/contracts/card"
-	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/card"
+	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/railyard-cli"
 )
 
 // vault reads a vault through the tix binary run at its root: its done tasks, one task with its criteria, and

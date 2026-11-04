@@ -5,9 +5,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/contracts/ticket"
-	"github.com/theroymind/railyard/internal/tix/backend"
+	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/go-tix/internal/tix/backend"
+	"github.com/theroymind/railyard-cli"
 )
 
 var showSpecification = cli.Specification{

@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/contracts/card"
-	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/card"
+	"github.com/theroymind/go-tix/contracts/ticket"
 )
 
 func fixtureCard(id, relation string, distance int, commits ...string) card.Card {

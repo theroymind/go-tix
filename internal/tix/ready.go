@@ -3,8 +3,8 @@ package tix
 import (
 	"io"
 
-	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/tix/graph"
+	"github.com/theroymind/go-tix/internal/tix/graph"
+	"github.com/theroymind/railyard-cli"
 )
 
 var readySpecification = cli.Specification{

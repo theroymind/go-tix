@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/contracts/ticket"
-	"github.com/theroymind/railyard/internal/tix/backend"
+	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/go-tix/internal/tix/backend"
+	"github.com/theroymind/railyard-cli"
 )
 
 // parseType returns the ticket type --type names, or "" when the option is absent. The value is a ticket type, or

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/cli"
-	"github.com/theroymind/railyard/internal/contracts/ticket"
+	"github.com/theroymind/go-tix/contracts/ticket"
+	"github.com/theroymind/railyard-cli"
 )
 
 // ticketFiles lists the file names in root's .tix directory.

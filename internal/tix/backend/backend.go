@@ -2,7 +2,7 @@
 // the .tix directory and config every backend shares, and Open, which opens the configured backend.
 package backend
 
-import "github.com/theroymind/railyard/internal/contracts/ticket"
+import "github.com/theroymind/go-tix/contracts/ticket"
 
 // Backend stores tickets. Each backend chooses its tickets' ids and the format they're kept in.
 type Backend interface {

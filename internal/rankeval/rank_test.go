@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/theroymind/railyard/internal/contracts/card"
+	"github.com/theroymind/go-tix/contracts/card"
 )
 
 type fixedCompleter struct {

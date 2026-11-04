@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/theroymind/railyard/internal/contracts/strictjson"
-	"github.com/theroymind/railyard/internal/contracts/validation"
+	"github.com/theroymind/go-tix/contracts/validation"
+	"github.com/theroymind/railyard-cli/strictjson"
 )
 
 const problemIDRequired = "is required"
