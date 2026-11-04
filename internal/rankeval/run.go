@@ -19,6 +19,7 @@ var runSpecification = cli.Specification{
 		{Name: optionTop, Type: cli.OptionTypeString},
 		{Name: optionRuns, Type: cli.OptionTypeString},
 		{Name: optionNotes, Type: cli.OptionTypeString},
+		{Name: optionThinking, Type: cli.OptionTypeBoolean},
 	},
 }
 
@@ -30,6 +31,7 @@ type runOptions struct {
 	top      int
 	runs     int
 	notes    string
+	thinking bool
 }
 
 func runRun(arguments []string, _ io.Reader, stdout io.Writer) error {
@@ -53,7 +55,7 @@ func runRun(arguments []string, _ io.Reader, stdout io.Writer) error {
 		Models:   []modelReport{},
 	}
 	for _, name := range options.models {
-		ranker := newRanker(name, options.endpoint)
+		ranker := newRanker(name, options.endpoint, options.thinking)
 		model := modelReport{Model: name, Runs: []runReport{}}
 		for run := 0; run < options.runs && model.Error == ""; run++ {
 			fmt.Fprintf(os.Stderr, "rankeval: %s run %d of %d over %d cases\n", name, run+1, options.runs, len(cases))
@@ -104,6 +106,7 @@ func parseRunOptions(arguments []string) (runOptions, error) {
 		top:      top,
 		runs:     runs,
 		notes:    DefaultNotesDirectory,
+		thinking: parsed.IsEnabled(optionThinking),
 	}
 	if len(options.models) == 0 {
 		options.models = []string{ModelNone}

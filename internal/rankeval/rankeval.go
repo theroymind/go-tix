@@ -12,9 +12,10 @@ import (
 const usage = `usage: rankeval <command> [arguments]
 
 commands:
-  run --vault PATH [--model NAME]... [--endpoint URL] [--depth N] [--top K] [--runs N] [--notes DIR]
+  run --vault PATH [--model NAME]... [--endpoint URL] [--depth N] [--top K] [--runs N] [--notes DIR] [--thinking]
       NAME is none for the structural order, haiku for claude -p, or a model the endpoint serves.
       Defaults: --model none, --endpoint http://localhost:8080, --depth 2, --top 5, --runs 1, --notes docs.
+      --thinking lets a thinking model think; without it the request asks the endpoint to turn thinking off.
 `
 
 var Program = cli.Program{
@@ -33,6 +34,7 @@ const (
 	optionTop      = "top"
 	optionRuns     = "runs"
 	optionNotes    = "notes"
+	optionThinking = "thinking"
 )
 
 const (
@@ -54,6 +56,7 @@ const (
 	chatCompletionsPath    = "/v1/chat/completions"
 	chatRoleUser           = "user"
 	chatTemperature        = 0
+	chatMaximumTokens      = 4096
 	millisecondsPerSecond  = 1000
 	jsonObjectStart        = "{"
 	jsonObjectEnd          = "}"

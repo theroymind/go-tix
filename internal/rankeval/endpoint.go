@@ -13,19 +13,28 @@ const endpointTimeout = 10 * time.Minute
 
 // endpointCompleter asks an OpenAI-compatible chat server for one completion of one user message.
 type endpointCompleter struct {
-	base   string
-	model  string
-	client *http.Client
+	base     string
+	model    string
+	thinking bool
+	client   *http.Client
 }
 
-func newEndpointCompleter(base, model string) endpointCompleter {
-	return endpointCompleter{base: base, model: model, client: &http.Client{Timeout: endpointTimeout}}
+func newEndpointCompleter(base, model string, thinking bool) endpointCompleter {
+	return endpointCompleter{base: base, model: model, thinking: thinking, client: &http.Client{Timeout: endpointTimeout}}
 }
 
+// chatRequest is one chat completion. TemplateArguments carries the MLX server's enable_thinking switch, left
+// out when the model may think; the answer is read from the content, apart from any reasoning returned.
 type chatRequest struct {
-	Model       string        `json:"model"`
-	Messages    []chatMessage `json:"messages"`
-	Temperature float64       `json:"temperature"`
+	Model             string             `json:"model"`
+	Messages          []chatMessage      `json:"messages"`
+	Temperature       float64            `json:"temperature"`
+	MaximumTokens     int                `json:"max_tokens"`
+	TemplateArguments *templateArguments `json:"chat_template_kwargs,omitempty"`
+}
+
+type templateArguments struct {
+	EnableThinking bool `json:"enable_thinking"`
 }
 
 type chatMessage struct {
@@ -42,11 +51,16 @@ type chatChoice struct {
 }
 
 func (endpoint endpointCompleter) complete(prompt string) (string, error) {
-	body, err := json.Marshal(chatRequest{
-		Model:       endpoint.model,
-		Messages:    []chatMessage{{Role: chatRoleUser, Content: prompt}},
-		Temperature: chatTemperature,
-	})
+	request := chatRequest{
+		Model:         endpoint.model,
+		Messages:      []chatMessage{{Role: chatRoleUser, Content: prompt}},
+		Temperature:   chatTemperature,
+		MaximumTokens: chatMaximumTokens,
+	}
+	if !endpoint.thinking {
+		request.TemplateArguments = &templateArguments{EnableThinking: false}
+	}
+	body, err := json.Marshal(request)
 	if err != nil {
 		return "", err
 	}

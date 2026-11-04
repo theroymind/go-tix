@@ -112,7 +112,7 @@ func TestNewRanker(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ranker := newRanker(tt.model, DefaultEndpoint)
+			ranker := newRanker(tt.model, DefaultEndpoint, false)
 
 			if name := rankerName(ranker); name != tt.expected {
 				t.Errorf("newRanker(%q) = %s, want %s", tt.model, name, tt.expected)

@@ -29,8 +29,8 @@ func TestParseRunOptions(t *testing.T) {
 		},
 		{
 			"Every option, models in the order given",
-			[]string{"--vault", "vault", "--model", "haiku", "--model", "none", "--endpoint", "http://host:1/", "--depth", "0", "--top", "3", "--runs", "2", "--notes", "wiki"},
-			runOptions{vault: vaultPath, models: []string{"haiku", "none"}, endpoint: "http://host:1/", depth: 0, top: 3, runs: 2, notes: "wiki"},
+			[]string{"--vault", "vault", "--model", "haiku", "--model", "none", "--endpoint", "http://host:1/", "--depth", "0", "--top", "3", "--runs", "2", "--notes", "wiki", "--thinking"},
+			runOptions{vault: vaultPath, models: []string{"haiku", "none"}, endpoint: "http://host:1/", depth: 0, top: 3, runs: 2, notes: "wiki", thinking: true},
 			nil,
 		},
 		{"The vault is required", []string{"--model", "none"}, runOptions{}, cli.ErrRequiredOption},

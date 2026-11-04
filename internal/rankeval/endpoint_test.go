@@ -35,7 +35,7 @@ func TestEndpointCompleterComplete(t *testing.T) {
 				_, _ = writer.Write([]byte(tt.body))
 			}))
 			defer server.Close()
-			completer := newEndpointCompleter(server.URL, "a-model")
+			completer := newEndpointCompleter(server.URL, "a-model", false)
 
 			answer, err := completer.complete("rank these")
 
@@ -55,7 +55,7 @@ func TestEndpointCompleterComplete(t *testing.T) {
 func TestEndpointCompleterUnreachable(t *testing.T) {
 	server := httptest.NewServer(http.NotFoundHandler())
 	server.Close()
-	completer := newEndpointCompleter(server.URL, "a-model")
+	completer := newEndpointCompleter(server.URL, "a-model", false)
 
 	_, err := completer.complete("rank these")
 
@@ -84,6 +84,46 @@ func TestDecodeClaudeResult(t *testing.T) {
 			}
 			if result.Result != tt.expected {
 				t.Errorf("decodeClaudeResult() result = %q, want %q", result.Result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestEndpointCompleterThinkingSwitch(t *testing.T) {
+	tests := []struct {
+		name             string
+		thinking         bool
+		expectedSwitch   bool
+		expectedArgument *templateArguments
+	}{
+		{"Thinking off asks the server to disable it", false, true, &templateArguments{EnableThinking: false}},
+		{"Thinking on leaves the template alone", true, false, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var received map[string]json.RawMessage
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				if err := json.NewDecoder(request.Body).Decode(&received); err != nil {
+					t.Errorf("request body: %v", err)
+				}
+				_, _ = writer.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"ok"}}]}`))
+			}))
+			defer server.Close()
+			completer := newEndpointCompleter(server.URL, "a-model", tt.thinking)
+
+			if _, err := completer.complete("rank these"); err != nil {
+				t.Fatal(err)
+			}
+
+			raw, hasSwitch := received["chat_template_kwargs"]
+			if hasSwitch != tt.expectedSwitch {
+				t.Fatalf("chat_template_kwargs sent = %v, want %v", hasSwitch, tt.expectedSwitch)
+			}
+			if hasSwitch && string(raw) != `{"enable_thinking":false}` {
+				t.Errorf("chat_template_kwargs = %s", raw)
+			}
+			if _, hasMaximum := received["max_tokens"]; !hasMaximum {
+				t.Error("max_tokens not sent")
 			}
 		})
 	}

@@ -69,12 +69,12 @@ func orderByScore(structural []card.Card, scores map[string]int) []card.Card {
 
 // newRanker picks the ranker a model name asks for: none for the structural order, a claude alias for claude
 // -p, anything else for the endpoint.
-func newRanker(name, endpoint string) ranker {
+func newRanker(name, endpoint string, thinking bool) ranker {
 	if name == ModelNone {
 		return structuralRanker{}
 	}
 	if slices.Contains(claudeModels, name) {
 		return modelRanker{model: claudeCompleter{model: name}}
 	}
-	return modelRanker{model: newEndpointCompleter(strings.TrimRight(endpoint, "/"), name)}
+	return modelRanker{model: newEndpointCompleter(strings.TrimRight(endpoint, "/"), name, thinking)}
 }
