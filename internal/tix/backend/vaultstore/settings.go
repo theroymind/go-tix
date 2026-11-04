@@ -9,7 +9,12 @@ const (
 	statusProperty = "status"
 	sequenceTag    = "!!seq"
 	stringTag      = "!!str"
+	fileSeparator  = ","
+	codeSpanMarker = "`"
 )
+
+// listMarkers are the bullet markers a files section's list items may open with.
+var listMarkers = []string{"- ", "* ", "+ "}
 
 var (
 	// timestampFields are written only to a note that already holds them.
