@@ -20,6 +20,37 @@ const (
 )
 
 const (
+	claudeExecutable       = "claude"
+	claudeModelOption      = "--model="
+	claudeResultType       = "result"
+	jsonObjectStart        = "{"
+	jsonObjectEnd          = "}"
+	minimumMatchScore      = 1
+	maximumMatchScore      = 3
+	promptSectionSeparator = "\n\n"
+	promptListItemPrefix   = "- "
+	promptFieldJoiner      = " | "
+	promptMissingSummary   = "(no summary)"
+	promptIDLabel          = "id: "
+	promptTypeLabel        = "type: "
+	promptTitleLabel       = "title: "
+	promptSummaryLabel     = "summary: "
+	promptQueryLabel       = "Query: "
+	promptNotesHeading     = "Notes:\n"
+	promptInstruction      = "You search a project's notes. Score each note below for how well it matches the query: " +
+		"3 when it is what the query asks for, 2 when it is closely related, 1 when it is loosely related."
+	promptAnswerInstruction = "Answer with JSON only, no prose and no code fence, in the shape " +
+		`{"matches":[{"id":"<note id>","score":<1 to 3>}]}` + ". Leave out every note that doesn't match at all."
+)
+
+var claudeArguments = []string{
+	"--print",
+	"--output-format=json",
+	"--strict-mcp-config",
+	"--tools=",
+}
+
+const (
 	DirectoryPermission fs.FileMode = 0o777
 	FilePermission      fs.FileMode = 0o666
 )
@@ -33,4 +64,6 @@ var (
 	ErrEmbeddingCount      = errors.New("the embeddings endpoint returned the wrong number of vectors")
 	ErrDimensionMismatch   = errors.New("vectors differ in length")
 	ErrEmptyVector         = errors.New("vector is empty")
+	ErrClaudeFailed        = errors.New("claude failed")
+	ErrInvalidAnswer       = errors.New("claude gave an invalid search answer")
 )

@@ -30,11 +30,9 @@ func askConfig(setup prompter) (backend.Config, error) {
 		config.Backend = kind
 		config.Vault = &profile
 	}
-	embeddings, err := askEmbeddings(setup)
-	if err != nil {
+	if err := askSearch(setup, &config); err != nil {
 		return backend.Config{}, err
 	}
-	config.Embeddings = embeddings
 	return config, nil
 }
 
@@ -43,91 +41,39 @@ func askProfile(setup prompter) (backend.Profile, error) {
 	if err != nil {
 		return backend.Profile{}, err
 	}
-	typeProperty, err := setup.ask(questionTypeProperty, backend.DefaultTypeProperty, checkRequired)
+	statuses, err := parseStatuses(defaultTicketStatuses)
 	if err != nil {
 		return backend.Profile{}, err
 	}
-	criteriaHeading, err := setup.ask(questionCriteriaHeading, backend.DefaultCriteriaHeading, checkRequired)
-	if err != nil {
-		return backend.Profile{}, err
-	}
-	ticketNoteTypes, err := setup.askList(questionTicketNoteTypes, defaultTicketNoteTypes, checkTicketNoteTypes)
-	if err != nil {
-		return backend.Profile{}, err
-	}
-	tickets := map[string]backend.TicketMapping{}
-	for _, noteType := range ticketNoteTypes {
-		mapping, err := askTicketMapping(setup, noteType)
-		if err != nil {
-			return backend.Profile{}, err
-		}
-		tickets[noteType] = mapping
-	}
-	checkDocTypes := func(docNoteTypes []string) error {
-		return checkDocNoteTypes(docNoteTypes, tickets)
-	}
-	docNoteTypes, err := setup.askList(questionDocNoteTypes, "", checkDocTypes)
-	if err != nil {
-		return backend.Profile{}, err
-	}
-	profile := backend.Profile{Root: root, TypeProperty: typeProperty, Tickets: tickets, CriteriaHeading: criteriaHeading}
-	if len(docNoteTypes) > 0 {
-		profile.Docs = map[string]backend.DocMapping{}
-	}
-	for _, noteType := range docNoteTypes {
-		statusesQuestion := fmt.Sprintf(questionDocStatuses, noteType)
-		statuses, err := setup.askList(statusesQuestion, "", acceptAnyList)
-		if err != nil {
-			return backend.Profile{}, err
-		}
-		profile.Docs[noteType] = backend.DocMapping{Statuses: statuses}
+	taskMapping := backend.TicketMapping{TicketType: ticket.TypeTask, Statuses: statuses}
+	tickets := map[string]backend.TicketMapping{defaultTicketNoteType: taskMapping}
+	profile := backend.Profile{
+		Root:            root,
+		TypeProperty:    backend.DefaultTypeProperty,
+		Tickets:         tickets,
+		CriteriaHeading: backend.DefaultCriteriaHeading,
 	}
 	return profile, nil
 }
 
-func askTicketMapping(setup prompter, noteType string) (backend.TicketMapping, error) {
-	fallbackType := ""
-	if ticket.Type(noteType).IsValid() {
-		fallbackType = noteType
-	}
-	typeQuestion := fmt.Sprintf(questionTicketType, noteType)
-	typeAnswer, err := setup.ask(typeQuestion, fallbackType, checkTicketType)
+func askSearch(setup prompter, config *backend.Config) error {
+	answer, err := setup.ask(questionSearch, searchHaiku, checkSearch)
 	if err != nil {
-		return backend.TicketMapping{}, err
+		return err
 	}
-	mapping := backend.TicketMapping{TicketType: ticket.Type(typeAnswer)}
-	checkStatuses := func(answer string) error {
-		statuses, err := parseStatuses(answer)
-		if err != nil {
-			return err
-		}
-		candidate := backend.TicketMapping{TicketType: mapping.TicketType, Statuses: statuses}
-		if err := candidate.Validate(); err != nil {
-			return err
-		}
-		mapping = candidate
+	switch answer {
+	case searchNone:
 		return nil
-	}
-	statusesQuestion := fmt.Sprintf(questionTicketStatuses, noteType)
-	if _, err := setup.ask(statusesQuestion, defaultTicketStatuses, checkStatuses); err != nil {
-		return backend.TicketMapping{}, err
-	}
-	return mapping, nil
-}
-
-func askEmbeddings(setup prompter) (*backend.Embeddings, error) {
-	endpoint, err := setup.ask(questionEmbeddingsEndpoint, "", checkEndpoint)
-	if err != nil {
-		return nil, err
-	}
-	if endpoint == "" {
-		return nil, nil
+	case searchHaiku:
+		config.Claude = &backend.Claude{Model: searchHaiku}
+		return nil
 	}
 	model, err := setup.ask(questionEmbeddingsModel, "", checkRequired)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return &backend.Embeddings{Endpoint: endpoint, Model: model}, nil
+	config.Embeddings = &backend.Embeddings{Endpoint: answer, Model: model}
+	return nil
 }
 
 func parseStatuses(answer string) (map[string]ticket.Status, error) {
@@ -159,14 +105,6 @@ func checkKind(answer string) error {
 	return nil
 }
 
-func checkTicketType(answer string) error {
-	if !ticket.Type(answer).IsValid() {
-		options := validation.InvalidOption(ticket.Types)
-		return fmt.Errorf("%q %w: %s", answer, ErrInvalidOption, options)
-	}
-	return nil
-}
-
 func checkDocsDirectory(answer string) error {
 	if !filepath.IsLocal(answer) {
 		return fmt.Errorf("%q %w", answer, ErrDocsDirectoryNotLocal)
@@ -181,33 +119,14 @@ func checkRequired(answer string) error {
 	return nil
 }
 
-func checkEndpoint(answer string) error {
-	if answer == "" {
+func checkSearch(answer string) error {
+	isKeyword := answer == searchNone || answer == searchHaiku
+	if isKeyword {
 		return nil
 	}
 	parsed, err := url.Parse(answer)
 	if err != nil || !parsed.IsAbs() || parsed.Host == "" {
-		return fmt.Errorf("%q %w", answer, ErrEndpointNotURL)
+		return fmt.Errorf("%q %w", answer, ErrInvalidSearch)
 	}
-	return nil
-}
-
-func checkTicketNoteTypes(noteTypes []string) error {
-	if len(noteTypes) == 0 {
-		return ErrExpectedTicketNoteType
-	}
-	return nil
-}
-
-func checkDocNoteTypes(noteTypes []string, tickets map[string]backend.TicketMapping) error {
-	for _, noteType := range noteTypes {
-		if _, isTicket := tickets[noteType]; isTicket {
-			return fmt.Errorf("%q %w", noteType, ErrTicketAndDocType)
-		}
-	}
-	return nil
-}
-
-func acceptAnyList([]string) error {
 	return nil
 }

@@ -33,24 +33,15 @@ const customVaultConfig = `prefix: odin
 backend: vault
 vault:
   root: notes
-  type_property: kind
+  type_property: type
   tickets:
-    phase:
-      ticket_type: epic
-      statuses:
-        active: in_progress
-        done: completed
     task:
       ticket_type: task
       statuses:
         done: completed
+        in_progress: in_progress
         todo: open
-  docs:
-    decision:
-      statuses:
-        - proposed
-        - accepted
-  criteria_heading: Done when
+  criteria_heading: Acceptance criteria
 embeddings:
   endpoint: http://localhost:11434/v1
   model: all-minilm
@@ -67,27 +58,24 @@ func TestInit(t *testing.T) {
 	}{
 		{"--prefix writes the config without asking anything", []string{"init", "--prefix", "bs"}, "",
 			cli.ExitCodeSuccess, "prefix: bs\n", nil},
-		{"Without --prefix, blank answers take the YAML backend and no embeddings", []string{"init"}, "bs\n\n\n",
-			cli.ExitCodeSuccess, "prefix: bs\n", []string{"Ticket id prefix: ", "Backend (yaml or vault) [yaml]: ", "wrote "}},
-		{"An invalid prefix is asked again", []string{"init"}, "BS\nbs\n\n\n",
+		{"Without --prefix, blank answers take the YAML backend and haiku search", []string{"init"}, "bs\n\n\n",
+			cli.ExitCodeSuccess, "prefix: bs\nclaude:\n  model: haiku\n",
+			[]string{"Ticket id prefix: ", "Backend (yaml or vault) [yaml]: ", "Search with haiku", "[haiku]: ", "wrote "}},
+		{"Search can be turned off", []string{"init"}, "bs\n\nnone\n",
+			cli.ExitCodeSuccess, "prefix: bs\n", nil},
+		{"An invalid prefix is asked again", []string{"init"}, "BS\nbs\n\nnone\n",
 			cli.ExitCodeSuccess, "prefix: bs\n", []string{`"BS" is not a prefix`}},
-		{"An unknown backend is asked again", []string{"init"}, "bs\nsql\nyaml\n\n",
+		{"An unknown backend is asked again", []string{"init"}, "bs\nsql\nyaml\nnone\n",
 			cli.ExitCodeSuccess, "prefix: bs\n", []string{`"sql" is invalid`}},
-		{"The vault backend with blank answers takes the defaults", []string{"init"}, "odin\nvault\n" + strings.Repeat("\n", 8),
+		{"The vault backend asks only for the docs directory", []string{"init"}, "odin\nvault\n\nnone\n",
 			cli.ExitCodeSuccess, defaultVaultConfig, []string{"Docs directory, relative to this one [docs]: "}},
-		{"Every vault setting and the embeddings can be answered",
-			[]string{"init"},
-			"odin\nvault\nnotes\nkind\nDone when\ntask, phase\n\ntodo=open, done=completed\nepic\nactive=in_progress, done=completed\n" +
-				"decision\nproposed, accepted\nhttp://localhost:11434/v1\nall-minilm\n",
-			cli.ExitCodeSuccess, customVaultConfig, nil},
-		{"Invalid vault answers are asked again",
-			[]string{"init"},
-			"odin\nvault\n../docs\nnotes\nkind\nDone when\n,\ntask, phase\n\ntodo\ntodo=open, done=completed\nsaga\nepic\n" +
-				"active=busy\nactive=in_progress, done=completed\ntask\ndecision\nproposed, accepted\nlocalhost\nhttp://localhost:11434/v1\n\nall-minilm\n",
+		{"An embeddings endpoint asks for its model",
+			[]string{"init"}, "odin\nvault\nnotes\nhttp://localhost:11434/v1\nall-minilm\n",
+			cli.ExitCodeSuccess, customVaultConfig, []string{"Embeddings model: "}},
+		{"Invalid answers are asked again",
+			[]string{"init"}, "odin\nvault\n../docs\nnotes\nlocalhost\nhttp://localhost:11434/v1\n\nall-minilm\n",
 			cli.ExitCodeSuccess, customVaultConfig,
-			[]string{`"../docs" is not a directory inside this one`, "expected at least one note type", `"todo" is not a note=ticket status pair`,
-				`"saga" is invalid`, "statuses.active", `"task" is already a ticket note type`, `"localhost" is not an absolute URL`,
-				"expected an answer"}},
+			[]string{`"../docs" is not a directory inside this one`, `"localhost" is not haiku, none, or an absolute URL`, "expected an answer"}},
 		{"Input that ends early writes nothing", []string{"init"}, "bs\n",
 			cli.ExitCodeFailure, "", []string{"input ended before setup finished"}},
 	}

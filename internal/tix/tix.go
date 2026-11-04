@@ -32,9 +32,11 @@ commands:
                          and backlinks)
   supersede OLD NEW      (marks the OLD doc superseded by NEW)
   index                  (embeds each note's title and summary through the config's embeddings endpoint into the
-                         repository's index under the state directory; only changed notes are embedded again)
+                         repository's index under the state directory; only changed notes are embedded again;
+                         not needed when the config searches through claude)
   search QUERY [--type T] [--top N] [--json]
-                         (the N notes closest to QUERY, default 10, by cosine similarity over the index)
+                         (the N notes closest to QUERY, default 10, by cosine similarity over the index, or as
+                         ranked by the config's claude model through claude -p)
   help
 
 A set VALUE written as a list, such as [a, b], replaces the value with that list, and [] empties it; a wikilink

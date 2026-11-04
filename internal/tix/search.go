@@ -30,7 +30,8 @@ var searchSpecification = cli.Specification{
 type repository struct {
 	store      backend.Backend
 	root       string
-	embeddings backend.Embeddings
+	embeddings *backend.Embeddings
+	claude     *backend.Claude
 }
 
 // runIndex embeds every note's title and summary through the configured endpoint and writes the repository's index
@@ -43,6 +44,9 @@ func runIndex(arguments []string, _ io.Reader, stdout io.Writer) error {
 	opened, err := openRepository()
 	if err != nil {
 		return err
+	}
+	if opened.claude != nil {
+		return ErrIndexNotNeeded
 	}
 	notes, err := indexNotes(opened.store)
 	if err != nil {
@@ -89,23 +93,12 @@ func runSearch(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	path, err := indexPath(opened.root)
-	if err != nil {
-		return err
+	query := parsed.Positionals[0]
+	rank := rankByEmbeddings
+	if opened.claude != nil {
+		rank = rankByClaude
 	}
-	loaded, err := index.Read(path)
-	if err != nil {
-		return err
-	}
-	if err := loaded.CheckModel(opened.embeddings.Model); err != nil {
-		return err
-	}
-	embedder := index.OpenAIEmbedder{Endpoint: opened.embeddings.Endpoint, Model: opened.embeddings.Model}
-	queries, err := embedder.Embed([]string{parsed.Positionals[0]})
-	if err != nil {
-		return err
-	}
-	ranked, err := index.Rank(loaded, queries[0], types, top)
+	ranked, err := rank(opened, query, types, top)
 	if err != nil {
 		return err
 	}
@@ -117,6 +110,35 @@ func runSearch(arguments []string, _ io.Reader, stdout io.Writer) error {
 		return cli.WriteJSON(stdout, hits)
 	}
 	return writeHits(stdout, hits)
+}
+
+func rankByEmbeddings(opened repository, query string, types []string, top int) ([]index.Hit, error) {
+	path, err := indexPath(opened.root)
+	if err != nil {
+		return nil, err
+	}
+	loaded, err := index.Read(path)
+	if err != nil {
+		return nil, err
+	}
+	if err := loaded.CheckModel(opened.embeddings.Model); err != nil {
+		return nil, err
+	}
+	embedder := index.OpenAIEmbedder{Endpoint: opened.embeddings.Endpoint, Model: opened.embeddings.Model}
+	queries, err := embedder.Embed([]string{query})
+	if err != nil {
+		return nil, err
+	}
+	return index.Rank(loaded, queries[0], types, top)
+}
+
+func rankByClaude(opened repository, query string, types []string, top int) ([]index.Hit, error) {
+	notes, err := indexNotes(opened.store)
+	if err != nil {
+		return nil, err
+	}
+	asker := index.ClaudeAsker{Model: opened.claude.Model}
+	return index.RankByModel(asker, notes, query, types, top)
 }
 
 // openRepository opens the backend the working directory is in, and fails when its config names no embeddings.
@@ -133,14 +155,17 @@ func openRepository() (repository, error) {
 	if err != nil {
 		return repository{}, err
 	}
-	if config.Embeddings == nil {
-		return repository{}, fmt.Errorf("%s: %w", backend.ConfigPath(tixDirectory), ErrNoEmbeddings)
+	hasSearch := config.Embeddings != nil || config.Claude != nil
+	if !hasSearch {
+		configPath := backend.ConfigPath(tixDirectory)
+		return repository{}, fmt.Errorf("%s: %w", configPath, ErrNoEmbeddings)
 	}
 	store, err := backend.Open(workingDirectory)
 	if err != nil {
 		return repository{}, err
 	}
-	return repository{store: store, root: filepath.Dir(tixDirectory), embeddings: *config.Embeddings}, nil
+	root := filepath.Dir(tixDirectory)
+	return repository{store: store, root: root, embeddings: config.Embeddings, claude: config.Claude}, nil
 }
 
 func indexPath(root string) (string, error) {

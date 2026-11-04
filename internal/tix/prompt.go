@@ -47,18 +47,6 @@ func (setup prompter) ask(question, fallback string, check func(answer string) e
 	}
 }
 
-func (setup prompter) askList(question, fallback string, check func(items []string) error) ([]string, error) {
-	var items []string
-	checkList := func(answer string) error {
-		items = splitList(answer)
-		return check(items)
-	}
-	if _, err := setup.ask(question, fallback, checkList); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 func splitList(answer string) []string {
 	var items []string
 	for item := range strings.SplitSeq(answer, listItemSeparator) {

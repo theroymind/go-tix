@@ -334,6 +334,17 @@ func TestSearchNeedsEmbeddingsConfig(t *testing.T) {
 	}
 }
 
+func TestIndexWithClaudeSearch(t *testing.T) {
+	root := contextVaultWith(t, "claude:\n  model: haiku\n", nil)
+	t.Setenv(cli.StateHomeVariable, t.TempDir())
+
+	exitCode, output := run(t, root, "index")
+
+	if exitCode != cli.ExitCodeFailure || !strings.Contains(output, "needs no index") {
+		t.Errorf("exit code = %d, output %q; expected a failure saying claude needs no index", exitCode, output)
+	}
+}
+
 func TestSearchUsage(t *testing.T) {
 	tests := []struct {
 		name      string

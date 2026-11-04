@@ -19,6 +19,19 @@ type Config struct {
 	Vault *Profile `yaml:"vault,omitempty"`
 	// Embeddings names the endpoint and model tix index and tix search embed through. Without it they refuse to run.
 	Embeddings *Embeddings `yaml:"embeddings,omitempty"`
+	Claude     *Claude     `yaml:"claude,omitempty"`
+}
+
+type Claude struct {
+	Model string `yaml:"model"`
+}
+
+func (claude Claude) Validate() error {
+	var problems validation.Errors
+	if strings.TrimSpace(claude.Model) == "" {
+		problems.Add(claudeFieldModel, problemModelRequired)
+	}
+	return problems.Err()
 }
 
 // Embeddings is an OpenAI-compatible embeddings server: the base URL that /embeddings is appended to, such as
@@ -55,6 +68,13 @@ func (config Config) Validate() error {
 	}
 	if config.Embeddings != nil {
 		problems.AddNested(configFieldEmbeddings, config.Embeddings.Validate())
+	}
+	if config.Claude != nil {
+		problems.AddNested(configFieldClaude, config.Claude.Validate())
+	}
+	hasBothSearches := config.Embeddings != nil && config.Claude != nil
+	if hasBothSearches {
+		problems.Add(configFieldClaude, problemBothSearches)
 	}
 	return problems.Err()
 }
