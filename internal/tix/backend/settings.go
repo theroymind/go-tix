@@ -11,6 +11,10 @@ const (
 	configFieldBackend      = "backend"
 	configFieldVault        = "vault"
 	configFieldEmbeddings   = "embeddings"
+	configFieldJudge        = "judge"
+	judgeFieldCommand       = "command"
+	judgeFieldModel         = "model"
+	problemCommandRequired  = "Invalid input: expected a command to run"
 	problemPrefixMismatch   = "prefix must match "
 	problemVaultRequired    = "Invalid input: the vault backend needs a profile"
 	problemEndpointNotURL   = "Invalid input: expected an absolute URL, such as http://localhost:11434/v1"
@@ -29,6 +33,7 @@ const (
 	profileFieldDocs             = "docs"
 	profileFieldTicketTemplates  = "ticket_templates"
 	profileFieldContextStopTypes = "context_stop_types"
+	profileFieldRequiredSections = "required_sections"
 	mappingFieldTicketType       = "ticket_type"
 	mappingFieldStatuses         = "statuses"
 	mappingFieldFields           = "fields"
@@ -38,6 +43,7 @@ const (
 	problemTicketAndDoc      = "Invalid input: a note type can't be both a ticket and a doc"
 	problemTemplateNotTicket = "Invalid input: expected a note type listed in tickets"
 	problemStopTypeUnknown   = "Invalid input: expected a note type listed in tickets or docs"
+	problemEmptyHeading      = "Invalid input: expected a heading's text"
 	problemStatusNamedOther  = "Invalid input: expected a note status named after a ticket status to map to it, but "
 	problemSharedStatus      = "Invalid input: expected each note status to map to its own ticket status, but "
 )
@@ -49,6 +55,12 @@ const (
 	DefaultCriteriaHeading = "Acceptance criteria"
 	DefaultSummaryProperty = "summary"
 	DefaultCommitsProperty = "commits"
+)
+
+// Judge defaults: the command tix judge runs, which must take claude -p's arguments, and the model it asks.
+const (
+	DefaultJudgeCommand = "claude"
+	DefaultJudgeModel   = "sonnet"
 )
 
 const (

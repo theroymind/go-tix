@@ -19,6 +19,45 @@ type Config struct {
 	Vault *Profile `yaml:"vault,omitempty"`
 	// Embeddings names the endpoint and model tix index and tix search embed through. Without it they refuse to run.
 	Embeddings *Embeddings `yaml:"embeddings,omitempty"`
+	// Judge names the command and model tix judge asks; without it they take DefaultJudgeCommand and
+	// DefaultJudgeModel.
+	Judge *Judge `yaml:"judge,omitempty"`
+}
+
+// Judge is the command tix judge runs, one that takes claude -p's arguments, and the model it passes.
+type Judge struct {
+	Command string `yaml:"command,omitempty"`
+	Model   string `yaml:"model,omitempty"`
+}
+
+// WithDefaults returns the judge with an empty Command or Model set to its default.
+func (judge Judge) WithDefaults() Judge {
+	if judge.Command == "" {
+		judge.Command = DefaultJudgeCommand
+	}
+	if judge.Model == "" {
+		judge.Model = DefaultJudgeModel
+	}
+	return judge
+}
+
+func (judge Judge) Validate() error {
+	var problems validation.Errors
+	if judge.Command != "" && strings.TrimSpace(judge.Command) == "" {
+		problems.Add(judgeFieldCommand, problemCommandRequired)
+	}
+	if judge.Model != "" && strings.TrimSpace(judge.Model) == "" {
+		problems.Add(judgeFieldModel, problemModelRequired)
+	}
+	return problems.Err()
+}
+
+// JudgeOrDefault is the configured judge with its defaults filled in.
+func (config Config) JudgeOrDefault() Judge {
+	if config.Judge == nil {
+		return Judge{}.WithDefaults()
+	}
+	return config.Judge.WithDefaults()
 }
 
 // Embeddings is an OpenAI-compatible embeddings server: the base URL that /embeddings is appended to, such as
@@ -55,6 +94,9 @@ func (config Config) Validate() error {
 	}
 	if config.Embeddings != nil {
 		problems.AddNested(configFieldEmbeddings, config.Embeddings.Validate())
+	}
+	if config.Judge != nil {
+		problems.AddNested(configFieldJudge, config.Judge.Validate())
 	}
 	return problems.Err()
 }

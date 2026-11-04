@@ -36,6 +36,9 @@ type Profile struct {
 	// ContextStopTypes are the note types, such as a vault's home note, that tix context reaches but doesn't walk
 	// through, unless the walk starts there.
 	ContextStopTypes []string `yaml:"context_stop_types,omitempty,flow"`
+	// RequiredSections maps a ticket or doc note type to the headings every note of the type must hold, which tix
+	// lint checks.
+	RequiredSections map[string][]string `yaml:"required_sections,omitempty"`
 }
 
 // TicketMapping is how notes of one type become tickets.
@@ -106,13 +109,29 @@ func (profile Profile) Validate() error {
 		}
 	}
 	for index, noteType := range profile.ContextStopTypes {
-		_, isTicket := profile.Tickets[noteType]
-		_, isDoc := profile.Docs[noteType]
-		if !isTicket && !isDoc {
+		if !profile.IsNoteType(noteType) {
 			problems.Add(profileFieldContextStopTypes+fieldSeparator+strconv.Itoa(index), problemStopTypeUnknown)
 		}
 	}
+	for _, noteType := range slices.Sorted(maps.Keys(profile.RequiredSections)) {
+		field := profileFieldRequiredSections + fieldSeparator + noteType
+		if !profile.IsNoteType(noteType) {
+			problems.Add(field, problemStopTypeUnknown)
+		}
+		for index, heading := range profile.RequiredSections[noteType] {
+			if strings.TrimSpace(heading) == "" {
+				problems.Add(field+fieldSeparator+strconv.Itoa(index), problemEmptyHeading)
+			}
+		}
+	}
 	return problems.Err()
+}
+
+// IsNoteType reports whether the profile maps noteType onto tickets or docs.
+func (profile Profile) IsNoteType(noteType string) bool {
+	_, isTicket := profile.Tickets[noteType]
+	_, isDoc := profile.Docs[noteType]
+	return isTicket || isDoc
 }
 
 func (mapping TicketMapping) Validate() error {
