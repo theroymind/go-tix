@@ -27,6 +27,9 @@ commands:
   doc show REF [--json]
   doc add --type T TITLE (prints the new id)
   backlinks REF [--json]
+  context REF [--depth N] [--json]
+                         (a card for each note within N hops, default 2, over parents, dependencies, wikilinks
+                         and backlinks)
   supersede OLD NEW      (marks the OLD doc superseded by NEW)
   help
 
@@ -55,6 +58,7 @@ var Program = cli.Program{
 		"docs":      runDocs,
 		"doc":       runDoc,
 		"backlinks": runBacklinks,
+		"context":   runContext,
 		"supersede": runSupersede,
 	},
 }

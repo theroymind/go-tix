@@ -15,6 +15,7 @@ const (
 	optionDependency  = "dependency"
 	optionAll         = "all"
 	optionForce       = "force"
+	optionDepth       = "depth"
 	pairSeparator     = "="
 	longOptionStart   = "--"
 	integerPattern    = `^-?\d+$`
@@ -56,6 +57,17 @@ const (
 	tablePaddingCharacter = ' '
 )
 
+// DefaultContextDepth is how many hops tix context walks from its note when --depth isn't given.
+const DefaultContextDepth = 2
+
+const (
+	cardTableHeader = "DISTANCE\tID\tTYPE\tCOMMITS\tSUMMARY"
+	cardTableRow    = "%d\t%s\t%s\t%s\t%s\n"
+	missingSummary  = "(no summary)"
+	shortHashLength = 7
+	commitSeparator = ","
+)
+
 var (
 	ErrExpectedOneTitle      = errors.New("expected exactly one title")
 	ErrExpectedOneReference  = errors.New("expected exactly one reference")
@@ -81,4 +93,5 @@ var (
 	ErrExpectedOldAndNew     = errors.New("expected supersede OLD NEW")
 	ErrSupersedesItself      = errors.New("can't supersede itself")
 	ErrTypesDiffer           = errors.New("a doc is superseded only by one of its own type")
+	ErrInvalidDepth          = errors.New("is not a depth; expected a whole number of hops from 0")
 )
