@@ -2,6 +2,7 @@ package backend
 
 import (
 	"maps"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -25,6 +26,9 @@ type Profile struct {
 	CriteriaHeading string                `yaml:"criteria_heading,omitempty"`
 	// TicketTemplates maps a ticket note type to the template, relative to Root, that new notes of the type start from.
 	TicketTemplates map[string]string `yaml:"ticket_templates,omitempty"`
+	// TicketDirectories maps a ticket note type to the directory, relative to Root, that new notes of the type go in.
+	// A type it leaves out goes where most of its notes already are.
+	TicketDirectories map[string]string `yaml:"ticket_directories,omitempty"`
 	// SummaryProperty names the property holding a note's one-line summary, kept apart from a ticket's description,
 	// which is the note's body.
 	SummaryProperty string `yaml:"summary_property,omitempty"`
@@ -36,6 +40,9 @@ type Profile struct {
 	// ContextStopTypes are the note types, such as a vault's home note, that tix context reaches but doesn't walk
 	// through, unless the walk starts there.
 	ContextStopTypes []string `yaml:"context_stop_types,omitempty,flow"`
+	// RequiredSections maps a ticket or doc note type to the headings every note of the type must hold, which tix
+	// lint checks.
+	RequiredSections map[string][]string `yaml:"required_sections,omitempty"`
 }
 
 // TicketMapping is how notes of one type become tickets.
@@ -105,14 +112,39 @@ func (profile Profile) Validate() error {
 			problems.Add(profileFieldTicketTemplates+fieldSeparator+noteType, problemTemplateNotTicket)
 		}
 	}
+	for _, noteType := range slices.Sorted(maps.Keys(profile.TicketDirectories)) {
+		field := profileFieldTicketDirectories + fieldSeparator + noteType
+		if _, isTicket := profile.Tickets[noteType]; !isTicket {
+			problems.Add(field, problemTemplateNotTicket)
+		}
+		if !filepath.IsLocal(profile.TicketDirectories[noteType]) {
+			problems.Add(field, problemDirectoryNotLocal)
+		}
+	}
 	for index, noteType := range profile.ContextStopTypes {
-		_, isTicket := profile.Tickets[noteType]
-		_, isDoc := profile.Docs[noteType]
-		if !isTicket && !isDoc {
+		if !profile.IsNoteType(noteType) {
 			problems.Add(profileFieldContextStopTypes+fieldSeparator+strconv.Itoa(index), problemStopTypeUnknown)
 		}
 	}
+	for _, noteType := range slices.Sorted(maps.Keys(profile.RequiredSections)) {
+		field := profileFieldRequiredSections + fieldSeparator + noteType
+		if !profile.IsNoteType(noteType) {
+			problems.Add(field, problemStopTypeUnknown)
+		}
+		for index, heading := range profile.RequiredSections[noteType] {
+			if strings.TrimSpace(heading) == "" {
+				problems.Add(field+fieldSeparator+strconv.Itoa(index), problemEmptyHeading)
+			}
+		}
+	}
 	return problems.Err()
+}
+
+// IsNoteType reports whether the profile maps noteType onto tickets or docs.
+func (profile Profile) IsNoteType(noteType string) bool {
+	_, isTicket := profile.Tickets[noteType]
+	_, isDoc := profile.Docs[noteType]
+	return isTicket || isDoc
 }
 
 func (mapping TicketMapping) Validate() error {

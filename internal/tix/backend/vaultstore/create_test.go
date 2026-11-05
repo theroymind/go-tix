@@ -260,6 +260,23 @@ func TestCreateInASmallVault(t *testing.T) {
 			},
 			ticket.Ticket{Title: "New", Type: ticket.TypeTask, Status: ticket.StatusOpen},
 			"b/new.md", "---\ntype: task\nstatus: todo\n---\n\n# New\n"},
+		{"The first note of its type goes in the directory the profile names, which is created",
+			map[string]string{
+				".tix/config.yml":   smallProfile("") + "  ticket_directories:\n    task: work/tasks\n",
+				"templates/task.md": "---\ntype: task\nstatus: todo\n---\n\n# Title\n",
+			},
+			ticket.Ticket{Title: "New", Type: ticket.TypeTask, Status: ticket.StatusOpen},
+			"work/tasks/new.md", "---\ntype: task\nstatus: todo\n---\n\n# New\n"},
+		{"The directory the profile names wins over where most notes of the type are",
+			map[string]string{
+				".tix/config.yml":   smallProfile("") + "  ticket_directories:\n    task: a\n",
+				"templates/task.md": "---\ntype: task\nstatus: todo\n---\n\n# Title\n",
+				"a/one.md":          smallNote,
+				"b/two.md":          smallNote,
+				"b/three.md":        smallNote,
+			},
+			ticket.Ticket{Title: "New", Type: ticket.TypeTask, Status: ticket.StatusOpen},
+			"a/new.md", "---\ntype: task\nstatus: todo\n---\n\n# New\n"},
 		{"A wrapped placeholder criterion is replaced whole, and a ticked one is unticked",
 			map[string]string{
 				".tix/config.yml":   smallProfile(""),

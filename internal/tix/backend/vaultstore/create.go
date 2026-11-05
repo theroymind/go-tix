@@ -16,8 +16,9 @@ import (
 
 // Create writes a new note for value and returns its slug, the slug of value's title. The note starts from the
 // template of the note type that maps onto value's type, and goes in the directory that holds most notes of that
-// type. Its status, created_at, updated_at, parent and dependencies properties, H1, description paragraph and criteria
-// are filled from value; an empty field keeps the template's text. Priority and tags aren't written. The
+// type, or the directory the profile's ticket_directories names for it. Its status, created_at, updated_at, parent
+// and dependencies properties, H1, description paragraph and criteria are filled from value; an empty field keeps
+// the template's text. Priority and tags aren't written. The
 // note must read back with value's title, status, links and criteria before it is written, and nothing is written
 // when its slug is taken.
 func (store Store) Create(value ticket.Ticket) (string, error) {
@@ -38,6 +39,9 @@ func (store Store) Create(value ticket.Ticket) (string, error) {
 	}
 	directory, err := store.typeDirectory(store.pathsOfType(notes, noteType), noteType)
 	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(directory, backend.DirectoryPermission); err != nil {
 		return "", err
 	}
 	path := filepath.Join(directory, slug+noteExtension)
@@ -81,8 +85,12 @@ func (store Store) templatedType(ticketType ticket.Type) (string, backend.Ticket
 	return "", backend.TicketMapping{}, noTemplate(ticketType)
 }
 
-// typeDirectory returns the directory holding the most notes of noteType among paths, the first by name on a tie.
+// typeDirectory returns the directory the profile names for noteType, or else the directory holding the most notes of
+// noteType among paths, the first by name on a tie.
 func (store Store) typeDirectory(paths []string, noteType string) (string, error) {
+	if configured, named := store.Profile.TicketDirectories[noteType]; named {
+		return filepath.Join(store.Root, configured), nil
+	}
 	counts := map[string]int{}
 	for _, path := range paths {
 		counts[filepath.Dir(path)]++

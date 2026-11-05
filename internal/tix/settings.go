@@ -17,6 +17,7 @@ const (
 	optionForce       = "force"
 	optionDepth       = "depth"
 	optionTop         = "top"
+	optionStaged      = "staged"
 	pairSeparator     = "="
 	longOptionStart   = "--"
 	integerPattern    = `^-?\d+$`
@@ -87,6 +88,19 @@ const (
 	indexedMessage = "indexed %d notes (%d embedded) at %s\n"
 )
 
+const findingLine = "%s: %s: %s\n"
+
+// The staged notes tix gate --staged reads: added or modified files under the working directory, NUL-separated,
+// with renames split into a deletion and an addition.
+const (
+	gitExecutable  = "git"
+	statusAdded    = "A"
+	statusModified = "M"
+	nulSeparator   = 0
+)
+
+var stagedArguments = []string{"diff", "--cached", "--name-status", "--no-renames", "--relative", "-z", "--diff-filter=AM"}
+
 const (
 	cardTableHeader = "DISTANCE\tRELATION\tID\tTYPE\tCOMMITS\tSUMMARY"
 	cardTableRow    = "%d\t%s\t%s\t%s\t%s\t%s\n"
@@ -96,39 +110,45 @@ const (
 )
 
 var (
-	ErrExpectedOneTitle      = errors.New("expected exactly one title")
-	ErrExpectedOneReference  = errors.New("expected exactly one reference")
-	ErrInvalidOption         = errors.New("is invalid")
-	ErrExpectedPair          = errors.New("expected KEY=VALUE")
-	ErrExpectedPairs         = errors.New("expected a ticket or doc reference and at least one KEY=VALUE")
-	ErrUnmetCriteria         = errors.New("has unmet criteria")
-	ErrListField             = errors.New("is a list; set takes single-value fields")
-	ErrInvalidList           = errors.New("is not a list of strings, such as [a, b]")
-	ErrExpectedKeys          = errors.New("expected a ticket or doc reference and at least one KEY")
-	ErrExpectedDependencies  = errors.New("expected a ticket reference and at least one dependency reference")
-	ErrDependencyCycle       = errors.New("the dependency would form a cycle")
-	ErrNotDependency         = errors.New("does not depend on")
-	ErrExpectedNumbers       = errors.New("expected a ticket reference and at least one criterion number")
-	ErrInvalidNumber         = errors.New("is not a criterion number; expected a whole number from 1")
-	ErrExpectedSubcommand    = errors.New("expected ac set or ac add")
-	ErrExpectedSetCriterion  = errors.New("expected ac set REF N TEXT")
-	ErrExpectedAddCriterion  = errors.New("expected ac add REF TEXT")
-	ErrExpectedDocsLs        = errors.New("expected docs ls")
-	ErrExpectedDocSubcommand = errors.New("expected doc show or doc add")
-	ErrExpectedDocShow       = errors.New("expected doc show REF")
-	ErrExpectedDocAdd        = errors.New("expected doc add --type T TITLE")
-	ErrExpectedOldAndNew     = errors.New("expected supersede OLD NEW")
-	ErrSupersedesItself      = errors.New("can't supersede itself")
-	ErrTypesDiffer           = errors.New("a doc is superseded only by one of its own type")
-	ErrInvalidDepth          = errors.New("is not a depth; expected a whole number of hops from 0")
-	ErrInvalidTop            = errors.New("is not a count; expected a whole number from 1")
-	ErrExpectedOneQuery      = errors.New("expected exactly one query")
-	ErrNoEmbeddings          = errors.New("config names no embeddings endpoint and model, and no claude model")
-	ErrIndexNotNeeded        = errors.New("config searches through claude, which needs no index; run tix search")
-	ErrSetupEnded            = errors.New("input ended before setup finished")
-	ErrAnswerRequired        = errors.New("expected an answer")
-	ErrPrefixMismatch        = errors.New("is not a prefix; expected one matching")
-	ErrDocsDirectoryNotLocal = errors.New("is not a directory inside this one")
-	ErrInvalidSearch         = errors.New("is not haiku, none, or an absolute URL such as http://localhost:11434/v1")
-	ErrExpectedStatusPair    = errors.New("is not a note=ticket status pair, such as todo=open")
+	ErrExpectedOneTitle           = errors.New("expected exactly one title")
+	ErrExpectedOneReference       = errors.New("expected exactly one reference")
+	ErrInvalidOption              = errors.New("is invalid")
+	ErrExpectedPair               = errors.New("expected KEY=VALUE")
+	ErrExpectedPairs              = errors.New("expected a ticket or doc reference and at least one KEY=VALUE")
+	ErrUnmetCriteria              = errors.New("has unmet criteria")
+	ErrListField                  = errors.New("is a list; set takes single-value fields")
+	ErrInvalidList                = errors.New("is not a list of strings, such as [a, b]")
+	ErrExpectedKeys               = errors.New("expected a ticket or doc reference and at least one KEY")
+	ErrExpectedDependencies       = errors.New("expected a ticket reference and at least one dependency reference")
+	ErrDependencyCycle            = errors.New("the dependency would form a cycle")
+	ErrNotDependency              = errors.New("does not depend on")
+	ErrExpectedNumbers            = errors.New("expected a ticket reference and at least one criterion number")
+	ErrInvalidNumber              = errors.New("is not a criterion number; expected a whole number from 1")
+	ErrExpectedSubcommand         = errors.New("expected ac set or ac add")
+	ErrExpectedSetCriterion       = errors.New("expected ac set REF N TEXT")
+	ErrExpectedAddCriterion       = errors.New("expected ac add REF TEXT")
+	ErrExpectedDocsLs             = errors.New("expected docs ls")
+	ErrExpectedDocSubcommand      = errors.New("expected doc show or doc add")
+	ErrExpectedDocShow            = errors.New("expected doc show REF")
+	ErrExpectedDocAdd             = errors.New("expected doc add --type T TITLE")
+	ErrExpectedOldAndNew          = errors.New("expected supersede OLD NEW")
+	ErrSupersedesItself           = errors.New("can't supersede itself")
+	ErrTypesDiffer                = errors.New("a doc is superseded only by one of its own type")
+	ErrInvalidDepth               = errors.New("is not a depth; expected a whole number of hops from 0")
+	ErrInvalidTop                 = errors.New("is not a count; expected a whole number from 1")
+	ErrExpectedOneQuery           = errors.New("expected exactly one query")
+	ErrNoEmbeddings               = errors.New("config names no embeddings endpoint and model, and no claude model")
+	ErrIndexNotNeeded             = errors.New("config searches through claude, which needs no index; run tix search")
+	ErrSetupEnded                 = errors.New("input ended before setup finished")
+	ErrAnswerRequired             = errors.New("expected an answer")
+	ErrPrefixMismatch             = errors.New("is not a prefix; expected one matching")
+	ErrDocsDirectoryNotLocal      = errors.New("is not a directory inside this one")
+	ErrInvalidSearch              = errors.New("is not haiku, none, or an absolute URL such as http://localhost:11434/v1")
+	ErrExpectedStatusPair         = errors.New("is not a note=ticket status pair, such as todo=open")
+	ErrExpectedReferencesOrAll    = errors.New("expected note references or --all, not both")
+	ErrNoLint                     = errors.New("the backend has no notes to lint")
+	ErrLintFailed                 = errors.New("lint failed")
+	ErrExpectedReferences         = errors.New("expected at least one note reference")
+	ErrExpectedReferencesOrStaged = errors.New("expected note references or --staged, not both")
+	ErrInvalidStaged              = errors.New("unexpected git diff --name-status output")
 )

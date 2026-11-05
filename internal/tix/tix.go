@@ -37,6 +37,10 @@ commands:
   search QUERY [--type T] [--top N] [--json]
                          (the N notes closest to QUERY, default 10, by cosine similarity over the index, or as
                          ranked by the config's claude model through claude -p)
+  lint (REF... | --all)  (checks each note's required sections, summary and links; prints PATH: RULE: MESSAGE for
+                         each problem and exits 1 when there is any)
+  gate (REF... | --staged)
+                         (lint on the staged ticket and doc notes, or the REFs; for a pre-commit hook)
   help
 
 A set VALUE written as a list, such as [a, b], replaces the value with that list, and [] empties it; a wikilink
@@ -68,5 +72,7 @@ var Program = cli.Program{
 		"supersede": runSupersede,
 		"index":     runIndex,
 		"search":    runSearch,
+		"lint":      runLint,
+		"gate":      runGate,
 	},
 }

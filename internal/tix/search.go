@@ -141,31 +141,49 @@ func rankByClaude(opened repository, query string, types []string, top int) ([]i
 	return index.RankByModel(asker, notes, query, types, top)
 }
 
-// openRepository opens the backend the working directory is in, and fails when its config names no embeddings.
+// openRepository opens the backend the working directory is in, and fails when its config names neither embeddings
+// nor a claude model to search through.
 func openRepository() (repository, error) {
-	workingDirectory, err := os.Getwd()
+	opened, err := openWorkspace()
 	if err != nil {
 		return repository{}, err
+	}
+	hasSearch := opened.config.Embeddings != nil || opened.config.Claude != nil
+	if !hasSearch {
+		return repository{}, fmt.Errorf("%s: %w", backend.ConfigPath(opened.tixDirectory), ErrNoEmbeddings)
+	}
+	return repository{
+		store: opened.store, root: opened.root, embeddings: opened.config.Embeddings, claude: opened.config.Claude,
+	}, nil
+}
+
+// workspace is an open backend with its config, its .tix directory and the directory holding it.
+type workspace struct {
+	store        backend.Backend
+	config       backend.Config
+	tixDirectory string
+	root         string
+}
+
+// openWorkspace opens the backend the working directory is in, with its config.
+func openWorkspace() (workspace, error) {
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		return workspace{}, err
 	}
 	tixDirectory, err := backend.FindDirectory(workingDirectory)
 	if err != nil {
-		return repository{}, err
+		return workspace{}, err
 	}
 	config, err := backend.ReadConfig(tixDirectory)
 	if err != nil {
-		return repository{}, err
-	}
-	hasSearch := config.Embeddings != nil || config.Claude != nil
-	if !hasSearch {
-		configPath := backend.ConfigPath(tixDirectory)
-		return repository{}, fmt.Errorf("%s: %w", configPath, ErrNoEmbeddings)
+		return workspace{}, err
 	}
 	store, err := backend.Open(workingDirectory)
 	if err != nil {
-		return repository{}, err
+		return workspace{}, err
 	}
-	root := filepath.Dir(tixDirectory)
-	return repository{store: store, root: root, embeddings: config.Embeddings, claude: config.Claude}, nil
+	return workspace{store: store, config: config, tixDirectory: tixDirectory, root: filepath.Dir(tixDirectory)}, nil
 }
 
 func indexPath(root string) (string, error) {
