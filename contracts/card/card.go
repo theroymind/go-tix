@@ -1,5 +1,4 @@
-// Package card provides the Card contract that tix context prints, one per note a walk from a ticket reaches, and
-// the Hit contract that tix search prints, one per note ranked against a query.
+// Package card provides the Card contract that tix context prints, one per note a walk from a ticket reaches.
 package card
 
 import (

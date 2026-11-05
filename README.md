@@ -18,13 +18,6 @@ tix show "$id"
 tix done "$id"
 ```
 
-## Other tools
-
-| Tool | Purpose |
-| --- | --- |
-| `cmd/rankeval` | Scores ranking models on a vault's done tasks |
-| `tools/searchcompare` | Scores `tix search` against keyword matching on a vault's done tasks |
-
 ## Contracts
 
 `contracts/ticket`, `contracts/card`, `contracts/timestamp` and `contracts/validation` are public. Other tools, such as [Railyard](https://github.com/theroymind/railyard), import them to read tix's output.

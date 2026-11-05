@@ -42,9 +42,6 @@ vault:
         in_progress: in_progress
         todo: open
   criteria_heading: Acceptance criteria
-embeddings:
-  endpoint: http://localhost:11434/v1
-  model: all-minilm
 `
 
 func TestInit(t *testing.T) {
@@ -58,24 +55,18 @@ func TestInit(t *testing.T) {
 	}{
 		{"--prefix writes the config without asking anything", []string{"init", "--prefix", "bs"}, "",
 			cli.ExitCodeSuccess, "prefix: bs\n", nil},
-		{"Without --prefix, blank answers take the YAML backend and haiku search", []string{"init"}, "bs\n\n\n",
-			cli.ExitCodeSuccess, "prefix: bs\nclaude:\n  model: haiku\n",
-			[]string{"Ticket id prefix: ", "Backend (yaml or vault) [yaml]: ", "Search with haiku", "[haiku]: ", "wrote "}},
-		{"Search can be turned off", []string{"init"}, "bs\n\nnone\n",
-			cli.ExitCodeSuccess, "prefix: bs\n", nil},
-		{"An invalid prefix is asked again", []string{"init"}, "BS\nbs\n\nnone\n",
+		{"Without --prefix, a blank backend answer takes the YAML backend", []string{"init"}, "bs\n\n",
+			cli.ExitCodeSuccess, "prefix: bs\n",
+			[]string{"Ticket id prefix: ", "Backend (yaml or vault) [yaml]: ", "wrote "}},
+		{"An invalid prefix is asked again", []string{"init"}, "BS\nbs\n\n",
 			cli.ExitCodeSuccess, "prefix: bs\n", []string{`"BS" is not a prefix`}},
-		{"An unknown backend is asked again", []string{"init"}, "bs\nsql\nyaml\nnone\n",
+		{"An unknown backend is asked again", []string{"init"}, "bs\nsql\nyaml\n",
 			cli.ExitCodeSuccess, "prefix: bs\n", []string{`"sql" is invalid`}},
-		{"The vault backend asks only for the docs directory", []string{"init"}, "odin\nvault\n\nnone\n",
+		{"The vault backend asks only for the docs directory", []string{"init"}, "odin\nvault\n\n",
 			cli.ExitCodeSuccess, defaultVaultConfig, []string{"Docs directory, relative to this one [docs]: "}},
-		{"An embeddings endpoint asks for its model",
-			[]string{"init"}, "odin\nvault\nnotes\nhttp://localhost:11434/v1\nall-minilm\n",
-			cli.ExitCodeSuccess, customVaultConfig, []string{"Embeddings model: "}},
-		{"Invalid answers are asked again",
-			[]string{"init"}, "odin\nvault\n../docs\nnotes\nlocalhost\nhttp://localhost:11434/v1\n\nall-minilm\n",
-			cli.ExitCodeSuccess, customVaultConfig,
-			[]string{`"../docs" is not a directory inside this one`, `"localhost" is not haiku, none, or an absolute URL`, "expected an answer"}},
+		{"A docs directory outside this one is asked again",
+			[]string{"init"}, "odin\nvault\n../docs\nnotes\n",
+			cli.ExitCodeSuccess, customVaultConfig, []string{`"../docs" is not a directory inside this one`}},
 		{"Input that ends early writes nothing", []string{"init"}, "bs\n",
 			cli.ExitCodeFailure, "", []string{"input ended before setup finished"}},
 	}

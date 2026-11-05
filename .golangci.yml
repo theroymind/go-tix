@@ -12,15 +12,3 @@ linters:
           deny:
             - pkg: github.com/theroymind/go-tix/internal
               desc: contracts must not import an app
-        tix:
-          files:
-            - "**/internal/tix/**"
-          deny:
-            - pkg: github.com/theroymind/go-tix/internal/rankeval
-              desc: an app imports only contracts and railyard-cli
-        rankeval:
-          files:
-            - "**/internal/rankeval/**"
-          deny:
-            - pkg: github.com/theroymind/go-tix/internal/tix
-              desc: an app imports only contracts and railyard-cli

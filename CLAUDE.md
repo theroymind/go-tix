@@ -1,11 +1,11 @@
 # tix
 
-A per-repo ticket tracker and vault tool for humans and coding agents. One module, `github.com/theroymind/go-tix`, with the `tix` and `rankeval` binaries and the `searchcompare` tool.
+A per-repo ticket tracker and vault tool for humans and coding agents. One module, `github.com/theroymind/go-tix`, with the `tix` binary.
 
 ## Development
 
 ```text
-make build    # go build each cmd/<app> and tools/<tool> into bin/
+make build    # go build cmd/tix into bin/
 make test     # go test ./...
 make vet      # go vet ./...
 make lint     # golangci-lint run
@@ -20,12 +20,11 @@ make hooks    # point git at .githooks (pre-commit runs format, tidy, vet, lint)
 
 ## Layout
 
-- `cmd/<app>` holds each app's `main`: `tix` and `rankeval`.
-- `tools/searchcompare` scores tix search against keyword matching on a vault.
+- `cmd/tix` holds the `main`.
 - `contracts/<domain>` holds the public schemas as structs with `Validate` methods: `ticket`, `card`, `timestamp`, `validation`. Railyard imports these, so they are a public API.
 - `internal/<app>/` holds each app's own packages.
 - Process plumbing (args, subcommands, exit codes, JSON, child processes, state directory) comes from `github.com/theroymind/railyard-cli`, and strict JSON decoding from its `strictjson` package.
-- Apps import `contracts` and railyard-cli, never each other. golangci-lint's `depguard` rule enforces it.
+- `contracts` never imports `internal`. golangci-lint's `depguard` rule enforces it.
 
 ## Code standards
 

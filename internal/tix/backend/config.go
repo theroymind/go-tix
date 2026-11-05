@@ -1,10 +1,8 @@
 package backend
 
 import (
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/theroymind/go-tix/contracts/ticket"
 	"github.com/theroymind/go-tix/contracts/validation"
@@ -17,40 +15,6 @@ type Config struct {
 	Backend Kind `yaml:"backend,omitempty"`
 	// Vault is the vault backend's Profile, which that backend requires.
 	Vault *Profile `yaml:"vault,omitempty"`
-	// Embeddings names the endpoint and model tix index and tix search embed through. Without it they refuse to run.
-	Embeddings *Embeddings `yaml:"embeddings,omitempty"`
-	Claude     *Claude     `yaml:"claude,omitempty"`
-}
-
-type Claude struct {
-	Model string `yaml:"model"`
-}
-
-func (claude Claude) Validate() error {
-	var problems validation.Errors
-	if strings.TrimSpace(claude.Model) == "" {
-		problems.Add(claudeFieldModel, problemModelRequired)
-	}
-	return problems.Err()
-}
-
-// Embeddings is an OpenAI-compatible embeddings server: the base URL that /embeddings is appended to, such as
-// http://localhost:11434/v1, and the model it serves.
-type Embeddings struct {
-	Endpoint string `yaml:"endpoint"`
-	Model    string `yaml:"model"`
-}
-
-func (embeddings Embeddings) Validate() error {
-	var problems validation.Errors
-	parsed, err := url.Parse(embeddings.Endpoint)
-	if err != nil || !parsed.IsAbs() || parsed.Host == "" {
-		problems.Add(embeddingsFieldEndpoint, problemEndpointNotURL)
-	}
-	if strings.TrimSpace(embeddings.Model) == "" {
-		problems.Add(embeddingsFieldModel, problemModelRequired)
-	}
-	return problems.Err()
 }
 
 func (config Config) Validate() error {
@@ -65,16 +29,6 @@ func (config Config) Validate() error {
 		problems.AddNested(configFieldVault, config.Vault.Validate())
 	} else if config.Backend == KindVault {
 		problems.Add(configFieldVault, problemVaultRequired)
-	}
-	if config.Embeddings != nil {
-		problems.AddNested(configFieldEmbeddings, config.Embeddings.Validate())
-	}
-	if config.Claude != nil {
-		problems.AddNested(configFieldClaude, config.Claude.Validate())
-	}
-	hasBothSearches := config.Embeddings != nil && config.Claude != nil
-	if hasBothSearches {
-		problems.Add(configFieldClaude, problemBothSearches)
 	}
 	return problems.Err()
 }

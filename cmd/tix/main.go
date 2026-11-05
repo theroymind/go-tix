@@ -3,9 +3,8 @@
 //
 // Run tix init --prefix PREFIX once, then tix add, tix show, tix ls, tix ready, tix set, tix done,
 // tix tick, tix untick and tix ac. On a vault, tix docs ls, tix doc show, tix backlinks and tix supersede work on
-// its decisions, ideas and specs. tix search ranks the notes against a query, either by
-// asking the Claude model .tix/config.yml names through claude -p, or by embeddings that tix index builds through
-// the endpoint it names. tix lint checks notes' structure, and tix gate --staged runs it from a pre-commit hook.
+// its decisions, ideas and specs. tix lint checks notes' structure, and tix gate --staged runs it from a pre-commit
+// hook.
 package main
 
 import (

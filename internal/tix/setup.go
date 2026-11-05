@@ -2,7 +2,6 @@ package tix
 
 import (
 	"fmt"
-	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -30,9 +29,6 @@ func askConfig(setup prompter) (backend.Config, error) {
 		config.Backend = kind
 		config.Vault = &profile
 	}
-	if err := askSearch(setup, &config); err != nil {
-		return backend.Config{}, err
-	}
 	return config, nil
 }
 
@@ -54,26 +50,6 @@ func askProfile(setup prompter) (backend.Profile, error) {
 		CriteriaHeading: backend.DefaultCriteriaHeading,
 	}
 	return profile, nil
-}
-
-func askSearch(setup prompter, config *backend.Config) error {
-	answer, err := setup.ask(questionSearch, searchHaiku, checkSearch)
-	if err != nil {
-		return err
-	}
-	switch answer {
-	case searchNone:
-		return nil
-	case searchHaiku:
-		config.Claude = &backend.Claude{Model: searchHaiku}
-		return nil
-	}
-	model, err := setup.ask(questionEmbeddingsModel, "", checkRequired)
-	if err != nil {
-		return err
-	}
-	config.Embeddings = &backend.Embeddings{Endpoint: answer, Model: model}
-	return nil
 }
 
 func parseStatuses(answer string) (map[string]ticket.Status, error) {
@@ -108,25 +84,6 @@ func checkKind(answer string) error {
 func checkDocsDirectory(answer string) error {
 	if !filepath.IsLocal(answer) {
 		return fmt.Errorf("%q %w", answer, ErrDocsDirectoryNotLocal)
-	}
-	return nil
-}
-
-func checkRequired(answer string) error {
-	if answer == "" {
-		return ErrAnswerRequired
-	}
-	return nil
-}
-
-func checkSearch(answer string) error {
-	isKeyword := answer == searchNone || answer == searchHaiku
-	if isKeyword {
-		return nil
-	}
-	parsed, err := url.Parse(answer)
-	if err != nil || !parsed.IsAbs() || parsed.Host == "" {
-		return fmt.Errorf("%q %w", answer, ErrInvalidSearch)
 	}
 	return nil
 }

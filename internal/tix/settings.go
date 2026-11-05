@@ -16,7 +16,6 @@ const (
 	optionAll         = "all"
 	optionForce       = "force"
 	optionDepth       = "depth"
-	optionTop         = "top"
 	optionStaged      = "staged"
 	pairSeparator     = "="
 	longOptionStart   = "--"
@@ -60,33 +59,20 @@ const (
 )
 
 const (
-	promptPlain             = "%s: "
-	promptWithDefault       = "%s [%s]: "
-	promptProblem           = "%v\n"
-	listItemSeparator       = ","
-	initializedMessage      = "wrote %s\n"
-	questionPrefix          = "Ticket id prefix"
-	questionBackend         = "Backend (yaml or vault)"
-	questionDocsDirectory   = "Docs directory, relative to this one"
-	questionEmbeddingsModel = "Embeddings model"
-	questionSearch          = "Search with haiku, an embeddings endpoint URL such as http://localhost:11434/v1, or none"
-	searchHaiku             = "haiku"
-	searchNone              = "none"
-	defaultTicketNoteType   = "task"
-	defaultTicketStatuses   = "todo=open, in_progress=in_progress, done=completed"
+	promptPlain           = "%s: "
+	promptWithDefault     = "%s [%s]: "
+	promptProblem         = "%v\n"
+	listItemSeparator     = ","
+	initializedMessage    = "wrote %s\n"
+	questionPrefix        = "Ticket id prefix"
+	questionBackend       = "Backend (yaml or vault)"
+	questionDocsDirectory = "Docs directory, relative to this one"
+	defaultTicketNoteType = "task"
+	defaultTicketStatuses = "todo=open, in_progress=in_progress, done=completed"
 )
 
 // DefaultContextDepth is how many hops tix context walks from its note when --depth isn't given.
 const DefaultContextDepth = 2
-
-// DefaultSearchTop is how many hits tix search prints when --top isn't given.
-const DefaultSearchTop = 10
-
-const (
-	hitTableHeader = "SCORE\tID\tTYPE\tSUMMARY"
-	hitTableRow    = "%.3f\t%s\t%s\t%s\n"
-	indexedMessage = "indexed %d notes (%d embedded) at %s\n"
-)
 
 const findingLine = "%s: %s: %s\n"
 
@@ -135,15 +121,9 @@ var (
 	ErrSupersedesItself           = errors.New("can't supersede itself")
 	ErrTypesDiffer                = errors.New("a doc is superseded only by one of its own type")
 	ErrInvalidDepth               = errors.New("is not a depth; expected a whole number of hops from 0")
-	ErrInvalidTop                 = errors.New("is not a count; expected a whole number from 1")
-	ErrExpectedOneQuery           = errors.New("expected exactly one query")
-	ErrNoEmbeddings               = errors.New("config names no embeddings endpoint and model, and no claude model")
-	ErrIndexNotNeeded             = errors.New("config searches through claude, which needs no index; run tix search")
 	ErrSetupEnded                 = errors.New("input ended before setup finished")
-	ErrAnswerRequired             = errors.New("expected an answer")
 	ErrPrefixMismatch             = errors.New("is not a prefix; expected one matching")
 	ErrDocsDirectoryNotLocal      = errors.New("is not a directory inside this one")
-	ErrInvalidSearch              = errors.New("is not haiku, none, or an absolute URL such as http://localhost:11434/v1")
 	ErrExpectedStatusPair         = errors.New("is not a note=ticket status pair, such as todo=open")
 	ErrExpectedReferencesOrAll    = errors.New("expected note references or --all, not both")
 	ErrNoLint                     = errors.New("the backend has no notes to lint")

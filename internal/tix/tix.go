@@ -31,12 +31,6 @@ commands:
                          (a card for each note within N hops, default 2, over parents, dependencies, wikilinks
                          and backlinks)
   supersede OLD NEW      (marks the OLD doc superseded by NEW)
-  index                  (embeds each note's title and summary through the config's embeddings endpoint into the
-                         repository's index under the state directory; only changed notes are embedded again;
-                         not needed when the config searches through claude)
-  search QUERY [--type T] [--top N] [--json]
-                         (the N notes closest to QUERY, default 10, by cosine similarity over the index, or as
-                         ranked by the config's claude model through claude -p)
   lint (REF... | --all)  (checks each note's required sections, summary and links; prints PATH: RULE: MESSAGE for
                          each problem and exits 1 when there is any)
   gate (REF... | --staged)
@@ -70,8 +64,6 @@ var Program = cli.Program{
 		"backlinks": runBacklinks,
 		"context":   runContext,
 		"supersede": runSupersede,
-		"index":     runIndex,
-		"search":    runSearch,
 		"lint":      runLint,
 		"gate":      runGate,
 	},
