@@ -4,6 +4,7 @@ import "errors"
 
 const (
 	optionPrefix      = "prefix"
+	optionBackend     = "backend"
 	optionPriority    = "priority"
 	optionTag         = "tag"
 	optionAcceptance  = "acceptance"
@@ -64,13 +65,10 @@ const (
 	promptPlain           = "%s: "
 	promptWithDefault     = "%s [%s]: "
 	promptProblem         = "%v\n"
-	listItemSeparator     = ","
 	initializedMessage    = "wrote %s\n"
 	questionPrefix        = "Ticket id prefix"
 	questionBackend       = "Backend (yaml or vault)"
 	questionDocsDirectory = "Docs directory, relative to this one"
-	defaultTicketNoteType = "task"
-	defaultTicketStatuses = "todo=open, in_progress=in_progress, done=completed"
 )
 
 // DefaultContextDepth is how many hops tix context walks from its note when --depth isn't given.
@@ -126,7 +124,6 @@ var (
 	ErrSetupEnded                 = errors.New("input ended before setup finished")
 	ErrPrefixMismatch             = errors.New("is not a prefix; expected one matching")
 	ErrDocsDirectoryNotLocal      = errors.New("is not a directory inside this one")
-	ErrExpectedStatusPair         = errors.New("is not a note=ticket status pair, such as todo=open")
 	ErrExpectedReferencesOrAll    = errors.New("expected note references or --all, not both")
 	ErrNoLint                     = errors.New("the backend has no notes to lint")
 	ErrLintFailed                 = errors.New("lint failed")

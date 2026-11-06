@@ -1,6 +1,6 @@
 # tix
 
-A per-repo ticket tracker for humans and coding agents. Tickets are YAML files in `.tix/`, committed with the code, or notes in an Obsidian vault. `tix ready` answers "what do I pick up next?". See [docs/tix/SPEC.md](docs/tix/SPEC.md).
+A per-repo ticket tracker for humans and coding agents. Tickets are notes in an Obsidian vault, the default, or YAML files in `.tix/`, committed with the code. `tix ready` answers "what do I pick up next?". See [docs/tix/SPEC.md](docs/tix/SPEC.md).
 
 ## Install
 
@@ -11,7 +11,7 @@ go install github.com/theroymind/go-tix/cmd/tix@latest
 ## Use
 
 ```bash
-tix init --prefix ab
+tix init --prefix ab            # a starter vault in docs/; --backend yaml for v1's .tix/*.yml
 id=$(tix add --type task --acceptance "..." "title")
 tix ready
 tix show "$id"

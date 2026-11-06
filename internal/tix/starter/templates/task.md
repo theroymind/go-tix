@@ -2,6 +2,8 @@
 type: task
 status: todo
 feature:
+scope:
+review: false
 depends_on: []
 summary:
 ---

@@ -103,8 +103,8 @@ Flags come before positional arguments, because Go's `flag` stops at the first n
 
 | Command | Behavior |
 | --- | --- |
-| `tix init --prefix bs` | Creates `.tix/config.yml` in the working directory. The prefix must match `^[a-z][a-z0-9]{0,7}$`. Fails if `.tix/` exists. |
-| `tix init` | Without `--prefix`, asks on standard input for the prefix and the backend. On the vault backend it also asks for the docs directory (`root`). The vault profile takes the default `type_property` and `criteria_heading`, one `task` ticket note type with the statuses `todo=open`, `in_progress=in_progress` and `done=completed`, and no doc types. Edit `.tix/config.yml` afterwards to change them. A blank answer takes the default shown in brackets. An invalid answer is asked again. Writes nothing if the input ends early. |
+| `tix init --prefix bs [--backend vault\|yaml]` | Creates `.tix/config.yml` in the working directory. The prefix must match `^[a-z][a-z0-9]{0,7}$`. Fails if `.tix/` exists. The backend defaults to `vault`, which writes the starter vault (see [Writing tickets](#writing-tickets)) rooted at `docs`. `--backend yaml` writes the prefix alone, as tix v1 did. |
+| `tix init` | Without `--prefix`, asks on standard input for the prefix and the backend, `vault` by default. On the vault backend it also asks for the docs directory (`root`), and writes the starter vault there. A blank answer takes the default shown in brackets. An invalid answer is asked again. Writes nothing if the input ends early. |
 | `tix add --type task [--parent REF] [--priority N] [--tag T]... [--dependency REF]... [--acceptance A]... [--description D] [--draft] "title"` | Validates, saves, and prints only the new ID. |
 | `tix show REF [--json]` | Prints the ticket as YAML, the same as the file. On a backend with docs, a reference that matches no ticket shows the doc, as `tix doc show` does. |
 | `tix ls [--status S] [--type T] [--tag T] [--parent REF] [--all] [--json]` | Table of `ID TYPE STATUS PRIORITY TITLE`. Hides resolved tickets unless `--all` or `--status` is given. |
@@ -132,6 +132,7 @@ These commands and rules are Railyard's, beyond v1. Files they write still match
 | `tix unset REF KEY...` | Removes each key, all of them or none. A required field (`.tix/`: `id`, `title`, `type`, `status`, `priority`, `created_at`, `updated_at`; a vault note: `status` and its type property) is refused, and so is a key the file doesn't hold, naming it. On a vault ticket, `description` is the note's body, not a property, so `unset` refuses it. On a doc, it removes only the frontmatter key. |
 | `tix add ... [--external-id ID] [--external-url URL] TITLE` | v1's `add`, which also takes the ticket's external id and URL. `show --json` and `ls --json` print them as `external_id` and `external_url` when a ticket has them. `set` and `unset` take them as keys. |
 | Vault external fields | A vault ticket's `external_id` and `external_url` are frontmatter properties. A ticket type's `fields:` map can name the property that holds each one, as it does for `parent` and `dependencies`, such as `fields: {tracker_id: external_id}`. With no property mapped, the property is named after the field: `external_id` or `external_url`. Their values are plain text, not links, so `tix lint` doesn't check them. |
+| Vault note placement | A new ticket note goes in the directory `ticket_directories` names for its type, and a new doc in its doc type's `directory`. Without one, it goes where most notes of its type already are, the first by name on a tie, or in the vault's root when the type has none yet. |
 | `tix tick` / `untick` / `ac set` / `ac add` | Tick, untick, reword and add acceptance criteria by the number `show` prints. |
 | `tix context REF [--depth N] [--json]` | Walks breadth first from the ticket or doc, default 2 hops, over its parent, dependencies, outgoing wikilinks and backlinks (the yaml backend: parent and dependencies only), and prints one card per note at its shortest distance: id, type, title, summary, `has_summary`, distance, relation (`start`, `parent`, `dependency`, `wikilink` or `backlink`: the hop that first reached the note, strongest first when one note reaches it several ways), commits and files. The Profile's `summary_property` (default `summary`) and `commits_property` (default `commits`) name the properties, and `files_heading` the section whose comma-separated or listed paths are the files; with no `files_heading`, files are empty. A note whose type is in the Profile's `context_stop_types` (default none; each must be a ticket or doc type), such as a vault's home note, gets its card but the walk doesn't go on through it, unless it is REF. `--json` is a bare array. |
 | `tix lint (REF... \| --all)` | Checks each ticket and doc note the references name, or every one with `--all`, by plain-code rules: `section`, each heading the Profile's `required_sections` lists for the note's type (a map of ticket or doc type to heading texts, matched exactly at any level; default none) is present; `summary`, the `summary_property` is not empty; `link`, every slug the note names through a wikilink or a link property such as a parent or dependencies is a note's slug or another file's name under the vault root. Prints `PATH: RULE: MESSAGE` for each problem, PATH relative to the directory holding `.tix`, and exits 1 when there is any, 0 when there is none. A note that wouldn't map onto a ticket or doc is still checked. |
@@ -139,7 +140,7 @@ These commands and rules are Railyard's, beyond v1. Files they write still match
 
 ## Writing tickets
 
-Reference templates for a vault live in `docs/tix/templates/`: `feature.md`, `task.md`, `idea.md`, and a `config.yml` that wires them up. Copy them into a project's vault and adjust the properties to its config. Each part of a ticket has one job, and nothing says twice what another part already says.
+`tix init` sets up a starter vault: `feature` notes as epics, `task` notes as tasks in `tasks/`, with `feature` as the parent and `depends_on` as the dependencies, and `idea` docs in `ideas/`. Each starts from a template that init writes into `<root>/templates/`, refusing before it writes anything when one is already there. The templates' source is `internal/tix/starter/templates/`. The profile sets `files_heading: Files` and requires the sections below. Edit `.tix/config.yml` and the templates to fit the project. Each part of a ticket has one job, and nothing says twice what another part already says.
 
 | Part | Job | Read by |
 | --- | --- | --- |
@@ -210,7 +211,7 @@ func (ticketType Type) IsValid() bool {
 
 ## Success Criteria
 
-1. In a temp dir, `tix init --prefix t`, then add an epic → story → task → subtask chain. `tix tree` shows it indented, and `tix add --type task --parent <epic>` is rejected.
+1. In a temp dir, `tix init --prefix t --backend yaml`, then add an epic → story → task → subtask chain. `tix tree` shows it indented, and `tix add --type task --parent <epic>` is rejected.
 2. Two tasks where B depends on A: `ready` shows A only. After `done A`, it shows B. `dep A B` is rejected as a cycle.
 3. `show`, `start`, `done` and `dep` accept a 2-character reference when it's unique.
 4. A hand-broken file (dangling parent) makes `tix check` exit 1 and name the ticket.

@@ -28,6 +28,7 @@ const (
 	profileFieldContextStopTypes  = "context_stop_types"
 	profileFieldRequiredSections  = "required_sections"
 	mappingFieldTicketType        = "ticket_type"
+	docFieldDirectory             = "directory"
 	mappingFieldStatuses          = "statuses"
 	mappingFieldFields            = "fields"
 

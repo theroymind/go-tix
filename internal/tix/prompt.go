@@ -46,14 +46,3 @@ func (setup prompter) ask(question, fallback string, check func(answer string) e
 		}
 	}
 }
-
-func splitList(answer string) []string {
-	var items []string
-	for item := range strings.SplitSeq(answer, listItemSeparator) {
-		trimmed := strings.TrimSpace(item)
-		if trimmed != "" {
-			items = append(items, trimmed)
-		}
-	}
-	return items
-}

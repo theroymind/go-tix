@@ -214,10 +214,7 @@ func (store Store) CreateDoc(docType string, value backend.Doc) (string, error) 
 			paths = append(paths, found.note.Path)
 		}
 	}
-	directory, err := store.typeDirectory(paths, docType)
-	if err != nil {
-		return "", err
-	}
+	directory := store.typeDirectory(paths, store.Profile.Docs[docType].Directory)
 	path := filepath.Join(directory, slug+noteExtension)
 	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
 		if err != nil {
@@ -255,6 +252,9 @@ func (store Store) CreateDoc(docType string, value backend.Doc) (string, error) 
 		return "", err
 	}
 	if _, err := store.toDoc(docNote{note: written, docType: docType, mapping: mapping}); err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(directory, backend.DirectoryPermission); err != nil {
 		return "", err
 	}
 	return slug, backend.WriteAtomically(path, rendered)

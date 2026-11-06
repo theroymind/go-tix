@@ -27,7 +27,7 @@ type Profile struct {
 	// TicketTemplates maps a ticket note type to the template, relative to Root, that new notes of the type start from.
 	TicketTemplates map[string]string `yaml:"ticket_templates,omitempty"`
 	// TicketDirectories maps a ticket note type to the directory, relative to Root, that new notes of the type go in.
-	// A type it leaves out goes where most of its notes already are.
+	// A type it leaves out goes where most of its notes already are, or in Root when it has none.
 	TicketDirectories map[string]string `yaml:"ticket_directories,omitempty"`
 	// SummaryProperty names the property holding a note's one-line summary, kept apart from a ticket's description,
 	// which is the note's body.
@@ -60,6 +60,9 @@ type DocMapping struct {
 	Statuses []string `yaml:"statuses,omitempty"`
 	// Template is the path, relative to Root, that new docs of the type start from.
 	Template string `yaml:"template,omitempty"`
+	// Directory is the directory, relative to Root, that new docs of the type go in. Empty means where most of its
+	// notes already are.
+	Directory string `yaml:"directory,omitempty"`
 }
 
 // WithDefaults returns the profile with an empty Root, TypeProperty, CriteriaHeading, SummaryProperty or
@@ -120,6 +123,11 @@ func (profile Profile) Validate() error {
 		}
 		if !filepath.IsLocal(profile.TicketDirectories[noteType]) {
 			problems.Add(field, problemDirectoryNotLocal)
+		}
+	}
+	for _, noteType := range slices.Sorted(maps.Keys(profile.Docs)) {
+		if !filepath.IsLocal(profile.Docs[noteType].Directory) && profile.Docs[noteType].Directory != "" {
+			problems.Add(profileFieldDocs+fieldSeparator+noteType+fieldSeparator+docFieldDirectory, problemDirectoryNotLocal)
 		}
 	}
 	for index, noteType := range profile.ContextStopTypes {

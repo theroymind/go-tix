@@ -28,8 +28,6 @@ var (
 	ErrEmptySlug = errors.New("has no letter or digit to name a note by")
 	// ErrSlugTaken reports a new note's slug that a ticket note, or a file at its path, already has.
 	ErrSlugTaken = errors.New("is taken by")
-	// ErrNoDestination reports a note type with no existing notes to place a new note beside.
-	ErrNoDestination = errors.New("has no notes to place a new note beside")
 	// ErrNotKept reports a new note that would read back with a field other than the one given.
 	ErrNotKept = errors.New("would not read back")
 	// ErrNotIDList reports a link field set to a value other than a list of ids.
@@ -81,10 +79,6 @@ func emptySlug(title string) error {
 
 func slugTaken(slug, path string) error {
 	return fmt.Errorf("slug %s %w %s", strconv.Quote(slug), ErrSlugTaken, path)
-}
-
-func noDestination(noteType string) error {
-	return fmt.Errorf("note type %s %w", strconv.Quote(noteType), ErrNoDestination)
 }
 
 func notKept(path, field string) error {

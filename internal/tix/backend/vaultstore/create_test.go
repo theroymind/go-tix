@@ -250,6 +250,13 @@ func TestCreateInASmallVault(t *testing.T) {
 			},
 			ticket.Ticket{Title: "New", Type: ticket.TypeTask, Status: ticket.StatusOpen, Description: "Said."},
 			"tasks/new.md", "---\ntype: task\nstatus: todo\n---\n\n# New\n\nSaid.\n\n## Notes\n"},
+		{"The first note of its type goes in the vault's root",
+			map[string]string{
+				".tix/config.yml":   smallProfile(""),
+				"templates/task.md": "---\ntype: task\nstatus: todo\n---\n\n# Title\n",
+			},
+			ticket.Ticket{Title: "New", Type: ticket.TypeTask, Status: ticket.StatusOpen},
+			"new.md", "---\ntype: task\nstatus: todo\n---\n\n# New\n"},
 		{"The new note goes where most notes of its type are",
 			map[string]string{
 				".tix/config.yml":   smallProfile(""),
@@ -356,10 +363,6 @@ func TestCreateFailsInASmallVault(t *testing.T) {
 		expectedError error
 		mentions      []string
 	}{
-		{"No note of the type to place the new one beside",
-			map[string]string{".tix/config.yml": smallProfile(""), "templates/task.md": smallNote},
-			ticket.Ticket{Title: "New", Type: ticket.TypeTask, Status: ticket.StatusOpen},
-			vaultstore.ErrNoDestination, []string{`"task"`}},
 		{"A file that is not a ticket note already has the path",
 			map[string]string{".tix/config.yml": smallProfile(""), "templates/task.md": smallNote,
 				"tasks/existing.md": smallNote, "tasks/new.md": "Plain notes.\n"},

@@ -37,10 +37,8 @@ func (store Store) Create(value ticket.Ticket) (string, error) {
 	if existing, exists := notes[slug]; exists {
 		return "", slugTaken(slug, existing.note.Path)
 	}
-	directory, err := store.typeDirectory(store.pathsOfType(notes, noteType), noteType)
-	if err != nil {
-		return "", err
-	}
+	configured := store.Profile.TicketDirectories[noteType]
+	directory := store.typeDirectory(store.pathsOfType(notes, noteType), configured)
 	if err := os.MkdirAll(directory, backend.DirectoryPermission); err != nil {
 		return "", err
 	}
@@ -85,11 +83,11 @@ func (store Store) templatedType(ticketType ticket.Type) (string, backend.Ticket
 	return "", backend.TicketMapping{}, noTemplate(ticketType)
 }
 
-// typeDirectory returns the directory the profile names for noteType, or else the directory holding the most notes of
-// noteType among paths, the first by name on a tie.
-func (store Store) typeDirectory(paths []string, noteType string) (string, error) {
-	if configured, named := store.Profile.TicketDirectories[noteType]; named {
-		return filepath.Join(store.Root, configured), nil
+// typeDirectory returns the configured directory when there is one, or else the directory holding the most of the
+// type's notes among paths, the first by name on a tie, or else the vault's root when the type has no notes yet.
+func (store Store) typeDirectory(paths []string, configured string) string {
+	if configured != "" {
+		return filepath.Join(store.Root, configured)
 	}
 	counts := map[string]int{}
 	for _, path := range paths {
@@ -102,9 +100,9 @@ func (store Store) typeDirectory(paths []string, noteType string) (string, error
 		}
 	}
 	if directory == "" {
-		return "", noDestination(noteType)
+		return store.Root
 	}
-	return directory, nil
+	return directory
 }
 
 // pathsOfType returns the paths of the ticket notes whose type property is noteType.

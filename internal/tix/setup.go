@@ -3,11 +3,11 @@ package tix
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/theroymind/go-tix/contracts/ticket"
 	"github.com/theroymind/go-tix/contracts/validation"
 	"github.com/theroymind/go-tix/internal/tix/backend"
+	"github.com/theroymind/go-tix/internal/tix/starter"
 )
 
 func askConfig(setup prompter) (backend.Config, error) {
@@ -15,55 +15,29 @@ func askConfig(setup prompter) (backend.Config, error) {
 	if err != nil {
 		return backend.Config{}, err
 	}
-	config := backend.Config{Prefix: prefix}
-	kindAnswer, err := setup.ask(questionBackend, string(backend.KindYAML), checkKind)
+	kindAnswer, err := setup.ask(questionBackend, string(backend.KindVault), checkKind)
 	if err != nil {
 		return backend.Config{}, err
 	}
 	kind := backend.Kind(kindAnswer)
-	if kind == backend.KindVault {
-		profile, err := askProfile(setup)
-		if err != nil {
-			return backend.Config{}, err
-		}
-		config.Backend = kind
-		config.Vault = &profile
+	if kind != backend.KindVault {
+		return configFor(prefix, kind, ""), nil
 	}
-	return config, nil
-}
-
-func askProfile(setup prompter) (backend.Profile, error) {
 	root, err := setup.ask(questionDocsDirectory, backend.DefaultVaultRoot, checkDocsDirectory)
 	if err != nil {
-		return backend.Profile{}, err
+		return backend.Config{}, err
 	}
-	statuses, err := parseStatuses(defaultTicketStatuses)
-	if err != nil {
-		return backend.Profile{}, err
-	}
-	taskMapping := backend.TicketMapping{TicketType: ticket.TypeTask, Statuses: statuses}
-	tickets := map[string]backend.TicketMapping{defaultTicketNoteType: taskMapping}
-	profile := backend.Profile{
-		Root:            root,
-		TypeProperty:    backend.DefaultTypeProperty,
-		Tickets:         tickets,
-		CriteriaHeading: backend.DefaultCriteriaHeading,
-	}
-	return profile, nil
+	return configFor(prefix, kind, root), nil
 }
 
-func parseStatuses(answer string) (map[string]ticket.Status, error) {
-	statuses := map[string]ticket.Status{}
-	for _, pair := range splitList(answer) {
-		noteStatus, ticketStatus, found := strings.Cut(pair, pairSeparator)
-		noteStatus = strings.TrimSpace(noteStatus)
-		ticketStatus = strings.TrimSpace(ticketStatus)
-		if !found || noteStatus == "" || ticketStatus == "" {
-			return nil, fmt.Errorf("%q %w", pair, ErrExpectedStatusPair)
-		}
-		statuses[noteStatus] = ticket.Status(ticketStatus)
+// configFor returns the config tix init writes: the prefix alone for the YAML backend, as tix v1 wrote it, or the
+// starter vault rooted at root.
+func configFor(prefix string, kind backend.Kind, root string) backend.Config {
+	if kind != backend.KindVault {
+		return backend.Config{Prefix: prefix}
 	}
-	return statuses, nil
+	profile := starter.Profile(root)
+	return backend.Config{Prefix: prefix, Backend: kind, Vault: &profile}
 }
 
 func checkPrefix(answer string) error {

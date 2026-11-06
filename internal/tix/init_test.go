@@ -3,6 +3,7 @@ package tix_test
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -14,35 +15,53 @@ import (
 	"github.com/theroymind/railyard-cli"
 )
 
-const defaultVaultConfig = `prefix: odin
+const starterVaultConfig = `prefix: %s
 backend: vault
 vault:
-  root: docs
+  root: %s
   type_property: type
   tickets:
+    feature:
+      ticket_type: epic
+      statuses:
+        active: in_progress
+        done: completed
+        todo: open
     task:
       ticket_type: task
       statuses:
+        active: in_progress
         done: completed
-        in_progress: in_progress
         todo: open
+      fields:
+        depends_on: dependencies
+        feature: parent
+  docs:
+    idea:
+      statuses:
+        - open
+      template: templates/idea.md
+      directory: ideas
   criteria_heading: Acceptance criteria
+  ticket_templates:
+    feature: templates/feature.md
+    task: templates/task.md
+  ticket_directories:
+    task: tasks
+  files_heading: Files
+  required_sections:
+    feature:
+      - Description
+      - Acceptance criteria
+    task:
+      - Description
+      - Files
+      - Acceptance criteria
 `
 
-const customVaultConfig = `prefix: odin
-backend: vault
-vault:
-  root: notes
-  type_property: type
-  tickets:
-    task:
-      ticket_type: task
-      statuses:
-        done: completed
-        in_progress: in_progress
-        todo: open
-  criteria_heading: Acceptance criteria
-`
+func starterConfig(prefix, root string) string {
+	return fmt.Sprintf(starterVaultConfig, prefix, root)
+}
 
 func TestInit(t *testing.T) {
 	tests := []struct {
@@ -53,20 +72,22 @@ func TestInit(t *testing.T) {
 		expectedConfig   string
 		mentions         []string
 	}{
-		{"--prefix writes the config without asking anything", []string{"init", "--prefix", "bs"}, "",
+		{"--prefix writes the starter vault without asking anything", []string{"init", "--prefix", "bs"}, "",
+			cli.ExitCodeSuccess, starterConfig("bs", "docs"), nil},
+		{"--backend yaml writes the prefix alone, as tix v1 did", []string{"init", "--prefix", "bs", "--backend", "yaml"}, "",
 			cli.ExitCodeSuccess, "prefix: bs\n", nil},
-		{"Without --prefix, a blank backend answer takes the YAML backend", []string{"init"}, "bs\n\n",
-			cli.ExitCodeSuccess, "prefix: bs\n",
-			[]string{"Ticket id prefix: ", "Backend (yaml or vault) [yaml]: ", "wrote "}},
-		{"An invalid prefix is asked again", []string{"init"}, "BS\nbs\n\n",
+		{"An unknown --backend is refused", []string{"init", "--prefix", "bs", "--backend", "sql"}, "",
+			cli.ExitCodeFailure, "", []string{`"sql" is invalid`}},
+		{"Without --prefix, a blank backend answer takes the vault", []string{"init"}, "bs\n\n\n",
+			cli.ExitCodeSuccess, starterConfig("bs", "docs"),
+			[]string{"Ticket id prefix: ", "Backend (yaml or vault) [vault]: ", "Docs directory, relative to this one [docs]: ", "wrote "}},
+		{"An invalid prefix is asked again", []string{"init"}, "BS\nbs\nyaml\n",
 			cli.ExitCodeSuccess, "prefix: bs\n", []string{`"BS" is not a prefix`}},
 		{"An unknown backend is asked again", []string{"init"}, "bs\nsql\nyaml\n",
 			cli.ExitCodeSuccess, "prefix: bs\n", []string{`"sql" is invalid`}},
-		{"The vault backend asks only for the docs directory", []string{"init"}, "odin\nvault\n\n",
-			cli.ExitCodeSuccess, defaultVaultConfig, []string{"Docs directory, relative to this one [docs]: "}},
 		{"A docs directory outside this one is asked again",
 			[]string{"init"}, "odin\nvault\n../docs\nnotes\n",
-			cli.ExitCodeSuccess, customVaultConfig, []string{`"../docs" is not a directory inside this one`}},
+			cli.ExitCodeSuccess, starterConfig("odin", "notes"), []string{`"../docs" is not a directory inside this one`}},
 		{"Input that ends early writes nothing", []string{"init"}, "bs\n",
 			cli.ExitCodeFailure, "", []string{"input ended before setup finished"}},
 	}
@@ -107,4 +128,50 @@ func runWithInput(t *testing.T, directory, input string, arguments ...string) (c
 	stdin := strings.NewReader(input)
 	exitCode := tix.Program.Run(arguments, stdin, &stdout, &stderr)
 	return exitCode, stdout.String() + stderr.String()
+}
+
+func TestStarterVaultTakesItsFirstNotes(t *testing.T) {
+	root := t.TempDir()
+	if exitCode, output := run(t, root, "init", "--prefix", "bs"); exitCode != cli.ExitCodeSuccess {
+		t.Fatalf("tix init exit code = %d, output %q", exitCode, output)
+	}
+	steps := []struct {
+		arguments    []string
+		expectedPath string
+	}{
+		{[]string{"add", "--type", "epic", "First feature"}, "docs/first-feature.md"},
+		{[]string{"add", "--type", "task", "--parent", "first-feature", "First task"}, "docs/tasks/first-task.md"},
+		{[]string{"doc", "add", "--type", "idea", "First idea"}, "docs/ideas/first-idea.md"},
+	}
+	for _, step := range steps {
+		if exitCode, output := run(t, root, step.arguments...); exitCode != cli.ExitCodeSuccess {
+			t.Fatalf("tix %v exit code = %d, output %q", step.arguments, exitCode, output)
+		}
+		if _, err := os.Stat(filepath.Join(root, step.expectedPath)); err != nil {
+			t.Errorf("tix %v: %v", step.arguments, err)
+		}
+	}
+}
+
+func TestInitRefusesToOverwriteATemplate(t *testing.T) {
+	root := t.TempDir()
+	existing := filepath.Join(root, "docs", "templates", "task.md")
+	if err := os.MkdirAll(filepath.Dir(existing), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(existing, []byte("mine\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode, output := run(t, root, "init", "--prefix", "bs")
+
+	if exitCode != cli.ExitCodeFailure || !strings.Contains(output, "already exists") {
+		t.Fatalf("exit code = %d, output %q; expected a failure saying the template already exists", exitCode, output)
+	}
+	if readFile(t, existing) != "mine\n" {
+		t.Errorf("tix init overwrote %s", existing)
+	}
+	if _, err := os.Stat(filepath.Join(root, ticket.DirectoryName)); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("tix init created .tix after refusing")
+	}
 }

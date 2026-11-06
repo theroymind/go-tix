@@ -83,7 +83,7 @@ func yamlRepository(t *testing.T) (string, string) {
 		t.Fatal(err)
 	}
 	root := t.TempDir()
-	if exitCode, output := run(t, root, "init", "--prefix", "bs"); exitCode != cli.ExitCodeSuccess {
+	if exitCode, output := run(t, root, "init", "--prefix", "bs", "--backend", "yaml"); exitCode != cli.ExitCodeSuccess {
 		t.Fatalf("tix init exit code = %d, output %q", exitCode, output)
 	}
 	path := filepath.Join(root, ticket.DirectoryName, ticket.FileName(yamlID))
