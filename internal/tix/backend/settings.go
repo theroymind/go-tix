@@ -2,6 +2,7 @@ package backend
 
 import (
 	"io/fs"
+	"slices"
 
 	"github.com/theroymind/go-tix/contracts/ticket"
 )
@@ -65,3 +66,7 @@ var Kinds = []Kind{KindYAML, KindVault}
 
 // LinkFields are the ticket fields a Profile can fill from a note property holding wikilinks or slugs.
 var LinkFields = []string{ticket.FieldDependencies, ticket.FieldParent}
+
+var TextFields = []string{ticket.FieldExternalID, ticket.FieldExternalURL}
+
+var MappedFields = slices.Concat(LinkFields, TextFields)

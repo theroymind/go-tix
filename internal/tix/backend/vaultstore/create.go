@@ -16,9 +16,9 @@ import (
 
 // Create writes a new note for value and returns its slug, the slug of value's title. The note starts from the
 // template of the note type that maps onto value's type, and goes in the directory that holds most notes of that
-// type, or the directory the profile's ticket_directories names for it. Its status, created_at, updated_at, parent
-// and dependencies properties, H1, description paragraph and criteria are filled from value; an empty field keeps
-// the template's text. Priority and tags aren't written. The
+// type, or the directory the profile's ticket_directories names for it. Its status, created_at, updated_at, parent,
+// dependencies, external_id and external_url properties, H1, description paragraph and criteria are filled from
+// value; an empty field keeps the template's text. Priority and tags aren't written. The
 // note must read back with value's title, status, links and criteria before it is written, and nothing is written
 // when its slug is taken.
 func (store Store) Create(value ticket.Ticket) (string, error) {
@@ -118,7 +118,8 @@ func (store Store) pathsOfType(notes map[string]ticketNote, noteType string) []s
 	return paths
 }
 
-// fill writes value's status, timestamps, links, title, description and criteria into the template's note.
+// fill writes value's status, timestamps, links, external id and URL, title, description and criteria into the
+// template's note.
 func (store Store) fill(note *vault.Note, mapping backend.TicketMapping, value ticket.Ticket) error {
 	noteStatus, err := noteStatusOf(mapping, note.Path, value.Status)
 	if err != nil {
@@ -139,6 +140,9 @@ func (store Store) fill(note *vault.Note, mapping backend.TicketMapping, value t
 		if err := setLinkProperty(note, mapping, ticket.FieldDependencies, value.Dependencies); err != nil {
 			return err
 		}
+	}
+	if err := setTextFields(note, mapping, value); err != nil {
+		return err
 	}
 	if err := setTitle(note, value.Title); err != nil {
 		return err
@@ -164,6 +168,26 @@ func setTimestamps(note *vault.Note, value ticket.Ticket) error {
 			continue
 		}
 		if err := note.SetProperty(stamp.field, stamp.moment); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func setTextFields(note *vault.Note, mapping backend.TicketMapping, value ticket.Ticket) error {
+	texts := []struct {
+		field string
+		text  string
+	}{{ticket.FieldExternalID, value.ExternalID}, {ticket.FieldExternalURL, value.ExternalURL}}
+	for _, text := range texts {
+		if text.text == "" {
+			continue
+		}
+		property, isHeld := textProperty(mapping, text.field)
+		if !isHeld {
+			return fieldUnsupported(text.field)
+		}
+		if err := note.SetProperty(property, text.text); err != nil {
 			return err
 		}
 	}
@@ -199,8 +223,8 @@ func setDescription(note *vault.Note, description string) error {
 	return nil
 }
 
-// checkKept fails when the created ticket doesn't read back the title, status, links and criteria value gives. An
-// empty link field or no criteria in value leave the template's.
+// checkKept fails when the created ticket doesn't read back the title, status, links, external id and URL and
+// criteria value gives. An empty link or text field or no criteria in value leave the template's.
 func checkKept(path string, value, created ticket.Ticket) error {
 	switch {
 	case created.Title != value.Title:
@@ -211,6 +235,10 @@ func checkKept(path string, value, created ticket.Ticket) error {
 		return notKept(path, ticket.FieldParent)
 	case len(value.Dependencies) > 0 && !slices.Equal(created.Dependencies, value.Dependencies):
 		return notKept(path, ticket.FieldDependencies)
+	case value.ExternalID != "" && created.ExternalID != value.ExternalID:
+		return notKept(path, ticket.FieldExternalID)
+	case value.ExternalURL != "" && created.ExternalURL != value.ExternalURL:
+		return notKept(path, ticket.FieldExternalURL)
 	case len(value.Acceptance) > 0 && !slices.Equal(created.Acceptance, ticket.NewCriteria(criterionTexts(value.Acceptance))):
 		return notKept(path, ticket.FieldAcceptance)
 	}

@@ -20,6 +20,8 @@ const (
 	FieldTags         = "tags"
 	FieldDependencies = "dependencies"
 	FieldParent       = "parent"
+	FieldExternalID   = "external_id"
+	FieldExternalURL  = "external_url"
 	FieldDescription  = "description"
 	FieldAcceptance   = "acceptance"
 	FieldCreatedAt    = "created_at"
@@ -37,6 +39,8 @@ type Ticket struct {
 	Tags          []string            `yaml:"tags,omitempty,flow" json:"tags,omitempty"`
 	Dependencies  []string            `yaml:"dependencies,omitempty,flow" json:"dependencies,omitempty"`
 	Parent        string              `yaml:"parent,omitempty" json:"parent,omitempty"`
+	ExternalID    string              `yaml:"external_id,omitempty" json:"external_id,omitempty"`
+	ExternalURL   string              `yaml:"external_url,omitempty" json:"external_url,omitempty"`
 	Description   string              `yaml:"description,omitempty" json:"description,omitempty"`
 	Acceptance    []Criterion         `yaml:"acceptance,omitempty" json:"acceptance,omitempty"`
 	CreatedAt     timestamp.Timestamp `yaml:"created_at,omitempty" json:"created_at,omitempty"`
@@ -71,6 +75,9 @@ func (ticket Ticket) Validate() error {
 	}
 	if ticket.Parent != "" && !IsValidID(ticket.Parent) {
 		problems.Add(FieldParent, problemInvalidID)
+	}
+	if ticket.ExternalURL != "" && !IsValidExternalURL(ticket.ExternalURL) {
+		problems.Add(FieldExternalURL, problemInvalidExternalURL)
 	}
 	if ticket.CreatedAt != "" && !ticket.CreatedAt.IsValid() {
 		problems.Add(FieldCreatedAt, timestamp.ProblemInvalid)

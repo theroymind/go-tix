@@ -45,6 +45,9 @@ func (store Store) lintLinks(note *vault.Note, noteType string) []string {
 	links := vault.Wikilinks(string(note.Render()))
 	mapping := store.Profile.Tickets[noteType]
 	for _, property := range slices.Sorted(maps.Keys(mapping.Fields)) {
+		if !slices.Contains(backend.LinkFields, mapping.Fields[property]) {
+			continue
+		}
 		links = append(links, propertyLinks(note.Property(property))...)
 	}
 	return uniqueLinks(links)

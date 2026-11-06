@@ -50,7 +50,8 @@ type TicketMapping struct {
 	TicketType ticket.Type `yaml:"ticket_type"`
 	// Statuses maps a note status to a ticket status. A note with any other status is invalid.
 	Statuses map[string]ticket.Status `yaml:"statuses"`
-	// Fields maps a note property to the ticket field, one of LinkFields, that its wikilinks or slugs fill.
+	// Fields maps a note property to the ticket field it fills: one of LinkFields, filled from its wikilinks or
+	// slugs, or one of TextFields, filled from its text.
 	Fields map[string]string `yaml:"fields,omitempty"`
 }
 
@@ -169,8 +170,8 @@ func (mapping TicketMapping) Validate() error {
 		problems.Add(mappingFieldStatuses, problem)
 	}
 	for _, property := range slices.Sorted(maps.Keys(mapping.Fields)) {
-		if !slices.Contains(LinkFields, mapping.Fields[property]) {
-			problems.Add(mappingFieldFields+fieldSeparator+property, validation.InvalidOption(LinkFields))
+		if !slices.Contains(MappedFields, mapping.Fields[property]) {
+			problems.Add(mappingFieldFields+fieldSeparator+property, validation.InvalidOption(MappedFields))
 		}
 	}
 	return problems.Err()

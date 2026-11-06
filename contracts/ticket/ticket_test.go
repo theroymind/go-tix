@@ -42,6 +42,10 @@ func TestValidateAccepts(t *testing.T) {
 	withoutOptionalFields.Priority, withoutOptionalFields.CreatedAt, withoutOptionalFields.UpdatedAt = nil, "", ""
 	withHighestPriority := validTicket()
 	withHighestPriority.Priority = new(PriorityHighest)
+	withExternalTicket := validTicket()
+	withExternalTicket.ExternalID, withExternalTicket.ExternalURL = "INO-343", "https://tracker.example.com/issue/INO-343"
+	withHTTPExternalURL := validTicket()
+	withHTTPExternalURL.ExternalURL = "http://tracker.example.com/issue/1"
 
 	tests := []struct {
 		name   string
@@ -51,6 +55,8 @@ func TestValidateAccepts(t *testing.T) {
 		{"A ticket with a field it doesn't know about", withUnknownField},
 		{"A ticket with no priority or timestamps", withoutOptionalFields},
 		{"A ticket with priority 0", withHighestPriority},
+		{"A ticket with an external id and an https URL", withExternalTicket},
+		{"A ticket with an http external URL", withHTTPExternalURL},
 	}
 
 	for _, tt := range tests {
@@ -79,6 +85,10 @@ func TestValidateRejects(t *testing.T) {
 		{FieldDependencies + ".1", func(ticket *Ticket) { ticket.Dependencies = []string{ticket.ID, "not_an_id"} }},
 		{FieldCreatedAt, func(ticket *Ticket) { ticket.CreatedAt = "2026-10-25T09:00:00" }},
 		{FieldUpdatedAt, func(ticket *Ticket) { ticket.UpdatedAt = "yesterday" }},
+		{FieldExternalURL, func(ticket *Ticket) { ticket.ExternalURL = "INO-343" }},
+		{FieldExternalURL, func(ticket *Ticket) { ticket.ExternalURL = "ftp://tracker.example.com/1" }},
+		{FieldExternalURL, func(ticket *Ticket) { ticket.ExternalURL = "https://" }},
+		{FieldExternalURL, func(ticket *Ticket) { ticket.ExternalURL = "https://tracker.example.com/%zz" }},
 	}
 
 	for _, tt := range tests {
@@ -130,6 +140,7 @@ func TestMarshalJSONOptionalFields(t *testing.T) {
 	absent.Priority, absent.CreatedAt, absent.UpdatedAt = nil, "", ""
 	highest := validTicket()
 	highest.Priority = new(PriorityHighest)
+	highest.ExternalID, highest.ExternalURL = "INO-343", "https://tracker.example.com/issue/INO-343"
 
 	tests := []struct {
 		name     string
@@ -140,7 +151,10 @@ func TestMarshalJSONOptionalFields(t *testing.T) {
 		{
 			"Present fields are written, priority 0 included",
 			highest,
-			map[string]any{FieldPriority: float64(PriorityHighest), FieldCreatedAt: string(highest.CreatedAt), FieldUpdatedAt: string(highest.UpdatedAt)},
+			map[string]any{
+				FieldPriority: float64(PriorityHighest), FieldCreatedAt: string(highest.CreatedAt), FieldUpdatedAt: string(highest.UpdatedAt),
+				FieldExternalID: highest.ExternalID, FieldExternalURL: highest.ExternalURL,
+			},
 		},
 	}
 
@@ -154,7 +168,7 @@ func TestMarshalJSONOptionalFields(t *testing.T) {
 			if err := json.Unmarshal(encoded, &decoded); err != nil {
 				t.Fatalf("json.Unmarshal(%s) error = %v", encoded, err)
 			}
-			for _, field := range []string{FieldPriority, FieldCreatedAt, FieldUpdatedAt} {
+			for _, field := range []string{FieldPriority, FieldCreatedAt, FieldUpdatedAt, FieldExternalID, FieldExternalURL} {
 				got, isPresent := decoded[field]
 				want, isExpected := tt.expected[field]
 				if isPresent != isExpected || got != want {

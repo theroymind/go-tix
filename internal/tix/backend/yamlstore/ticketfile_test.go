@@ -286,3 +286,91 @@ func TestParseTicketRequiresTheFieldsTheContractLeavesOptional(t *testing.T) {
 		})
 	}
 }
+
+func TestSerializeTicketWritesExternalFieldsAfterParent(t *testing.T) {
+	fixture := string(readFixture(t))
+	external := parseFixture(t)
+	external.ExternalID, external.ExternalURL = "INO-343", "https://tracker.example.com/issue/INO-343?view=full&tab=1"
+	externalLines := ticket.FieldExternalID + ": INO-343\n" + ticket.FieldExternalURL + ": " + external.ExternalURL + "\n"
+	expected := strings.Replace(fixture, "parent: bs-x8vd\n", "parent: bs-x8vd\n"+externalLines, 1)
+
+	if got := serialize(t, external); string(got) != expected {
+		t.Errorf("SerializeTicket() =\n%s\nwant\n%s", got, expected)
+	}
+}
+
+func TestUpdateTicketTextExternalFields(t *testing.T) {
+	fixture := string(readFixture(t))
+	externalID := ticket.FieldExternalID + ": INO-343\n"
+	externalURL := ticket.FieldExternalURL + ": https://tracker.example.com/issue/INO-343\n"
+	withExternal := strings.Replace(fixture, "parent: bs-x8vd\n", "parent: bs-x8vd\n"+externalID+externalURL, 1)
+	withoutParent := strings.Replace(fixture, "parent: bs-x8vd\n", "", 1)
+
+	tests := []struct {
+		name     string
+		text     string
+		changes  []backend.Change
+		expected string
+	}{
+		{"Setting both writes them after parent", fixture,
+			[]backend.Change{
+				backend.SetField{Field: ticket.FieldExternalURL, Value: "https://tracker.example.com/issue/INO-343"},
+				backend.SetField{Field: ticket.FieldExternalID, Value: "INO-343"},
+			}, withExternal},
+		{"Setting one with no parent writes it before the description", withoutParent,
+			[]backend.Change{backend.SetField{Field: ticket.FieldExternalID, Value: "INO-343"}},
+			strings.Replace(withoutParent, "description:", externalID+"description:", 1)},
+		{"Setting an existing one replaces its value in place", withExternal,
+			[]backend.Change{backend.SetField{Field: ticket.FieldExternalID, Value: "INO-344"}},
+			strings.Replace(withExternal, "INO-343\n", "INO-344\n", 1)},
+		{"Removing both leaves the v1 file", withExternal,
+			[]backend.Change{
+				backend.RemoveField{Field: ticket.FieldExternalID},
+				backend.RemoveField{Field: ticket.FieldExternalURL},
+			}, fixture},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			updated, err := UpdateTicketText([]byte(tt.text), tt.changes, fixturePath)
+			if err != nil {
+				t.Fatalf("UpdateTicketText() error = %v", err)
+			}
+			if string(updated) != tt.expected {
+				t.Errorf("UpdateTicketText() =\n%s\nwant\n%s", updated, tt.expected)
+			}
+		})
+	}
+}
+
+func TestExternalURLMustBeAWebURL(t *testing.T) {
+	fixture := string(readFixture(t))
+	invalidURL := strings.Replace(fixture, "parent: bs-x8vd\n", "parent: bs-x8vd\nexternal_url: INO-343\n", 1)
+
+	tests := []struct {
+		name     string
+		run      func() error
+		expected error
+	}{
+		{"A file holding a non-URL is invalid", func() error {
+			_, err := ParseTicket([]byte(invalidURL), fixturePath)
+			return err
+		}, backend.ErrInvalidFile},
+		{"Setting a non-URL is a rejected change", func() error {
+			changes := []backend.Change{backend.SetField{Field: ticket.FieldExternalURL, Value: "mailto:someone@example.com"}}
+			_, err := UpdateTicketText([]byte(fixture), changes, fixturePath)
+			return err
+		}, backend.ErrInvalidChange},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.run()
+
+			var problems validation.Errors
+			if !errors.Is(err, tt.expected) || !errors.As(err, &problems) || !slices.Equal(problems.Fields(), []string{ticket.FieldExternalURL}) {
+				t.Errorf("error = %v, want %v naming %s", err, tt.expected, ticket.FieldExternalURL)
+			}
+		})
+	}
+}

@@ -13,6 +13,8 @@ const (
 	optionStatus      = "status"
 	optionParent      = "parent"
 	optionDependency  = "dependency"
+	optionExternalID  = "external-id"
+	optionExternalURL = "external-url"
 	optionAll         = "all"
 	optionForce       = "force"
 	optionDepth       = "depth"

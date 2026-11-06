@@ -53,6 +53,8 @@ func (store Store) applyChange(found ticketNote, change backend.Change) error {
 		return found.note.SetProperty(statusProperty, noteStatus)
 	case set.Field == ticket.FieldDependencies:
 		return setDependencies(found, set.Value)
+	case slices.Contains(backend.TextFields, set.Field):
+		return setTextProperty(found, set.Field, set.Value)
 	case timestampFields[set.Field] && found.note.Property(set.Field) == nil:
 		// Vault notes carry no timestamps; one is written only where the note already keeps it.
 		return nil
@@ -74,6 +76,12 @@ func (store Store) removeTicketProperty(found ticketNote, field string) error {
 		return backend.RequiredField(found.note.Path, field)
 	case field == ticket.FieldDescription:
 		return descriptionIsBody(found.note.Path)
+	case slices.Contains(backend.TextFields, field):
+		property, isHeld := textProperty(found.mapping, field)
+		if !isHeld {
+			return fieldUnsupported(field)
+		}
+		return removeProperty(found.note, property)
 	case found.mapping.Fields[field] != "":
 		return mappedPropertyUnsupported(field, found.mapping.Fields[field])
 	case unheldFields[field]:
@@ -81,6 +89,14 @@ func (store Store) removeTicketProperty(found ticketNote, field string) error {
 	default:
 		return removeProperty(found.note, field)
 	}
+}
+
+func setTextProperty(found ticketNote, field string, value any) error {
+	property, isHeld := textProperty(found.mapping, field)
+	if !isHeld {
+		return fieldUnsupported(field)
+	}
+	return found.note.SetProperty(property, value)
 }
 
 // removeProperty removes key from the note's frontmatter, failing with backend.ErrNoField when it isn't there.

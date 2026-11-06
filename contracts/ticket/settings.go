@@ -19,12 +19,14 @@ const (
 )
 
 const (
-	problemInvalidID     = "invalid ticket id"
-	problemTitleRequired = "title is required"
-	yamlIntegerTag       = "!!int"
+	problemInvalidID          = "invalid ticket id"
+	problemTitleRequired      = "title is required"
+	problemInvalidExternalURL = "Invalid input: expected an http or https URL"
+	yamlIntegerTag            = "!!int"
 )
 
 var (
-	prefixExpression = regexp.MustCompile(PrefixPattern)
-	idExpression     = regexp.MustCompile(IDPattern)
+	prefixExpression   = regexp.MustCompile(PrefixPattern)
+	idExpression       = regexp.MustCompile(IDPattern)
+	externalURLSchemes = []string{"http", "https"}
 )

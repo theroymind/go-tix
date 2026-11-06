@@ -21,8 +21,8 @@ func ticketMapping(profile backend.Profile, note *vault.Note) (backend.TicketMap
 }
 
 // toTicket maps a ticket note onto a ticket through the profile: the slug is its id, the first H1 its title (else
-// the slug), its status goes through the mapping's statuses, linked properties fill their fields, and the checkboxes
-// under the criteria heading become its acceptance criteria.
+// the slug), its status goes through the mapping's statuses, linked and text properties fill their fields, and the
+// checkboxes under the criteria heading become its acceptance criteria.
 func toTicket(profile backend.Profile, mapping backend.TicketMapping, note *vault.Note) (ticket.Ticket, error) {
 	noteStatus := propertyText(note.Property(statusProperty))
 	status, isMapped := mapping.Statuses[noteStatus]
@@ -38,6 +38,8 @@ func toTicket(profile backend.Profile, mapping backend.TicketMapping, note *vaul
 	mapped := ticket.Ticket{
 		ID: note.Slug, Title: title, Type: mapping.TicketType, Status: status, CreatedAt: createdAt, UpdatedAt: updatedAt,
 	}
+	mapped.ExternalID = textFieldValue(mapping, note, ticket.FieldExternalID)
+	mapped.ExternalURL = textFieldValue(mapping, note, ticket.FieldExternalURL)
 	for _, property := range slices.Sorted(maps.Keys(mapping.Fields)) {
 		links := propertyLinks(note.Property(property))
 		switch mapping.Fields[property] {
@@ -84,6 +86,23 @@ func criterionBoxes(profile backend.Profile, note *vault.Note) (vault.Range, []v
 		return vault.Range{}, nil, err
 	}
 	return section, note.Checkboxes(section), nil
+}
+
+func textFieldValue(mapping backend.TicketMapping, note *vault.Note, field string) string {
+	property, isHeld := textProperty(mapping, field)
+	if !isHeld {
+		return ""
+	}
+	value := note.Property(property)
+	return strings.TrimSpace(propertyText(value))
+}
+
+func textProperty(mapping backend.TicketMapping, field string) (string, bool) {
+	if property, isMapped := linkProperty(mapping, field); isMapped {
+		return property, true
+	}
+	isTaken := mapping.Fields[field] != ""
+	return field, !isTaken
 }
 
 func heldTimestamp(note *vault.Note, key string) timestamp.Timestamp {

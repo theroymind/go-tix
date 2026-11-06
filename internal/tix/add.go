@@ -25,6 +25,8 @@ var addSpecification = cli.Specification{
 		{Name: optionDraft, Type: cli.OptionTypeBoolean},
 		{Name: optionParent, Type: cli.OptionTypeString},
 		{Name: optionDependency, Type: cli.OptionTypeString, IsMultiple: true},
+		{Name: optionExternalID, Type: cli.OptionTypeString},
+		{Name: optionExternalURL, Type: cli.OptionTypeString},
 	},
 	AllowsPositionals: true,
 }
@@ -98,6 +100,8 @@ func runAdd(arguments []string, _ io.Reader, stdout io.Writer) error {
 		status = ticket.StatusDraft
 	}
 	description, _ := parsed.String(optionDescription)
+	externalID, _ := parsed.String(optionExternalID)
+	externalURL, _ := parsed.String(optionExternalURL)
 	now := timestamp.Format(time.Now())
 	created := ticket.Ticket{
 		Title:        title,
@@ -107,6 +111,8 @@ func runAdd(arguments []string, _ io.Reader, stdout io.Writer) error {
 		Tags:         parsed.Strings(optionTag),
 		Dependencies: dependencies,
 		Parent:       parent,
+		ExternalID:   externalID,
+		ExternalURL:  externalURL,
 		Description:  description,
 		Acceptance:   ticket.NewCriteria(parsed.Strings(optionAcceptance)),
 		CreatedAt:    now,
