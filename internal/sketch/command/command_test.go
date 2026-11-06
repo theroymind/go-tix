@@ -19,6 +19,7 @@ const (
 
 type run struct {
 	arguments []string
+	stdin     string
 	exitCode  cli.ExitCode
 	stdout    string
 	stderrHas string
@@ -38,7 +39,7 @@ func inRepo(t *testing.T, runs []run) string {
 	t.Chdir(subdir)
 	for _, step := range runs {
 		var stdout, stderr strings.Builder
-		exitCode := Program.Run(step.arguments, strings.NewReader(""), &stdout, &stderr)
+		exitCode := Program.Run(step.arguments, strings.NewReader(step.stdin), &stdout, &stderr)
 		if exitCode != step.exitCode {
 			t.Fatalf("sketch %q exit = %d, want %d (stderr %q)", step.arguments, exitCode, step.exitCode, stderr.String())
 		}
@@ -54,21 +55,21 @@ func inRepo(t *testing.T, runs []run) string {
 
 func TestOneShotEditsAndShow(t *testing.T) {
 	root := inRepo(t, []run{
-		{[]string{"-C", atFile, "fn", "score_strike"}, cli.ExitCodeSuccess, atItem + "\n", ""},
-		{[]string{"-C", atItem, "in", "actor", "Combatant_Id"}, cli.ExitCodeSuccess, atItem + "\n", ""},
-		{[]string{"-C", atItem, "a", "who anchors a kill"}, cli.ExitCodeSuccess, "", ""},
-		{[]string{"-C", atItem, "o", "Camera_Move"}, cli.ExitCodeSuccess, "", ""},
-		{[]string{"-C", atItem, "set", "3", "Camera_Cut"}, cli.ExitCodeSuccess, "", ""},
-		{[]string{"-C", atItem, "rm", "1"}, cli.ExitCodeSuccess, "", ""},
-		{[]string{"-C", atFile, "t", "Camera_Move"}, cli.ExitCodeSuccess, "", ""},
-		{[]string{"-C", atFile + ":Camera_Move", "rm"}, cli.ExitCodeSuccess, atFile + "\n", ""},
-		{[]string{"-C", atItem, "mv", "score_hit"}, cli.ExitCodeSuccess, atFile + ":score_hit\n", ""},
-		{[]string{"show", "fight-camera"}, cli.ExitCodeSuccess,
+		{[]string{"-C", atFile, "fn", "score_strike"}, "", cli.ExitCodeSuccess, atItem + "\n", ""},
+		{[]string{"-C", atItem, "in", "actor", "Combatant_Id"}, "", cli.ExitCodeSuccess, atItem + "\n", ""},
+		{[]string{"-C", atItem, "a", "who anchors a kill"}, "", cli.ExitCodeSuccess, "", ""},
+		{[]string{"-C", atItem, "o", "Camera_Move"}, "", cli.ExitCodeSuccess, "", ""},
+		{[]string{"-C", atItem, "set", "3", "Camera_Cut"}, "", cli.ExitCodeSuccess, "", ""},
+		{[]string{"-C", atItem, "rm", "1"}, "", cli.ExitCodeSuccess, "", ""},
+		{[]string{"-C", atFile, "t", "Camera_Move"}, "", cli.ExitCodeSuccess, "", ""},
+		{[]string{"-C", atFile + ":Camera_Move", "rm"}, "", cli.ExitCodeSuccess, atFile + "\n", ""},
+		{[]string{"-C", atItem, "mv", "score_hit"}, "", cli.ExitCodeSuccess, atFile + ":score_hit\n", ""},
+		{[]string{"show", "fight-camera"}, "", cli.ExitCodeSuccess,
 			"TASK           FILE                TYPE  ITEM       LINES\n" +
 				"score-strikes  client/camera.odin  fn    score_hit  2\n", ""},
-		{[]string{"show", "--md", "fight-camera"}, cli.ExitCodeSuccess, "# fight-camera\n\n## score-strikes\n\n" +
+		{[]string{"show", "--md", "fight-camera"}, "", cli.ExitCodeSuccess, "# fight-camera\n\n## score-strikes\n\n" +
 			"### `client/camera.odin`\n\n- **fn** `score_hit`\n  1. ask: who anchors a kill\n  2. out: Camera_Cut\n", ""},
-		{[]string{"show", "fight-camera", "--json"}, cli.ExitCodeSuccess, "", ""},
+		{[]string{"show", "fight-camera", "--json"}, "", cli.ExitCodeSuccess, "", ""},
 	})
 
 	text, err := os.ReadFile(filepath.Join(root, "docs", "features", "fight-camera", "sketch.yml"))
@@ -80,10 +81,31 @@ func TestOneShotEditsAndShow(t *testing.T) {
 	}
 }
 
+func TestBatch(t *testing.T) {
+	batch := "fn score_strike\n\nin actor Combatant_Id\r\na who anchors a kill\ntype Camera_Move\nfield cut bool\n"
+	root := inRepo(t, []run{
+		{[]string{"-C", atFile, "-"}, batch, cli.ExitCodeSuccess, atFile + ":Camera_Move\n", ""},
+		{[]string{"show", "--md", "fight-camera"}, "", cli.ExitCodeSuccess, "# fight-camera\n\n## score-strikes\n\n" +
+			"### `client/camera.odin`\n\n- **fn** `score_strike`\n  1. in: actor Combatant_Id\n" +
+			"  2. ask: who anchors a kill\n- **type** `Camera_Move`\n  1. field: cut bool\n", ""},
+		{[]string{"-C", atItem, "-"}, "out Camera_Move\nrm 9\nout never saved\n", cli.ExitCodeFailure, "",
+			"line 2: bad line number"},
+		{[]string{"-C", atItem, "-"}, "out Camera_Move\n", cli.ExitCodeSuccess, atItem + "\n", ""},
+	})
+
+	text, err := os.ReadFile(filepath.Join(root, "docs", "features", "fight-camera", "sketch.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(text), "text: Camera_Move") != 1 || strings.Contains(string(text), "never saved") {
+		t.Errorf("sketch.yml =\n%s\nwant only the last batch's out line, and nothing from the failed batch", text)
+	}
+}
+
 func TestShowJSON(t *testing.T) {
 	inRepo(t, []run{
-		{[]string{"-C", atFile, "fn", "score_strike"}, cli.ExitCodeSuccess, "", ""},
-		{[]string{"show", "--json", "fight-camera"}, cli.ExitCodeSuccess, `{
+		{[]string{"-C", atFile, "fn", "score_strike"}, "", cli.ExitCodeSuccess, "", ""},
+		{[]string{"show", "--json", "fight-camera"}, "", cli.ExitCodeSuccess, `{
   "schema_version": 1,
   "tasks": [
     {
@@ -111,16 +133,20 @@ func TestCommandsReject(t *testing.T) {
 		name string
 		run  run
 	}{
-		{"A line verb outside an item", run{[]string{"-C", atFile, "in", "actor"}, cli.ExitCodeFailure, "",
+		{"A line verb outside an item", run{[]string{"-C", atFile, "in", "actor"}, "", cli.ExitCodeFailure, "",
 			"in needs an item, and the context is the file " + atFile}},
-		{"An unknown verb", run{[]string{"-C", atFile, "struct", "A"}, cli.ExitCodeFailure, "", `unknown verb "struct"`}},
-		{"A context with no command", run{[]string{"-C", atFile}, cli.ExitCodeUsage, "", "needs a context and a command"}},
-		{"A bad context", run{[]string{"-C", "../x", "fn", "a"}, cli.ExitCodeUsage, "", "bad context"}},
-		{"show of a feature with no sketch", run{[]string{"show", "fight-camera"}, cli.ExitCodeFailure, "", "no sketch"}},
-		{"show with both formats", run{[]string{"show", "--json", "--md", "fight-camera"}, cli.ExitCodeUsage, "",
+		{"An unknown verb", run{[]string{"-C", atFile, "struct", "A"}, "", cli.ExitCodeFailure, "", `unknown verb "struct"`}},
+		{"A context with no command", run{[]string{"-C", atFile}, "", cli.ExitCodeUsage, "", "needs a context and a command"}},
+		{"A bad context", run{[]string{"-C", "../x", "fn", "a"}, "", cli.ExitCodeUsage, "", "bad context"}},
+		{"show of a feature with no sketch", run{[]string{"show", "fight-camera"}, "", cli.ExitCodeFailure, "", "no sketch"}},
+		{"show with both formats", run{[]string{"show", "--json", "--md", "fight-camera"}, "", cli.ExitCodeUsage, "",
 			"can't both be given"}},
-		{"show of a task", run{[]string{"show", "fight-camera/score-strikes"}, cli.ExitCodeUsage, "", "FEATURE"}},
-		{"show without a feature", run{[]string{"show"}, cli.ExitCodeUsage, "", "FEATURE"}},
+		{"show of a task", run{[]string{"show", "fight-camera/score-strikes"}, "", cli.ExitCodeUsage, "", "FEATURE"}},
+		{"A batch that fails on its first line", run{[]string{"-C", atFile, "-"}, "in actor\n", cli.ExitCodeFailure, "",
+			"line 1: wrong context"}},
+		{"An empty batch", run{[]string{"-C", atFile, "-"}, "\n  \n", cli.ExitCodeUsage, "", "stdin holds no commands"}},
+		{"A blank single command", run{[]string{"-C", atFile, " "}, "", cli.ExitCodeFailure, "", "empty command"}},
+		{"show without a feature", run{[]string{"show"}, "", cli.ExitCodeUsage, "", "FEATURE"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

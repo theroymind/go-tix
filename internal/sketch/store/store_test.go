@@ -3,6 +3,7 @@ package store
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -237,7 +238,7 @@ func TestUpdatesAtOnceAllLand(t *testing.T) {
 	errs := make([]error, updates)
 	for index := range updates {
 		group.Go(func() {
-			errs[index] = Update(dir, func(value sketch.Sketch) (sketch.Sketch, error) {
+			errs[index] = Update(dir, dir, func(value sketch.Sketch) (sketch.Sketch, error) {
 				value.Tasks = append(value.Tasks, sketch.Task{Name: fmt.Sprintf("task-%d", index)})
 				return value, nil
 			})
@@ -256,6 +257,18 @@ func TestUpdatesAtOnceAllLand(t *testing.T) {
 		t.Errorf("Load() holds %d tasks, want %d: an update was lost", len(loaded.Tasks), updates)
 	}
 	assertOnlySketch(t, dir)
+}
+
+func TestUpdateWithoutItsLockDir(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "missing")
+
+	err := Update(missing, filepath.Join(missing, "fight-camera"), func(value sketch.Sketch) (sketch.Sketch, error) {
+		return value, nil
+	})
+
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("Update() = %v, want an error wrapping %v", err, fs.ErrNotExist)
+	}
 }
 
 func TestUpdate(t *testing.T) {
@@ -277,7 +290,7 @@ func TestUpdate(t *testing.T) {
 			value.Tasks = value.Tasks[1:]
 			return value, nil
 		}, nil, true},
-		{"A refused edit writes nothing and removes the dirs it made", false,
+		{"A refused edit writes nothing and creates no dirs", false,
 			func(value sketch.Sketch) (sketch.Sketch, error) { return value, errEdit }, errEdit, false},
 		{"An invalid result writes nothing", true, func(value sketch.Sketch) (sketch.Sketch, error) {
 			value.SchemaVersion = 2
@@ -294,7 +307,7 @@ func TestUpdate(t *testing.T) {
 				}
 			}
 
-			err := Update(dir, tt.edit)
+			err := Update(parent, dir, tt.edit)
 
 			if !errors.Is(err, tt.expected) {
 				t.Fatalf("Update() = %v, want %v", err, tt.expected)

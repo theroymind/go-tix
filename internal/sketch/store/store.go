@@ -68,19 +68,11 @@ func Save(dir string, value sketch.Sketch) error {
 }
 
 // Update runs edit on the sketch in dir, or on an empty one when dir holds none, and saves what it returns. It
-// holds an exclusive lock on dir from the load to the save, so two updates at once both land. When edit or the
-// save fails, nothing is written, and the directories Update created for it are removed again.
-func Update(dir string, edit func(sketch.Sketch) (sketch.Sketch, error)) (err error) {
-	created, err := makeDirs(dir)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			removeDirs(dir, created)
-		}
-	}()
-	unlock, err := lock(dir)
+// holds an exclusive lock on lockDir from the load to the save, so two updates at once both land. lockDir must
+// already exist and be the same directory for every writer of dir, such as the repo root. When edit or the
+// save's validation fails, nothing is written and no directory is created.
+func Update(lockDir, dir string, edit func(sketch.Sketch) (sketch.Sketch, error)) error {
+	unlock, err := lock(lockDir)
 	if err != nil {
 		return err
 	}
@@ -97,38 +89,6 @@ func Update(dir string, edit func(sketch.Sketch) (sketch.Sketch, error)) (err er
 		return err
 	}
 	return Save(dir, edited)
-}
-
-// makeDirs creates dir and its missing parents, and returns the topmost one it created, or "" when dir existed.
-func makeDirs(dir string) (string, error) {
-	created := ""
-	for candidate := filepath.Clean(dir); ; {
-		if _, err := os.Stat(candidate); err == nil {
-			break
-		} else if !errors.Is(err, fs.ErrNotExist) {
-			return "", err
-		}
-		created = candidate
-		parent := filepath.Dir(candidate)
-		if parent == candidate {
-			break
-		}
-		candidate = parent
-	}
-	return created, os.MkdirAll(dir, directoryPermission)
-}
-
-// removeDirs removes dir and its parents up to created, the topmost one makeDirs made. os.Remove leaves a directory
-// that isn't empty, such as one another update has saved into since.
-func removeDirs(dir, created string) {
-	if created == "" {
-		return
-	}
-	for candidate := filepath.Clean(dir); ; candidate = filepath.Dir(candidate) {
-		if os.Remove(candidate) != nil || candidate == created {
-			return
-		}
-	}
 }
 
 func decode(text []byte) (sketch.Sketch, error) {

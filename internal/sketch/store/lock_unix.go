@@ -7,8 +7,8 @@ import (
 	"syscall"
 )
 
-// lock holds an exclusive lock on the directory dir until the returned function runs. It locks the directory, not
-// the sketch file, because a save renames a new file over the sketch and the directory stays the same.
+// lock holds an exclusive lock on the directory dir until the returned function runs. It locks a directory, not
+// the sketch file, because a save renames a new file over the sketch, and a directory leaves nothing in the vault.
 func lock(dir string) (func(), error) {
 	handle, err := os.Open(dir)
 	if err != nil {

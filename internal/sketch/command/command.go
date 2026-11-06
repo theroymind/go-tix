@@ -23,6 +23,9 @@ const usage = `usage: sketch <command> [arguments]
 commands:
   -C FEATURE[/TASK[/FILE[:ITEM]]] VERB [ARGS]
                          (runs one command at that context, saves, and prints the context it leaves)
+  -C FEATURE[/TASK[/FILE[:ITEM]]] -
+                         (runs each line of stdin as a command, each at the context the last one left, and
+                         saves once, only when every line succeeds)
   show FEATURE [--json | --md]
   help
 
@@ -37,13 +40,15 @@ verbs:
   set N TEXT             replace line N's text
 
 Lines are numbered from 1, as show --md prints them. A sketch lives in docs/features/FEATURE/sketch.yml from
-the repo root, the nearest directory above holding .tix or .git.
+the repo root, the nearest directory above holding .tix or .git. Send several commands as one stdin batch
+rather than as parallel calls: a batch lands whole or not at all.
 `
 
 const (
 	optionJSON     = "json"
 	optionMarkdown = "md"
 	contextOption  = "-C"
+	stdinCommand   = "-"
 )
 
 var rootMarkers = []string{".tix", ".git"}
@@ -52,6 +57,7 @@ var (
 	ErrBothFormats  = errors.New("--json and --md can't both be given")
 	ErrNeedsFeature = errors.New("needs exactly one FEATURE")
 	ErrNeedsCommand = errors.New("needs a context and a command")
+	ErrNoCommands   = errors.New("stdin holds no commands")
 )
 
 var Program = cli.Program{
@@ -63,9 +69,11 @@ var Program = cli.Program{
 	},
 }
 
-// runEdit runs one grammar command at the context its first argument names. The command's words are joined
-// with single spaces, so a quoted argument and separate words read the same.
-func runEdit(arguments []string, _ io.Reader, stdout io.Writer) error {
+// runEdit runs one grammar command at the context its first argument names, or, when the command is -, every
+// line of stdin in order, each at the context the line before it left. The command's words are joined with
+// single spaces, so a quoted argument and separate words read the same. The sketch is saved once, only when
+// every command succeeds, and the context the last one leaves is printed.
+func runEdit(arguments []string, stdin io.Reader, stdout io.Writer) error {
 	if len(arguments) < 2 {
 		return cli.NewUsageError(ErrNeedsCommand)
 	}
@@ -73,16 +81,24 @@ func runEdit(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return cli.NewUsageError(err)
 	}
-	dir, err := featureDir(at.Feature)
+	isBatch := len(arguments) == 2 && arguments[1] == stdinCommand
+	var lines []string
+	if isBatch {
+		if lines, err = readLines(stdin); err != nil {
+			return err
+		}
+	}
+	root, err := repoRootFromWorkingDir()
 	if err != nil {
 		return err
 	}
-	line := strings.Join(arguments[1:], " ")
-	var next grammar.Context
-	err = store.Update(dir, func(value sketch.Sketch) (sketch.Sketch, error) {
-		var edited sketch.Sketch
-		var err error
-		edited, next, err = grammar.Apply(value, at, line)
+	next := at
+	err = store.Update(root, store.FeatureDir(root, at.Feature), func(value sketch.Sketch) (sketch.Sketch, error) {
+		if isBatch {
+			return applyBatch(value, at, lines, &next)
+		}
+		edited, leaves, err := grammar.Apply(value, at, strings.Join(arguments[1:], " "))
+		next = leaves
 		return edited, err
 	})
 	if err != nil {
@@ -90,6 +106,35 @@ func runEdit(arguments []string, _ io.Reader, stdout io.Writer) error {
 	}
 	_, err = fmt.Fprintln(stdout, next)
 	return err
+}
+
+// applyBatch applies each line in turn, carrying the context, and names the 1-based line that fails. Blank lines
+// are skipped, and a batch of none is refused. next receives the context the last line leaves.
+func applyBatch(value sketch.Sketch, at grammar.Context, lines []string, next *grammar.Context) (sketch.Sketch, error) {
+	applied := 0
+	for index, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var err error
+		if value, at, err = grammar.Apply(value, at, line); err != nil {
+			return value, fmt.Errorf("line %d: %w", index+1, err)
+		}
+		applied++
+	}
+	if applied == 0 {
+		return value, cli.NewUsageError(ErrNoCommands)
+	}
+	*next = at
+	return value, nil
+}
+
+func readLines(stdin io.Reader) ([]string, error) {
+	text, err := io.ReadAll(stdin)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(strings.ReplaceAll(string(text), "\r\n", "\n"), "\n"), nil
 }
 
 func runShow(arguments []string, _ io.Reader, stdout io.Writer) error {
@@ -114,11 +159,11 @@ func runShow(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil || at.Task != "" {
 		return cli.NewUsageError(fmt.Errorf("%w: %q", ErrNeedsFeature, parsed.Positionals[0]))
 	}
-	dir, err := featureDir(at.Feature)
+	root, err := repoRootFromWorkingDir()
 	if err != nil {
 		return err
 	}
-	value, err := store.Load(dir)
+	value, err := store.Load(store.FeatureDir(root, at.Feature))
 	if err != nil {
 		return err
 	}
@@ -132,12 +177,12 @@ func runShow(arguments []string, _ io.Reader, stdout io.Writer) error {
 	}
 }
 
-func featureDir(feature string) (string, error) {
+func repoRootFromWorkingDir() (string, error) {
 	workingDir, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
-	return store.FeatureDir(repoRoot(workingDir), feature), nil
+	return repoRoot(workingDir), nil
 }
 
 // repoRoot returns the nearest directory at or above dir that holds .tix or .git, or dir when none does.
