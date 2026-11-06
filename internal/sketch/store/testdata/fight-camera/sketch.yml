@@ -1,0 +1,19 @@
+schema_version: 1
+tasks:
+  - name: score-strikes
+    files:
+      - path: client/camera.odin
+        items:
+          - type: fn
+            name: score_strike
+            lines:
+              - type: in
+                text: actor Combatant_Id
+              - type: out
+                text: Camera_Move
+              - type: ask
+                text: who anchors a kill
+          - type: type
+            name: Camera_Move
+      - path: client/arena.odin
+  - name: frame-kills

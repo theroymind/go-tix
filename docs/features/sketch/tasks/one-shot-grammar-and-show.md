@@ -3,7 +3,7 @@ type: task
 status: todo
 feature: sketch
 scope: medium
-review: true
+review: pending
 depends_on: [sketch-schema-and-store]
 summary: Parse the verbs and their aliases into edits on a sketch, run them one-shot under -C, and print the sketch as a table, JSON or markdown.
 created_at: 2026-11-06T02:46:19Z

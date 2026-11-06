@@ -3,7 +3,7 @@ type: task
 status: todo
 feature: sketch
 scope: medium
-review: true
+review: pending
 depends_on: [one-shot-grammar-and-show]
 summary: List and answer open questions, mark items new or changed from the target file, and resolve features and tasks through tix.
 created_at: 2026-11-06T02:46:19Z

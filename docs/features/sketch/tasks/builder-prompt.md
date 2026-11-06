@@ -3,7 +3,7 @@ type: task
 status: todo
 feature: sketch
 scope: medium
-review: true
+review: pending
 depends_on: [one-shot-grammar-and-show]
 summary: An interactive prompt over the grammar with a context stack, history, tab completion, undo and edit in $EDITOR.
 created_at: 2026-11-06T02:46:19Z

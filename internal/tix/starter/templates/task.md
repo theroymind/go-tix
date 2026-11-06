@@ -3,7 +3,7 @@ type: task
 status: todo
 feature:
 scope:
-review: false
+review: none
 depends_on: []
 summary:
 ---
