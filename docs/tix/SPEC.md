@@ -137,6 +137,21 @@ These commands and rules are Railyard's, beyond v1. Files they write still match
 | `tix lint (REF... \| --all)` | Checks each ticket and doc note the references name, or every one with `--all`, by plain-code rules: `section`, each heading the Profile's `required_sections` lists for the note's type (a map of ticket or doc type to heading texts, matched exactly at any level; default none) is present; `summary`, the `summary_property` is not empty; `link`, every slug the note names through a wikilink or a link property such as a parent or dependencies is a note's slug or another file's name under the vault root. Prints `PATH: RULE: MESSAGE` for each problem, PATH relative to the directory holding `.tix`, and exits 1 when there is any, 0 when there is none. A note that wouldn't map onto a ticket or doc is still checked. |
 | `tix gate (REF... \| --staged)` | The pre-commit entry point. With `--staged`, takes the ticket and doc notes `git diff --cached` lists as added or modified under the working directory; else the REFs. Runs `tix lint` on them and exits with its code. It reads the working tree's text of each note, not the staged blob. Nothing staged passes. |
 
+## Writing tickets
+
+Reference templates for a vault live in `docs/tix/templates/`: `feature.md`, `task.md`, `idea.md`, and a `config.yml` that wires them up. Copy them into a project's vault and adjust the properties to its config. Each part of a ticket has one job, and nothing says twice what another part already says.
+
+| Part | Job | Read by |
+| --- | --- | --- |
+| `summary` | One sentence saying what the note is about. | `tix context` cards, lists |
+| `## Description` | A brief for whoever builds it. A feature says what the user gets, why it's worth it, how it works and what was decided, in at most three short paragraphs. A task says what changes, why, and the one decision that isn't obvious, in two to four sentences. Prose only, no lists. | The builder, human or agent |
+| `## Files` | The paths a task expects to touch, one per item. The Profile's `files_heading` names this section. | `tix context`, as each card's `files` |
+| `## Acceptance criteria` | The checklist and the progress model. Each criterion is one thing you can see or test, small enough to tick as soon as it lands, listed in roughly the order it gets built. Three to seven per task. A check by hand is a criterion, such as "In the boss fight you see the camera glide over the mage's shoulder". | `tix tick`, `tix done`, and progress views that count ticked criteria |
+
+- **Criteria, not subtasks, show progress.** Tick each criterion when it lands, not all at the end, so a progress view moves while the work does. Make a subtask only when a piece needs its own dependency edge, its own review, or could be built in parallel.
+- **A description doesn't restate the criteria.** If a sentence would also pass as a criterion, make it one and cut it from the description.
+- **Properties hold facts a program reads.** Scope, review flags and links are properties, set with `tix set` and `tix dep`. The reason behind one goes in the description in half a sentence.
+
 ## Project Structure
 
 ```text
