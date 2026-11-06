@@ -29,6 +29,9 @@ const (
 	profileFieldRequiredSections  = "required_sections"
 	mappingFieldTicketType        = "ticket_type"
 	docFieldDirectory             = "directory"
+	profileFieldUncategorized     = "uncategorized_directory"
+	placeholderSample             = "x"
+	placeholderBraces             = "{}"
 	mappingFieldStatuses          = "statuses"
 	mappingFieldFields            = "fields"
 

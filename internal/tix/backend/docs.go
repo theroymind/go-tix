@@ -37,7 +37,11 @@ type DocStore interface {
 const (
 	PlaceholderTitle = "{{title}}"
 	PlaceholderDate  = "{{date}}"
-	DateLayout       = "2006-01-02"
+	// PlaceholderSlug and PlaceholderParent fill a ticket_directories entry with the new note's slug and its parent
+	// note's directory.
+	PlaceholderSlug   = "{slug}"
+	PlaceholderParent = "{parent}"
+	DateLayout        = "2006-01-02"
 )
 
 // Supersession is how a doc gives way to a newer one: its status becomes StatusSuperseded and SupersededByProperty

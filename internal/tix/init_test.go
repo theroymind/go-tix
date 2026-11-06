@@ -47,7 +47,9 @@ vault:
     feature: templates/feature.md
     task: templates/task.md
   ticket_directories:
-    task: tasks
+    feature: features/{slug}
+    task: '{parent}/tasks'
+  uncategorized_directory: features/uncategorized
   files_heading: Files
   required_sections:
     feature:
@@ -145,8 +147,9 @@ func TestStarterVaultTakesItsFirstNotes(t *testing.T) {
 		arguments    []string
 		expectedPath string
 	}{
-		{[]string{"add", "--type", "epic", "First feature"}, "docs/first-feature.md"},
-		{[]string{"add", "--type", "task", "--parent", "first-feature", "First task"}, "docs/tasks/first-task.md"},
+		{[]string{"add", "--type", "epic", "First feature"}, "docs/features/first-feature/first-feature.md"},
+		{[]string{"add", "--type", "task", "--parent", "first-feature", "First task"}, "docs/features/first-feature/tasks/first-task.md"},
+		{[]string{"add", "--type", "task", "Loose task"}, "docs/features/uncategorized/tasks/loose-task.md"},
 		{[]string{"doc", "add", "--type", "idea", "First idea"}, "docs/ideas/first-idea.md"},
 	}
 	for _, step := range steps {
@@ -158,6 +161,43 @@ func TestStarterVaultTakesItsFirstNotes(t *testing.T) {
 		if !strings.Contains(text, "\n# "+title+"\n") {
 			t.Errorf("tix %v wrote a note without the H1 %q:\n%s", step.arguments, title, text)
 		}
+	}
+}
+
+func TestChangingATasksFeatureMovesItsNote(t *testing.T) {
+	tests := []struct {
+		name         string
+		pair         string
+		expectedPath string
+		emptiedPath  string
+	}{
+		{"By the property the vault names", "feature=second-feature",
+			"docs/features/second-feature/tasks/first-task.md", "docs/features/uncategorized"},
+		{"By the parent field", "parent=second-feature",
+			"docs/features/second-feature/tasks/first-task.md", "docs/features/uncategorized"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			commands := [][]string{
+				{"init", "--prefix", "bs"},
+				{"add", "--type", "epic", "Second feature"},
+				{"add", "--type", "task", "First task"},
+				{"set", "first-task", tt.pair},
+			}
+			for _, arguments := range commands {
+				if exitCode, output := run(t, root, arguments...); exitCode != cli.ExitCodeSuccess {
+					t.Fatalf("tix %v exit code = %d, output %q", arguments, exitCode, output)
+				}
+			}
+			text := readFile(t, filepath.Join(root, tt.expectedPath))
+			if !strings.Contains(text, "feature: second-feature\n") {
+				t.Errorf("moved note doesn't name its new feature:\n%s", text)
+			}
+			if _, err := os.Stat(filepath.Join(root, tt.emptiedPath)); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("stat %s error = %v, expected the emptied directory to be removed", tt.emptiedPath, err)
+			}
+		})
 	}
 }
 

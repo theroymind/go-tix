@@ -30,8 +30,11 @@ type Profile struct {
 	// TicketTemplates maps a ticket note type to the template, relative to Root, that new notes of the type start from.
 	TicketTemplates map[string]string `yaml:"ticket_templates,omitempty"`
 	// TicketDirectories maps a ticket note type to the directory, relative to Root, that new notes of the type go in.
-	// A type it leaves out goes where most of its notes already are, or in Root when it has none.
+	// A type it leaves out goes where most of its notes already are, or in Root when it has none. A directory can
+	// hold {slug}, the note's slug, and {parent}, its parent note's directory, so a note can sit beside its parent.
 	TicketDirectories map[string]string `yaml:"ticket_directories,omitempty"`
+	// UncategorizedDirectory is the directory, relative to Root, that {parent} names for a note with no parent.
+	UncategorizedDirectory string `yaml:"uncategorized_directory,omitempty"`
 	// SummaryProperty names the property holding a note's one-line summary, kept apart from a ticket's description,
 	// which is the note's body.
 	SummaryProperty string `yaml:"summary_property,omitempty"`
@@ -127,9 +130,12 @@ func (profile Profile) Validate() error {
 		if _, isTicket := profile.Tickets[noteType]; !isTicket {
 			problems.Add(field, problemTemplateNotTicket)
 		}
-		if !filepath.IsLocal(profile.TicketDirectories[noteType]) {
+		if !isLocalPattern(profile.TicketDirectories[noteType]) {
 			problems.Add(field, problemDirectoryNotLocal)
 		}
+	}
+	if profile.UncategorizedDirectory != "" && !filepath.IsLocal(profile.UncategorizedDirectory) {
+		problems.Add(profileFieldUncategorized, problemDirectoryNotLocal)
 	}
 	for _, noteType := range slices.Sorted(maps.Keys(profile.Docs)) {
 		if !filepath.IsLocal(profile.Docs[noteType].Directory) && profile.Docs[noteType].Directory != "" {
@@ -208,4 +214,15 @@ func sharedStatuses(statuses map[string]ticket.Status) string {
 		return ""
 	}
 	return problemSharedStatus + strings.Join(clashes, clashSeparator)
+}
+
+// isLocalPattern reports whether a ticket_directories entry stays inside the vault root whatever its placeholders
+// hold, and names no placeholder but {slug} and {parent}.
+func isLocalPattern(pattern string) bool {
+	filled := strings.ReplaceAll(pattern, PlaceholderSlug, placeholderSample)
+	filled = strings.ReplaceAll(filled, PlaceholderParent, placeholderSample)
+	if strings.ContainsAny(filled, placeholderBraces) {
+		return false
+	}
+	return filepath.IsLocal(filled)
 }

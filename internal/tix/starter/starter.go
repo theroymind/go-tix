@@ -17,27 +17,30 @@ import (
 var templates embed.FS
 
 const (
-	templateDirectory = "templates"
-	featureNoteType   = "feature"
-	taskNoteType      = "task"
-	ideaNoteType      = "idea"
-	taskDirectory     = "tasks"
-	ideaDirectory     = "ideas"
-	filesHeading      = "Files"
-	noteStatusTodo    = "todo"
-	noteStatusActive  = "active"
-	noteStatusDone    = "done"
-	noteStatusOpen    = "open"
-	propertyDependsOn = "depends_on"
-	propertyFeature   = "feature"
-	templateExtension = ".md"
+	templateDirectory      = "templates"
+	featureNoteType        = "feature"
+	taskNoteType           = "task"
+	ideaNoteType           = "idea"
+	featureDirectory       = "features/" + backend.PlaceholderSlug
+	taskDirectory          = backend.PlaceholderParent + "/tasks"
+	uncategorizedDirectory = "features/uncategorized"
+	ideaDirectory          = "ideas"
+	filesHeading           = "Files"
+	noteStatusTodo         = "todo"
+	noteStatusActive       = "active"
+	noteStatusDone         = "done"
+	noteStatusOpen         = "open"
+	propertyDependsOn      = "depends_on"
+	propertyFeature        = "feature"
+	templateExtension      = ".md"
 )
 
 // ErrTemplateExists reports a template file already in the vault, which tix init won't overwrite.
 var ErrTemplateExists = errors.New("already exists")
 
 // Profile returns the default vault profile rooted at root: features and tasks as tickets, ideas as docs, each
-// started from its template, with tasks and ideas in their own directories.
+// started from its template. Each feature gets a directory under features/ with its tasks in a tasks/ directory
+// inside it, a task with no feature goes under features/uncategorized/, and ideas go in ideas/.
 func Profile(root string) backend.Profile {
 	statuses := map[string]ticket.Status{
 		noteStatusTodo:   ticket.StatusOpen,
@@ -65,8 +68,9 @@ func Profile(root string) backend.Profile {
 			featureNoteType: templatePath(featureNoteType),
 			taskNoteType:    templatePath(taskNoteType),
 		},
-		TicketDirectories: map[string]string{taskNoteType: taskDirectory},
-		FilesHeading:      filesHeading,
+		TicketDirectories:      map[string]string{featureNoteType: featureDirectory, taskNoteType: taskDirectory},
+		UncategorizedDirectory: uncategorizedDirectory,
+		FilesHeading:           filesHeading,
 		RequiredSections: map[string][]string{
 			featureNoteType: {backend.DefaultDescriptionHeading, backend.DefaultCriteriaHeading},
 			taskNoteType:    {backend.DefaultDescriptionHeading, filesHeading, backend.DefaultCriteriaHeading},

@@ -15,8 +15,7 @@ import (
 )
 
 // Create writes a new note for value and returns its slug, the slug of value's title. The note starts from the
-// template of the note type that maps onto value's type, and goes in the directory that holds most notes of that
-// type, or the directory the profile's ticket_directories names for it. Its status, created_at, updated_at, parent,
+// template of the note type that maps onto value's type, and goes in the directory ticketDirectory gives. Its status, created_at, updated_at, parent,
 // dependencies, external_id and external_url properties, H1, description paragraph and criteria are filled from
 // value; an empty field keeps the template's text. Priority and tags aren't written. The
 // note must read back with value's title, status, links and criteria before it is written, and nothing is written
@@ -37,8 +36,10 @@ func (store Store) Create(value ticket.Ticket) (string, error) {
 	if existing, exists := notes[slug]; exists {
 		return "", slugTaken(slug, existing.note.Path)
 	}
-	configured := store.Profile.TicketDirectories[noteType]
-	directory := store.typeDirectory(store.pathsOfType(notes, noteType), configured)
+	directory, err := store.ticketDirectory(notes, noteType, slug, value.Parent)
+	if err != nil {
+		return "", err
+	}
 	if err := os.MkdirAll(directory, backend.DirectoryPermission); err != nil {
 		return "", err
 	}
@@ -81,28 +82,6 @@ func (store Store) templatedType(ticketType ticket.Type) (string, backend.Ticket
 		}
 	}
 	return "", backend.TicketMapping{}, noTemplate(ticketType)
-}
-
-// typeDirectory returns the configured directory when there is one, or else the directory holding the most of the
-// type's notes among paths, the first by name on a tie, or else the vault's root when the type has no notes yet.
-func (store Store) typeDirectory(paths []string, configured string) string {
-	if configured != "" {
-		return filepath.Join(store.Root, configured)
-	}
-	counts := map[string]int{}
-	for _, path := range paths {
-		counts[filepath.Dir(path)]++
-	}
-	directory := ""
-	for _, candidate := range slices.Sorted(maps.Keys(counts)) {
-		if counts[candidate] > counts[directory] {
-			directory = candidate
-		}
-	}
-	if directory == "" {
-		return store.Root
-	}
-	return directory
 }
 
 // pathsOfType returns the paths of the ticket notes whose type property is noteType.

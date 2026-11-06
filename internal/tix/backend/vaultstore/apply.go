@@ -3,6 +3,7 @@ package vaultstore
 import (
 	"fmt"
 	"maps"
+	"path/filepath"
 	"slices"
 
 	"go.yaml.in/yaml/v3"
@@ -15,28 +16,48 @@ import (
 // Apply makes every change to the note in memory, checks it then maps onto a valid ticket, and writes it atomically;
 // on any failure the note is left as it was. The note need not map before the changes, so a change can repair it.
 // Criterion changes edit the checkboxes under the profile's criteria heading, numbered from 1 as Read returns them,
-// and fail on a note without that heading. Setting dependencies takes a list of ids and replaces them all.
+// and fail on a note without that heading. Setting dependencies takes a list of ids and replaces them all. Setting
+// the parent, or the property the profile maps onto it, takes another ticket's id, and moves the note to the
+// directory its type's ticket_directories entry gives under the new parent.
 func (store Store) Apply(id string, changes []backend.Change) error {
-	found, err := store.ticketNote(id)
+	notes, err := store.ticketNotes()
 	if err != nil {
 		return err
+	}
+	found, exists := notes[id]
+	if !exists {
+		return backend.NoMatch(id)
 	}
 	if len(changes) == 0 {
 		_, err := toTicket(store.Profile, found.mapping, found.note)
 		return err
 	}
 	for _, change := range changes {
-		if err := store.applyChange(found, change); err != nil {
+		if err := store.applyChange(notes, found, change); err != nil {
 			return err
 		}
 	}
-	if _, err := toTicket(store.Profile, found.mapping, found.note); err != nil {
+	changed, err := toTicket(store.Profile, found.mapping, found.note)
+	if err != nil {
 		return err
 	}
-	return backend.WriteAtomically(found.note.Path, found.note.Render())
+	text := found.note.Render()
+	noteType := propertyText(found.note.Property(store.Profile.TypeProperty))
+	if store.Profile.TicketDirectories[noteType] == "" {
+		return backend.WriteAtomically(found.note.Path, text)
+	}
+	directory, err := store.ticketDirectory(notes, noteType, id, changed.Parent)
+	if err != nil {
+		return err
+	}
+	if directory == filepath.Dir(found.note.Path) {
+		return backend.WriteAtomically(found.note.Path, text)
+	}
+	_, err = store.moveNote(found.note.Path, directory, text)
+	return err
 }
 
-func (store Store) applyChange(found ticketNote, change backend.Change) error {
+func (store Store) applyChange(notes map[string]ticketNote, found ticketNote, change backend.Change) error {
 	if remove, isRemoveField := change.(backend.RemoveField); isRemoveField {
 		return store.removeTicketProperty(found, remove.Field)
 	}
@@ -55,6 +76,8 @@ func (store Store) applyChange(found ticketNote, change backend.Change) error {
 		return setDependencies(found, set.Value)
 	case slices.Contains(backend.TextFields, set.Field):
 		return setTextProperty(found, set.Field, set.Value)
+	case set.Field == ticket.FieldParent || found.mapping.Fields[set.Field] == ticket.FieldParent:
+		return setParent(notes, found, set.Value)
 	case timestampFields[set.Field] && found.note.Property(set.Field) == nil:
 		// Vault notes carry no timestamps; one is written only where the note already keeps it.
 		return nil
@@ -201,4 +224,21 @@ func checkDependenciesKept(found ticketNote, ids []string) error {
 		return notKept(found.note.Path, ticket.FieldDependencies)
 	}
 	return nil
+}
+
+// setParent writes the id of another ticket as the note's parent, to the first property by name that the mapping
+// maps to parent.
+func setParent(notes map[string]ticketNote, found ticketNote, value any) error {
+	parent := fmt.Sprint(value)
+	if _, exists := notes[parent]; !exists {
+		return backend.NoMatch(parent)
+	}
+	if parent == found.note.Slug {
+		return ownParent(found.note.Path)
+	}
+	property, isMapped := linkProperty(found.mapping, ticket.FieldParent)
+	if !isMapped {
+		return fieldUnsupported(ticket.FieldParent)
+	}
+	return found.note.SetProperty(property, parent)
 }

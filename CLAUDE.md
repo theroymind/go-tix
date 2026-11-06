@@ -17,7 +17,7 @@ make hooks    # point git at .githooks (pre-commit runs format, tidy, vet, lint)
 ## Where the work is
 
 - `docs/tix/SPEC.md` (tix v1) defines the `.tix/` format, and `docs/tix/GLOSSARY.md` its terms. Files tix writes must stay byte-compatible with v1.
-- `docs/` is this repo's own tix vault, the starter one `tix init` writes: features at the top, `tasks/` and `ideas/` below. `tix ready` names the next task, and `tix lint --all` checks the notes.
+- `docs/` is this repo's own tix vault, the starter one `tix init` writes: each feature in `features/<feature>/` with its tasks in `tasks/` inside it, and `ideas/` beside them. `tix ready` names the next task, and `tix lint --all` checks the notes.
 
 ## Layout
 

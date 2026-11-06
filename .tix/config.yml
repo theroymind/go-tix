@@ -30,7 +30,9 @@ vault:
     feature: templates/feature.md
     task: templates/task.md
   ticket_directories:
-    task: tasks
+    feature: features/{slug}
+    task: '{parent}/tasks'
+  uncategorized_directory: features/uncategorized
   files_heading: Files
   required_sections:
     feature:

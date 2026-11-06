@@ -28,6 +28,8 @@ var (
 	ErrEmptySlug = errors.New("has no letter or digit to name a note by")
 	// ErrSlugTaken reports a new note's slug that a ticket note, or a file at its path, already has.
 	ErrSlugTaken = errors.New("is taken by")
+	// ErrOwnParent reports a ticket set as its own parent.
+	ErrOwnParent = errors.New("can't be its own parent")
 	// ErrNotKept reports a new note that would read back with a field other than the one given.
 	ErrNotKept = errors.New("would not read back")
 	// ErrNotIDList reports a link field set to a value other than a list of ids.
@@ -106,4 +108,8 @@ func descriptionIsBody(path string) error {
 
 func criterionOutOfRange(path string, index, count int) error {
 	return fmt.Errorf("%s: criterion %d %w, the note has %d", path, index, ErrCriterionOutOfRange, count)
+}
+
+func ownParent(path string) error {
+	return fmt.Errorf("%s %w", path, ErrOwnParent)
 }
