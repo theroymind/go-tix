@@ -26,4 +26,4 @@ This adds the three things that make a sketch a conversation rather than a note.
 
 - [ ] `sketch questions FEATURE --json` lists every unanswered question with its context, and `sketch answer FEATURE N TEXT` records the answer and closes it.
 - [ ] `show` marks an item `~` when its name appears in its target file, and `+` otherwise. A file that doesn't exist yet marks everything `+`.
-- [ ] Inside a tix repo, a feature that isn't a ticket is refused, naming it. Outside one, any name works.
+- [ ] Inside a tix repo, a feature that isn't a ticket is refused, naming it, and the sketch lives beside the feature's note wherever tix keeps it. Outside one, any name works.

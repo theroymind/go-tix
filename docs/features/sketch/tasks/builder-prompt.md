@@ -14,7 +14,7 @@ updated_at: 2026-11-06T02:46:19Z
 
 ## Description
 
-`sketch feature X` opens a prompt that holds the context stack and feeds each line through task 2's parser, saving after every edit. Tab completion offers verbs, repo paths after `file`, existing names, and tix tasks after `task`. `undo` steps back through the session's saves. It needs `github.com/peterh/liner` approved first, and it gets a review because the context stack and undo carry state.
+`sketch feature X` opens a prompt that holds the context stack and feeds each line through task 2's parser, saving after every edit. Tab completion offers verbs, repo paths after `file`, existing names, and tix tasks after `task`. `undo` steps back through the session's saves. It adds `github.com/peterh/liner`, which is approved, and it gets a review because the context stack and undo carry state.
 
 ## Files
 
