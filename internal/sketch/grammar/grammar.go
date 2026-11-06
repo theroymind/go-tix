@@ -222,7 +222,8 @@ func remove(value *sketch.Sketch, at Context, argument string) (Context, error) 
 	return at, nil
 }
 
-// setLine replaces the text of line N of the context's item, keeping its type.
+// setLine replaces the text of line N of the context's item, keeping its type. It clears a question's answer, so
+// a reworded question opens again.
 func setLine(value *sketch.Sketch, at Context, argument string) (Context, error) {
 	number, text := splitVerb(argument)
 	if text == "" {
@@ -232,7 +233,7 @@ func setLine(value *sketch.Sketch, at Context, argument string) (Context, error)
 	if err != nil {
 		return at, err
 	}
-	item.Lines[index].Text = text
+	item.Lines[index].Text, item.Lines[index].Answer = text, ""
 	return at, nil
 }
 

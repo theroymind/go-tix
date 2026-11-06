@@ -22,6 +22,13 @@ type TextReader interface {
 	ReadText(id string) ([]byte, error)
 }
 
+// NotePather is implemented by a backend whose tickets each live in one file, for tix path to print, so another
+// app can find what sits beside a ticket's note without reading the backend's layout itself.
+type NotePather interface {
+	// NotePath returns the absolute path of the file that holds the ticket.
+	NotePath(id string) (string, error)
+}
+
 // CriterionTracker is implemented by a backend whose criteria carry a done state, so that tix done can refuse to
 // complete a ticket while a criterion is unmet. A backend whose criteria always load unmet leaves it out.
 type CriterionTracker interface {

@@ -12,6 +12,7 @@ commands:
   add --type TYPE [--parent REF] [--priority N] [--tag T]... [--dependency REF]... [--acceptance A]... [--description D] [--external-id ID] [--external-url URL] [--draft] TITLE
                          (prints the new id)
   show REF [--json]      (the ticket's own text with its criteria numbered, or a doc when no ticket matches)
+  path REF               (the absolute path of the file holding the ticket)
   ls [--status S] [--type T] [--tag T] [--parent REF] [--all] [--json]
   ready [--type T] [--json]
   done [--force] REF     (refuses while a criterion is unticked)
@@ -50,6 +51,7 @@ var Program = cli.Program{
 		"init":      runInit,
 		"add":       runAdd,
 		"show":      runShow,
+		"path":      runPath,
 		"ls":        runLs,
 		"ready":     runReady,
 		"done":      runDone,

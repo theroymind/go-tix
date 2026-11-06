@@ -10,6 +10,7 @@ const (
 	FieldType          = "type"
 	FieldLines         = "lines"
 	FieldText          = "text"
+	FieldAnswer        = "answer"
 )
 
 const (
@@ -51,6 +52,7 @@ const (
 	problemDuplicateTask  = "duplicates an earlier task name"
 	problemDuplicateFile  = "duplicates an earlier file path in this task"
 	problemDuplicateItem  = "duplicates an earlier item name in this file"
+	problemAnswerNotAsk   = "only an ask line holds an answer"
 	problemRepoPath       = "must be a clean path relative to the repo root, inside it"
 	fieldIndexFormat      = "%s.%d"
 	parentDirectory       = ".."

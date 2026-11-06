@@ -26,6 +26,7 @@ type TicketFile struct {
 var (
 	_ backend.Backend    = Store{}
 	_ backend.TextReader = Store{}
+	_ backend.NotePather = Store{}
 )
 
 // Open is the yaml backend's backend.Opener.
@@ -35,6 +36,14 @@ func Open(tixDirectory string, config backend.Config) (backend.Backend, error) {
 
 func (store Store) TicketPath(id string) string {
 	return filepath.Join(store.Directory, ticket.FileName(id))
+}
+
+// NotePath returns the absolute path of the ticket's file, failing for a ticket the store doesn't hold.
+func (store Store) NotePath(id string) (string, error) {
+	if !store.HasTicket(id) {
+		return "", backend.NoMatch(id)
+	}
+	return filepath.Abs(store.TicketPath(id))
 }
 
 func (store Store) HasTicket(id string) bool {

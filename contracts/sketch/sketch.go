@@ -38,10 +38,17 @@ type Item struct {
 	Lines []Line   `yaml:"lines,omitempty" json:"lines,omitempty"`
 }
 
-// Line is one typed line of an item, such as an input, an output or an open question.
+// Line is one typed line of an item, such as an input, an output or a question. Only an ask line holds an
+// Answer, and it's open while its Answer is empty.
 type Line struct {
-	Type LineType `yaml:"type" json:"type"`
-	Text string   `yaml:"text" json:"text"`
+	Type   LineType `yaml:"type" json:"type"`
+	Text   string   `yaml:"text" json:"text"`
+	Answer string   `yaml:"answer,omitempty" json:"answer,omitempty"`
+}
+
+// IsOpen reports whether the line is a question still waiting for its answer.
+func (value Line) IsOpen() bool {
+	return value.Type == LineTypeAsk && strings.TrimSpace(value.Answer) == ""
 }
 
 // ItemType is the kind of an item.
@@ -55,7 +62,7 @@ func New() Sketch {
 	return Sketch{SchemaVersion: SchemaVersion}
 }
 
-// Trimmed returns a copy of value with the spaces around every name, path and line text removed, the form
+// Trimmed returns a copy of value with the spaces around every name, path, line text and answer removed, the form
 // Validate compares and the store saves.
 func (value Sketch) Trimmed() Sketch {
 	trimmed := value
@@ -70,7 +77,8 @@ func (value Sketch) Trimmed() Sketch {
 				item.Name = strings.TrimSpace(item.Name)
 				item.Lines = slices.Clone(item.Lines)
 				for lineIndex := range item.Lines {
-					item.Lines[lineIndex].Text = strings.TrimSpace(item.Lines[lineIndex].Text)
+					line := &item.Lines[lineIndex]
+					line.Text, line.Answer = strings.TrimSpace(line.Text), strings.TrimSpace(line.Answer)
 				}
 				file.Items[itemIndex] = item
 			}
@@ -151,13 +159,16 @@ func (value Item) Validate() error {
 	return problems.Err()
 }
 
-// Validate rejects an unknown line type and empty text.
+// Validate rejects an unknown line type, empty text, and an answer on a line that isn't a question.
 func (value Line) Validate() error {
 	var problems validation.Errors
 	if !value.Type.IsValid() {
 		problems.Add(FieldType, validation.InvalidOption(LineTypes))
 	}
 	addBlank(&problems, FieldText, value.Text)
+	if value.Type != LineTypeAsk && strings.TrimSpace(value.Answer) != "" {
+		problems.Add(FieldAnswer, problemAnswerNotAsk)
+	}
 	return problems.Err()
 }
 

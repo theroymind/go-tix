@@ -107,6 +107,7 @@ Flags come before positional arguments, because Go's `flag` stops at the first n
 | `tix init` | Without `--prefix`, asks on standard input for the prefix and the backend, `vault` by default. On the vault backend it also asks for the docs directory (`root`), and writes the starter vault there. A blank answer takes the default shown in brackets. An invalid answer is asked again. Writes nothing if the input ends early. |
 | `tix add --type task [--parent REF] [--priority N] [--tag T]... [--dependency REF]... [--acceptance A]... [--description D] [--draft] "title"` | Validates, saves, and prints only the new ID. |
 | `tix show REF [--json]` | Prints the ticket as YAML, the same as the file. On a backend with docs, a reference that matches no ticket shows the doc, as `tix doc show` does. |
+| `tix path REF` | Prints the absolute path of the file holding the ticket, so another app, such as sketch, can find what sits beside it without reading the backend's layout. |
 | `tix ls [--status S] [--type T] [--tag T] [--parent REF] [--all] [--json]` | Table of `ID TYPE STATUS PRIORITY TITLE`. Hides resolved tickets unless `--all` or `--status` is given. |
 | `tix dep REF DEPENDENCY_REF` / `tix undep REF DEPENDENCY_REF` | Adds or removes a dependency. `dep` rejects cycles and names the path. |
 | `tix ready [--type T] [--json]` | Ready tickets, sorted. |

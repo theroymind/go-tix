@@ -20,13 +20,17 @@ const (
 	taskName = "score-strikes"
 )
 
-// base is the sketch most cases start from: one task, one file, and an fn with two lines.
+// base is the sketch most cases start from: one task, one file, an fn with two lines, and a type with an answered
+// question.
 func base() sketch.Sketch {
 	value := sketch.New()
 	value.Tasks = []sketch.Task{{Name: taskName, Files: []sketch.File{{Path: camera, Items: []sketch.Item{
 		{Type: sketch.ItemTypeFn, Name: strike, Lines: []sketch.Line{
 			{Type: sketch.LineTypeIn, Text: "actor Combatant_Id"},
 			{Type: sketch.LineTypeOut, Text: "Camera_Move"},
+		}},
+		{Type: sketch.ItemTypeType, Name: "Camera_Move", Lines: []sketch.Line{
+			{Type: sketch.LineTypeAsk, Text: "who anchors a kill", Answer: "the striker"},
 		}},
 	}}}}}
 	return value
@@ -53,10 +57,10 @@ func TestApply(t *testing.T) {
 			value.Tasks[0].Files[0].Items = append(value.Tasks[0].Files[0].Items,
 				sketch.Item{Type: sketch.ItemTypeFn, Name: "frame_kill"})
 		}, atFile + ":frame_kill"},
-		{"An item verb inside an item adds a sibling", atItem, "t Camera_Move", func(value *sketch.Sketch) {
+		{"An item verb inside an item adds a sibling", atItem, "t Camera_Cut", func(value *sketch.Sketch) {
 			value.Tasks[0].Files[0].Items = append(value.Tasks[0].Files[0].Items,
-				sketch.Item{Type: sketch.ItemTypeType, Name: "Camera_Move"})
-		}, atFile + ":Camera_Move"},
+				sketch.Item{Type: sketch.ItemTypeType, Name: "Camera_Cut"})
+		}, atFile + ":Camera_Cut"},
 		{"An existing item of the same type opens it", atFile, "f " + strike, func(*sketch.Sketch) {}, atItem},
 		{"An item verb creates the task and file it needs", feature + "/frame-kills/client/kill.odin", "test frames a kill",
 			func(value *sketch.Sketch) {
@@ -87,10 +91,14 @@ func TestApply(t *testing.T) {
 			item(value).Lines = item(value).Lines[1:]
 		}, atItem},
 		{"rm removes the item and steps up", atItem, "rm", func(value *sketch.Sketch) {
-			value.Tasks[0].Files[0].Items = nil
+			value.Tasks[0].Files[0].Items = value.Tasks[0].Files[0].Items[1:]
 		}, atFile},
 		{"rm removes the file", atFile, "rm", func(value *sketch.Sketch) { value.Tasks[0].Files = nil }, atTask},
 		{"rm removes the task", atTask, "rm", func(value *sketch.Sketch) { value.Tasks = nil }, feature},
+		{"set rewords an answered question and opens it again", atFile + ":Camera_Move", "set 1 who frames a kill",
+			func(value *sketch.Sketch) {
+				value.Tasks[0].Files[0].Items[1].Lines[0] = sketch.Line{Type: sketch.LineTypeAsk, Text: "who frames a kill"}
+			}, atFile + ":Camera_Move"},
 		{"set replaces a line's text and keeps its type", atItem, "set 2 Camera_Cut", func(value *sketch.Sketch) {
 			item(value).Lines[1].Text = "Camera_Cut"
 		}, atItem},

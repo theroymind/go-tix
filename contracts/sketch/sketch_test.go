@@ -81,6 +81,12 @@ func TestSketchValidate(t *testing.T) {
 		}, nil},
 		{"An unknown line type", func(value *Sketch) { value.Tasks[0].Files[0].Items[0].Lines[1].Type = "returns" },
 			[]string{"tasks.0.files.0.items.0.lines.1.type"}},
+		{"An answered question", func(value *Sketch) {
+			value.Tasks[0].Files[0].Items[0].Lines[2].Answer = "the striker"
+		}, nil},
+		{"An answer on a line that isn't a question", func(value *Sketch) {
+			value.Tasks[0].Files[0].Items[0].Lines[0].Answer = "the striker"
+		}, []string{"tasks.0.files.0.items.0.lines.0.answer"}},
 		{"An empty line text", func(value *Sketch) { value.Tasks[0].Files[0].Items[0].Lines[2].Text = "" },
 			[]string{"tasks.0.files.0.items.0.lines.2.text"}},
 	}
@@ -109,12 +115,15 @@ func TestTrimmed(t *testing.T) {
 	padded.Tasks[0].Files[0].Path = "client/camera.odin "
 	padded.Tasks[0].Files[0].Items[1].Name = "\tCamera_Move\n"
 	padded.Tasks[0].Files[0].Items[0].Lines[0].Text = "  actor Combatant_Id "
+	padded.Tasks[0].Files[0].Items[0].Lines[2].Answer = " the striker "
+	answered := validSketch()
+	answered.Tasks[0].Files[0].Items[0].Lines[2].Answer = "the striker"
 	tests := []struct {
 		name     string
 		value    Sketch
 		expected Sketch
 	}{
-		{"Spaces around every name, path and text", padded, validSketch()},
+		{"Spaces around every name, path, text and answer", padded, answered},
 		{"An already trimmed sketch", validSketch(), validSketch()},
 		{"An empty sketch", New(), New()},
 	}
@@ -127,6 +136,26 @@ func TestTrimmed(t *testing.T) {
 	}
 	if padded.Tasks[0].Files[0].Items[0].Lines[0].Text != "  actor Combatant_Id " {
 		t.Error("Trimmed() changed the sketch it was called on")
+	}
+}
+
+func TestLineIsOpen(t *testing.T) {
+	tests := []struct {
+		name     string
+		line     Line
+		expected bool
+	}{
+		{"An unanswered question", Line{Type: LineTypeAsk, Text: "who anchors a kill"}, true},
+		{"A question answered with spaces only", Line{Type: LineTypeAsk, Text: "who", Answer: "  "}, true},
+		{"An answered question", Line{Type: LineTypeAsk, Text: "who", Answer: "the striker"}, false},
+		{"A line that isn't a question", Line{Type: LineTypeIn, Text: "actor Combatant_Id"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if actual := tt.line.IsOpen(); actual != tt.expected {
+				t.Errorf("IsOpen() = %v, want %v", actual, tt.expected)
+			}
+		})
 	}
 }
 

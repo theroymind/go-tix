@@ -33,6 +33,7 @@ var (
 	_ backend.Backend          = Store{}
 	_ backend.TextReader       = Store{}
 	_ backend.CriterionTracker = Store{}
+	_ backend.NotePather       = Store{}
 	_ backend.TypeNamer        = Store{}
 )
 
@@ -114,6 +115,15 @@ func (store Store) ticketNote(id string) (ticketNote, error) {
 		return ticketNote{}, backend.NoMatch(id)
 	}
 	return found, nil
+}
+
+// NotePath returns the absolute path of the ticket's note.
+func (store Store) NotePath(id string) (string, error) {
+	found, err := store.ticketNote(id)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Abs(found.note.Path)
 }
 
 // Resolve returns the slug of the ticket note that reference names exactly or is the unique prefix of.
