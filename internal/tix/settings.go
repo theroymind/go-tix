@@ -5,6 +5,7 @@ import "errors"
 const (
 	optionPrefix      = "prefix"
 	optionBackend     = "backend"
+	optionDocs        = "docs"
 	optionPriority    = "priority"
 	optionTag         = "tag"
 	optionAcceptance  = "acceptance"
@@ -124,6 +125,7 @@ var (
 	ErrSetupEnded                 = errors.New("input ended before setup finished")
 	ErrPrefixMismatch             = errors.New("is not a prefix; expected one matching")
 	ErrDocsDirectoryNotLocal      = errors.New("is not a directory inside this one")
+	ErrDocsNeedsVault             = errors.New("--docs sets the vault's directory, so it needs --backend vault")
 	ErrExpectedReferencesOrAll    = errors.New("expected note references or --all, not both")
 	ErrNoLint                     = errors.New("the backend has no notes to lint")
 	ErrLintFailed                 = errors.New("lint failed")

@@ -146,7 +146,7 @@ func (store Store) fill(note *vault.Note, mapping backend.TicketMapping, value t
 		return err
 	}
 	if value.Description != "" {
-		if err := setDescription(note, value.Description); err != nil {
+		if err := setDescription(store.Profile, note, value.Description); err != nil {
 			return err
 		}
 	}
@@ -211,9 +211,16 @@ func setTitle(note *vault.Note, title string) error {
 	return note.InsertHeading(titleLevel, title)
 }
 
-// setDescription replaces the text under the first H1, up to the next heading, with description.
-func setDescription(note *vault.Note, description string) error {
-	for _, heading := range note.Headings() {
+// setDescription replaces the text under the profile's description heading, up to the next heading, with
+// description, or under the first H1 when the note has no such heading.
+func setDescription(profile backend.Profile, note *vault.Note, description string) error {
+	headings := note.Headings()
+	for _, heading := range headings {
+		if heading.Level > titleLevel && heading.Text == profile.DescriptionHeading {
+			return note.SetTextUnder(heading.Line, description)
+		}
+	}
+	for _, heading := range headings {
 		if heading.Level == titleLevel {
 			return note.SetTextUnder(heading.Line, description)
 		}

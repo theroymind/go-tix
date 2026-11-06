@@ -13,8 +13,8 @@ import (
 
 // Profile describes a vault's conventions: where its notes are, which note types are tickets and which are docs,
 // and how a ticket note's properties and statuses map onto a ticket. A note whose type is in neither map is ignored.
-// Empty Root, TypeProperty, CriteriaHeading, SummaryProperty and CommitsProperty take the defaults WithDefaults fills
-// in. An empty FilesHeading means the vault's notes list no files.
+// Empty Root, TypeProperty, CriteriaHeading, DescriptionHeading, SummaryProperty and CommitsProperty take the
+// defaults WithDefaults fills in. An empty FilesHeading means the vault's notes list no files.
 type Profile struct {
 	// Root is the vault's directory, relative to the directory holding .tix.
 	Root         string `yaml:"root,omitempty"`
@@ -24,6 +24,9 @@ type Profile struct {
 	// Docs maps a note type to the docs its notes become.
 	Docs            map[string]DocMapping `yaml:"docs,omitempty"`
 	CriteriaHeading string                `yaml:"criteria_heading,omitempty"`
+	// DescriptionHeading names the section a new ticket's description goes in, when its template has one. Without
+	// it, the description goes under the note's H1.
+	DescriptionHeading string `yaml:"description_heading,omitempty"`
 	// TicketTemplates maps a ticket note type to the template, relative to Root, that new notes of the type start from.
 	TicketTemplates map[string]string `yaml:"ticket_templates,omitempty"`
 	// TicketDirectories maps a ticket note type to the directory, relative to Root, that new notes of the type go in.
@@ -65,8 +68,8 @@ type DocMapping struct {
 	Directory string `yaml:"directory,omitempty"`
 }
 
-// WithDefaults returns the profile with an empty Root, TypeProperty, CriteriaHeading, SummaryProperty or
-// CommitsProperty set to its default.
+// WithDefaults returns the profile with an empty Root, TypeProperty, CriteriaHeading, DescriptionHeading,
+// SummaryProperty or CommitsProperty set to its default.
 func (profile Profile) WithDefaults() Profile {
 	if profile.Root == "" {
 		profile.Root = DefaultVaultRoot
@@ -76,6 +79,9 @@ func (profile Profile) WithDefaults() Profile {
 	}
 	if profile.CriteriaHeading == "" {
 		profile.CriteriaHeading = DefaultCriteriaHeading
+	}
+	if profile.DescriptionHeading == "" {
+		profile.DescriptionHeading = DefaultDescriptionHeading
 	}
 	if profile.SummaryProperty == "" {
 		profile.SummaryProperty = DefaultSummaryProperty

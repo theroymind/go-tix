@@ -7,7 +7,7 @@ import "github.com/theroymind/railyard-cli"
 const usage = `usage: tix <command> [arguments]
 
 commands:
-  init [--prefix PREFIX] [--backend vault|yaml]
+  init [--prefix PREFIX] [--backend vault|yaml] [--docs DIR]
                          (a starter vault by default; without --prefix, asks for each setting)
   add --type TYPE [--parent REF] [--priority N] [--tag T]... [--dependency REF]... [--acceptance A]... [--description D] [--external-id ID] [--external-url URL] [--draft] TITLE
                          (prints the new id)

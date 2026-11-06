@@ -74,6 +74,12 @@ func TestInit(t *testing.T) {
 	}{
 		{"--prefix writes the starter vault without asking anything", []string{"init", "--prefix", "bs"}, "",
 			cli.ExitCodeSuccess, starterConfig("bs", "docs"), nil},
+		{"--docs roots the starter vault elsewhere", []string{"init", "--prefix", "bs", "--docs", "notes"}, "",
+			cli.ExitCodeSuccess, starterConfig("bs", "notes"), nil},
+		{"--docs outside this directory is refused", []string{"init", "--prefix", "bs", "--docs", "../notes"}, "",
+			cli.ExitCodeFailure, "", []string{`"../notes" is not a directory inside this one`}},
+		{"--docs with the YAML backend is refused", []string{"init", "--prefix", "bs", "--backend", "yaml", "--docs", "notes"}, "",
+			cli.ExitCodeFailure, "", []string{"needs --backend vault"}},
 		{"--backend yaml writes the prefix alone, as tix v1 did", []string{"init", "--prefix", "bs", "--backend", "yaml"}, "",
 			cli.ExitCodeSuccess, "prefix: bs\n", nil},
 		{"An unknown --backend is refused", []string{"init", "--prefix", "bs", "--backend", "sql"}, "",

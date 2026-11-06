@@ -18,6 +18,7 @@ var initSpecification = cli.Specification{
 	Options: []cli.Option{
 		{Name: optionPrefix, Type: cli.OptionTypeString},
 		{Name: optionBackend, Type: cli.OptionTypeString},
+		{Name: optionDocs, Type: cli.OptionTypeString},
 	},
 }
 
@@ -44,7 +45,17 @@ func runInit(arguments []string, stdin io.Reader, stdout io.Writer) error {
 	if err := checkKind(kindAnswer); err != nil {
 		return err
 	}
-	config := configFor(prefix, backend.Kind(kindAnswer), backend.DefaultVaultRoot)
+	root, hasRoot := parsed.String(optionDocs)
+	if !hasRoot {
+		root = backend.DefaultVaultRoot
+	}
+	if err := checkDocsDirectory(root); err != nil {
+		return err
+	}
+	if hasRoot && backend.Kind(kindAnswer) != backend.KindVault {
+		return ErrDocsNeedsVault
+	}
+	config := configFor(prefix, backend.Kind(kindAnswer), root)
 	if !hasPrefix {
 		setup := newPrompter(stdin, stdout)
 		config, err = askConfig(setup)

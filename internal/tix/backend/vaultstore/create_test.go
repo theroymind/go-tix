@@ -242,6 +242,14 @@ func TestCreateInASmallVault(t *testing.T) {
 			},
 			ticket.Ticket{Title: "New", Type: ticket.TypeTask, Status: ticket.StatusOpen, Description: "Said."},
 			"tasks/new.md", "---\ntype: task\nstatus: todo\n---\n\n# New\n\nSaid.\n\n## Notes\n"},
+		{"A description replaces the template's Description section",
+			map[string]string{
+				".tix/config.yml":   smallProfile(""),
+				"templates/task.md": "---\ntype: task\nstatus: todo\n---\n\n# Title\n\n## Description\n\nPlaceholder.\n\n## Notes\n",
+				"tasks/existing.md": smallNote,
+			},
+			ticket.Ticket{Title: "New", Type: ticket.TypeTask, Status: ticket.StatusOpen, Description: "Said."},
+			"tasks/new.md", "---\ntype: task\nstatus: todo\n---\n\n# New\n\n## Description\n\nSaid.\n\n## Notes\n"},
 		{"A description is added under an H1 with no paragraph",
 			map[string]string{
 				".tix/config.yml":   smallProfile(""),

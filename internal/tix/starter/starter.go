@@ -17,21 +17,20 @@ import (
 var templates embed.FS
 
 const (
-	templateDirectory  = "templates"
-	featureNoteType    = "feature"
-	taskNoteType       = "task"
-	ideaNoteType       = "idea"
-	taskDirectory      = "tasks"
-	ideaDirectory      = "ideas"
-	filesHeading       = "Files"
-	descriptionHeading = "Description"
-	noteStatusTodo     = "todo"
-	noteStatusActive   = "active"
-	noteStatusDone     = "done"
-	noteStatusOpen     = "open"
-	propertyDependsOn  = "depends_on"
-	propertyFeature    = "feature"
-	templateExtension  = ".md"
+	templateDirectory = "templates"
+	featureNoteType   = "feature"
+	taskNoteType      = "task"
+	ideaNoteType      = "idea"
+	taskDirectory     = "tasks"
+	ideaDirectory     = "ideas"
+	filesHeading      = "Files"
+	noteStatusTodo    = "todo"
+	noteStatusActive  = "active"
+	noteStatusDone    = "done"
+	noteStatusOpen    = "open"
+	propertyDependsOn = "depends_on"
+	propertyFeature   = "feature"
+	templateExtension = ".md"
 )
 
 // ErrTemplateExists reports a template file already in the vault, which tix init won't overwrite.
@@ -69,8 +68,8 @@ func Profile(root string) backend.Profile {
 		TicketDirectories: map[string]string{taskNoteType: taskDirectory},
 		FilesHeading:      filesHeading,
 		RequiredSections: map[string][]string{
-			featureNoteType: {descriptionHeading, backend.DefaultCriteriaHeading},
-			taskNoteType:    {descriptionHeading, filesHeading, backend.DefaultCriteriaHeading},
+			featureNoteType: {backend.DefaultDescriptionHeading, backend.DefaultCriteriaHeading},
+			taskNoteType:    {backend.DefaultDescriptionHeading, filesHeading, backend.DefaultCriteriaHeading},
 		},
 	}
 }

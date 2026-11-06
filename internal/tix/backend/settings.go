@@ -45,11 +45,12 @@ const (
 
 // Profile defaults, which suit an Obsidian vault kept in docs/ whose notes carry a type property.
 const (
-	DefaultVaultRoot       = "docs"
-	DefaultTypeProperty    = "type"
-	DefaultCriteriaHeading = "Acceptance criteria"
-	DefaultSummaryProperty = "summary"
-	DefaultCommitsProperty = "commits"
+	DefaultVaultRoot          = "docs"
+	DefaultTypeProperty       = "type"
+	DefaultCriteriaHeading    = "Acceptance criteria"
+	DefaultDescriptionHeading = "Description"
+	DefaultSummaryProperty    = "summary"
+	DefaultCommitsProperty    = "commits"
 )
 
 const (

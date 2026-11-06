@@ -144,10 +144,10 @@ func TestProfileWithDefaults(t *testing.T) {
 	}{
 		{"Empty values take the defaults", backend.Profile{},
 			backend.Profile{Root: backend.DefaultVaultRoot, TypeProperty: backend.DefaultTypeProperty, CriteriaHeading: backend.DefaultCriteriaHeading,
-				SummaryProperty: backend.DefaultSummaryProperty, CommitsProperty: backend.DefaultCommitsProperty}},
+				DescriptionHeading: backend.DefaultDescriptionHeading, SummaryProperty: backend.DefaultSummaryProperty, CommitsProperty: backend.DefaultCommitsProperty}},
 		{"Set values are kept, and the files heading stays unset unless named",
-			backend.Profile{Root: "vault", TypeProperty: "kind", CriteriaHeading: "Done when", SummaryProperty: "gist", CommitsProperty: "hashes"},
-			backend.Profile{Root: "vault", TypeProperty: "kind", CriteriaHeading: "Done when", SummaryProperty: "gist", CommitsProperty: "hashes"}},
+			backend.Profile{Root: "vault", TypeProperty: "kind", CriteriaHeading: "Done when", DescriptionHeading: "Brief", SummaryProperty: "gist", CommitsProperty: "hashes"},
+			backend.Profile{Root: "vault", TypeProperty: "kind", CriteriaHeading: "Done when", DescriptionHeading: "Brief", SummaryProperty: "gist", CommitsProperty: "hashes"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
