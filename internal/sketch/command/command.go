@@ -1,6 +1,6 @@
-// Package command provides the sketch commands: an edit under -C, which runs one grammar command or a stdin batch
-// on a feature's sketch and saves it, show, which prints the sketch as a table, JSON or markdown, and questions and
-// answer, which list a sketch's open questions and record their answers.
+// Package command provides the sketch commands: feature, which opens the builder prompt on a feature's sketch, an
+// edit under -C, which runs one grammar command or a stdin batch and saves it, show, which prints the sketch as a
+// table, JSON or markdown, and questions and answer, which list a sketch's open questions and record their answers.
 package command
 
 import (
@@ -15,6 +15,7 @@ import (
 	cli "github.com/theroymind/railyard-cli"
 
 	"github.com/theroymind/go-tix/contracts/sketch"
+	"github.com/theroymind/go-tix/internal/sketch/builder"
 	"github.com/theroymind/go-tix/internal/sketch/grammar"
 	"github.com/theroymind/go-tix/internal/sketch/marks"
 	"github.com/theroymind/go-tix/internal/sketch/questions"
@@ -26,6 +27,10 @@ import (
 const usage = `usage: sketch <command> [arguments]
 
 commands:
+  feature FEATURE        (opens the builder: a prompt at the feature that runs each line as a command and saves
+                         it, with .. to step up, / to return to the feature, where to print the full context,
+                         undo, edit to open the item in $EDITOR, tab completion and history; exit, quit or
+                         ctrl-D leaves)
   -C FEATURE[/TASK[/FILE[:ITEM]]] VERB [ARGS]
                          (runs one command at that context, saves, and prints the context it leaves)
   -C FEATURE[/TASK[/FILE[:ITEM]]] -
@@ -79,6 +84,7 @@ var Program = cli.Program{
 	Name:  "sketch",
 	Usage: usage,
 	Commands: map[string]cli.Command{
+		"feature":     runFeature,
 		contextOption: runEdit,
 		"show":        runShow,
 		"questions":   runQuestions,
@@ -152,6 +158,37 @@ func readLines(stdin io.Reader) ([]string, error) {
 		return nil, err
 	}
 	return strings.Split(strings.ReplaceAll(string(text), "\r\n", "\n"), "\n"), nil
+}
+
+// runFeature opens the builder on the feature. Inside a tix repo, the feature must be a ticket, and its tix tasks
+// complete after task.
+func runFeature(arguments []string, _ io.Reader, stdout io.Writer) error {
+	if len(arguments) != 1 {
+		return cli.NewUsageError(ErrNeedsFeature)
+	}
+	feature, err := parseFeature(arguments[0])
+	if err != nil {
+		return err
+	}
+	root, dir, err := locate(feature)
+	if err != nil {
+		return err
+	}
+	tasks, err := refs.Resolver{Root: root, Run: runChild}.Tasks(feature)
+	if err != nil {
+		return err
+	}
+	load := func() (sketch.Sketch, error) {
+		value, err := store.Load(dir)
+		if errors.Is(err, store.ErrNotFound) {
+			return sketch.New(), nil
+		}
+		return value, err
+	}
+	update := func(edit func(sketch.Sketch) (sketch.Sketch, error)) error { return store.Update(root, dir, edit) }
+	session := builder.NewSession(feature, update, load, builder.ExternalEditor())
+	completer := builder.Completer{Root: root, Session: session, Load: load, Tasks: tasks}
+	return builder.Run(session, completer, stdout)
 }
 
 func runShow(arguments []string, _ io.Reader, stdout io.Writer) error {

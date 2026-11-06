@@ -1,5 +1,5 @@
-// Package refs finds a feature's directory: beside the feature's tix note inside a tix repo, found by running
-// tix path, and docs/features/<feature> from the repo root outside one.
+// Package refs finds a feature's directory and tasks: beside the feature's tix note inside a tix repo, found by
+// running tix path, and docs/features/<feature> from the repo root outside one.
 package refs
 
 import (
@@ -12,7 +12,9 @@ import (
 	"strings"
 
 	cli "github.com/theroymind/railyard-cli"
+	"github.com/theroymind/railyard-cli/strictjson"
 
+	"github.com/theroymind/go-tix/contracts/ticket"
 	"github.com/theroymind/go-tix/internal/sketch/store"
 )
 
@@ -20,12 +22,17 @@ const (
 	tixDirectory = ".tix"
 	tixCommand   = "tix"
 	pathCommand  = "path"
+	listCommand  = "ls"
+	parentOption = "--parent"
+	allOption    = "--all"
+	jsonOption   = "--json"
 )
 
 var (
 	ErrNotATicket   = errors.New("is not a tix ticket")
 	ErrTixNotFound  = errors.New("this is a tix repo, but tix isn't on PATH; install it with go install ./cmd/tix")
 	ErrRelativePath = errors.New("tix path printed a path that isn't absolute")
+	ErrTixOutput    = errors.New("tix ls printed tickets sketch can't read")
 )
 
 // Runner runs a child command in a directory and returns its stdout, as cli.RunChildIn does.
@@ -62,6 +69,34 @@ func (resolver Resolver) FeatureDir(feature string) (string, error) {
 		return "", fmt.Errorf("feature %q: %w: %q", feature, ErrRelativePath, path)
 	}
 	return filepath.Dir(path), nil
+}
+
+// Tasks returns the ids of the feature's child tickets, done ones included, in tix's order, for the builder to
+// offer after task. Outside a tix repo, a feature has no tasks to offer, and Tasks returns none.
+func (resolver Resolver) Tasks(feature string) ([]string, error) {
+	if !resolver.IsTixRepo() {
+		return nil, nil
+	}
+	arguments := []string{listCommand, parentOption, feature, allOption, jsonOption}
+	output, err := resolver.Run(resolver.Root, tixCommand, arguments, nil)
+	if errors.Is(err, exec.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %w", ErrTixNotFound, err)
+	}
+	if err != nil {
+		return nil, err
+	}
+	var children []ticket.Ticket
+	if err := strictjson.Unmarshal(output, &children); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrTixOutput, err)
+	}
+	ids := make([]string, 0, len(children))
+	for index, child := range children {
+		if err := child.Validate(); err != nil {
+			return nil, fmt.Errorf("%w: ticket %d: %w", ErrTixOutput, index, err)
+		}
+		ids = append(ids, child.ID)
+	}
+	return ids, nil
 }
 
 // IsTixRepo reports whether the root holds a .tix directory.

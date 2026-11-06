@@ -1,13 +1,13 @@
 ---
 type: task
-status: todo
+status: done
 feature: sketch
 scope: medium
-review: pending
+review: passed
 depends_on: [one-shot-grammar-and-show]
 summary: An interactive prompt over the grammar with a context stack, history, tab completion, undo and edit in $EDITOR.
 created_at: 2026-11-06T02:46:19Z
-updated_at: 2026-11-06T02:46:19Z
+updated_at: 2026-11-06T04:08:43Z
 ---
 
 # Builder prompt
@@ -20,10 +20,19 @@ updated_at: 2026-11-06T02:46:19Z
 
 - `internal/sketch/builder/builder.go`
 - `internal/sketch/builder/builder_test.go`
-- `cmd/sketch/main.go`
+- `internal/sketch/builder/session.go`
+- `internal/sketch/builder/complete.go`
+- `internal/sketch/builder/settings.go`
+- `internal/sketch/merge/merge.go`
+- `internal/sketch/merge/merge_test.go`
+- `internal/sketch/command/command.go`
+- `internal/sketch/refs/refs.go`
+- `internal/sketch/grammar/context.go`
+- `contracts/sketch/sketch.go`
+- `go.mod`
 
 ## Acceptance criteria
 
-- [ ] The prompt shows the current context, `..` pops one level, `/` returns to the feature, and an item verb opens that item.
-- [ ] Up-arrow history and tab completion of verbs, paths, names and tix tasks work.
-- [ ] `undo` reverts the last edit of the session, and `edit` opens the current item's YAML in `$EDITOR`, keeping the change only when it validates.
+- [x] The prompt shows the current context, `..` pops one level, `/` returns to the feature, and an item verb opens that item.
+- [x] Up-arrow history and tab completion of verbs, paths, names and tix tasks work.
+- [x] `undo` reverts the last edit of the session, and `edit` opens the current item's YAML in `$EDITOR`, keeping the change only when it validates.

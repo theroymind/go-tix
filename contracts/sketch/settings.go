@@ -53,6 +53,7 @@ const (
 	problemDuplicateFile  = "duplicates an earlier file path in this task"
 	problemDuplicateItem  = "duplicates an earlier item name in this file"
 	problemAnswerNotAsk   = "only an ask line holds an answer"
+	problemControl        = "must not hold a control character, such as a tab"
 	problemRepoPath       = "must be a clean path relative to the repo root, inside it"
 	fieldIndexFormat      = "%s.%d"
 	parentDirectory       = ".."

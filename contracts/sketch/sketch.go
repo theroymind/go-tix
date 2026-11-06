@@ -7,6 +7,7 @@ import (
 	"path"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/theroymind/go-tix/contracts/validation"
 )
@@ -169,12 +170,23 @@ func (value Line) Validate() error {
 	if value.Type != LineTypeAsk && strings.TrimSpace(value.Answer) != "" {
 		problems.Add(FieldAnswer, problemAnswerNotAsk)
 	}
+	addControl(&problems, FieldAnswer, value.Answer)
 	return problems.Err()
 }
 
+// addBlank reports text that's empty once trimmed, and text holding a control character, such as a tab, which a
+// name, path or line can't carry onto one line of a prompt or a table.
 func addBlank(problems *validation.Errors, field, text string) {
 	if strings.TrimSpace(text) == "" {
 		problems.Add(field, problemRequired)
+	}
+	addControl(problems, field, text)
+}
+
+// addControl reports text holding a control character once trimmed.
+func addControl(problems *validation.Errors, field, text string) {
+	if strings.ContainsFunc(strings.TrimSpace(text), unicode.IsControl) {
+		problems.Add(field, problemControl)
 	}
 }
 

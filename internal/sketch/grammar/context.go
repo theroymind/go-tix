@@ -3,6 +3,7 @@ package grammar
 import (
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 // Context is where an edit applies: a feature, then optionally one of its tasks, a file of that task by repo
@@ -28,6 +29,8 @@ func ParseContext(ref string) (Context, error) {
 		at.File, at.Item, hasItem = strings.Cut(file, itemSeparator)
 	}
 	switch {
+	case strings.ContainsFunc(strings.TrimSpace(ref), unicode.IsControl):
+		return Context{}, fmt.Errorf("%w %q: it holds a control character, such as a tab", ErrBadContext, ref)
 	case !isFeatureName(at.Feature):
 		return Context{}, fmt.Errorf("%w %q: the feature must be a name, not empty, %q, %q or holding %q", ErrBadContext, ref,
 			currentSegment, parentSegment, backslash)
@@ -79,4 +82,18 @@ func (at Context) trimmed() Context {
 func isFeatureName(name string) bool {
 	name = strings.TrimSpace(name)
 	return name != "" && name != currentSegment && name != parentSegment && !strings.Contains(name, backslash)
+}
+
+// Parent returns the context one level up: an item's file, a file's task, a task's feature. A feature is its own
+// parent.
+func (at Context) Parent() Context {
+	switch at.level() {
+	case levelItem:
+		at.Item = ""
+	case levelFile:
+		at.File = ""
+	default:
+		at.Task = ""
+	}
+	return at
 }

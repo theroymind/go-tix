@@ -160,6 +160,7 @@ func TestApplyRejects(t *testing.T) {
 		{"set without text", atItem, "set 2", ErrMissingArgument, "", false},
 		{"mv at feature level", feature, "mv other", ErrWrongContext, "", false},
 		{"A path that leaves the repo", atTask, "file ../camera.odin", ErrInvalidSketch, "tasks.0.files.1.path", false},
+		{"A tab inside a path", atTask, "file client/ca\tmera.odin", ErrInvalidSketch, "control character", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -240,6 +241,8 @@ func TestParseContext(t *testing.T) {
 		{"An empty file", atTask + "/", Context{}, ErrBadContext},
 		{"An empty item", atFile + ":", Context{}, ErrBadContext},
 		{"An item with no file", atTask + "/:score_strike", Context{}, ErrBadContext},
+		{"A tab in the feature", "fight\tcamera", Context{}, ErrBadContext},
+		{"A tab in the file", atTask + "/client/ca\tmera.odin", Context{}, ErrBadContext},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -325,5 +328,25 @@ func TestVerbs(t *testing.T) {
 	expectedCount := 2 + len(sketch.ItemTypes) + len(sketch.LineTypes) - 1 + 3 + len(aliases)
 	if len(verbs) != expectedCount {
 		t.Errorf("Verbs() lists %d spellings, want %d", len(verbs), expectedCount)
+	}
+}
+
+func TestParent(t *testing.T) {
+	tests := []struct {
+		name     string
+		ref      string
+		expected string
+	}{
+		{"An item's file", atItem, atFile},
+		{"A file's task", atFile, atTask},
+		{"A task's feature", atTask, feature},
+		{"A feature is its own parent", feature, feature},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if actual := mustContext(t, tt.ref).Parent().String(); actual != tt.expected {
+				t.Errorf("Parent() = %q, want %q", actual, tt.expected)
+			}
+		})
 	}
 }

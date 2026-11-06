@@ -87,6 +87,19 @@ func TestSketchValidate(t *testing.T) {
 		{"An answer on a line that isn't a question", func(value *Sketch) {
 			value.Tasks[0].Files[0].Items[0].Lines[0].Answer = "the striker"
 		}, []string{"tasks.0.files.0.items.0.lines.0.answer"}},
+		{"A tab inside a path", func(value *Sketch) { value.Tasks[0].Files[0].Path = "client/ca\tmera.odin" },
+			[]string{"tasks.0.files.0.path"}},
+		{"A newline inside an item name", func(value *Sketch) { value.Tasks[0].Files[0].Items[0].Name = "score\nstrike" },
+			[]string{"tasks.0.files.0.items.0.name"}},
+		{"An escape inside a task name", func(value *Sketch) { value.Tasks[0].Name = "score\x1b[2Jstrikes" },
+			[]string{"tasks.0.name"}},
+		{"A tab inside a line's text", func(value *Sketch) { value.Tasks[0].Files[0].Items[0].Lines[0].Text = "a\tb" },
+			[]string{"tasks.0.files.0.items.0.lines.0.text"}},
+		{"A newline inside an answer", func(value *Sketch) {
+			value.Tasks[0].Files[0].Items[0].Lines[2].Answer = "the\nstriker"
+		}, []string{"tasks.0.files.0.items.0.lines.2.answer"}},
+		{"A trailing newline is trimmed, not refused", func(value *Sketch) { value.Tasks[0].Name = "score-strikes\n" },
+			nil},
 		{"An empty line text", func(value *Sketch) { value.Tasks[0].Files[0].Items[0].Lines[2].Text = "" },
 			[]string{"tasks.0.files.0.items.0.lines.2.text"}},
 	}

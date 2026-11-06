@@ -43,6 +43,14 @@ func Verbs() []string {
 	return append(verbs, slices.Sorted(maps.Keys(aliases))...)
 }
 
+// FullVerb returns the verb an alias stands for, such as fn for f, and any other verb unchanged.
+func FullVerb(verb string) string {
+	if full, isAlias := aliases[verb]; isAlias {
+		return full
+	}
+	return verb
+}
+
 // Apply runs one command line on value at the context at, and returns the edited sketch and the context the
 // command leaves: task, file and item verbs open what they name, mv follows the rename, and rm steps up to the
 // parent. value is not changed. A task, file or item verb creates the task and file the context names when the
@@ -54,9 +62,7 @@ func Apply(value sketch.Sketch, at Context, line string) (sketch.Sketch, Context
 	if verb == "" {
 		return value, at, ErrEmptyLine
 	}
-	if full, isAlias := aliases[verb]; isAlias {
-		verb = full
-	}
+	verb = FullVerb(verb)
 	at = at.trimmed()
 	edited := value.Trimmed()
 	next, err := apply(&edited, at, verb, argument)
