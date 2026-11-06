@@ -4,6 +4,6 @@ status: open
 summary:
 ---
 
-# Title
+# {{title}}
 
 The thought, and where it came from.

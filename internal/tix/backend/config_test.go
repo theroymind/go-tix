@@ -10,6 +10,7 @@ import (
 
 	"github.com/theroymind/go-tix/contracts/ticket"
 	"github.com/theroymind/go-tix/internal/tix/backend"
+	"github.com/theroymind/go-tix/internal/tix/starter"
 )
 
 const vaultConfig = `prefix: odin
@@ -127,8 +128,11 @@ func TestReadConfigOfThisRepository(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadConfig() error = %v", err)
 	}
-	if config.BackendKind() != backend.KindYAML || config.Vault != nil {
-		t.Errorf("ReadConfig() = %+v, want the YAML backend with no profile", config)
+	if config.BackendKind() != backend.KindVault || config.Vault == nil {
+		t.Fatalf("ReadConfig() = %+v, want the vault backend", config)
+	}
+	if !reflect.DeepEqual(*config.Vault, starter.Profile(backend.DefaultVaultRoot)) {
+		t.Errorf("ReadConfig() profile = %+v, want the starter vault's", *config.Vault)
 	}
 }
 

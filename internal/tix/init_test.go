@@ -147,8 +147,10 @@ func TestStarterVaultTakesItsFirstNotes(t *testing.T) {
 		if exitCode, output := run(t, root, step.arguments...); exitCode != cli.ExitCodeSuccess {
 			t.Fatalf("tix %v exit code = %d, output %q", step.arguments, exitCode, output)
 		}
-		if _, err := os.Stat(filepath.Join(root, step.expectedPath)); err != nil {
-			t.Errorf("tix %v: %v", step.arguments, err)
+		text := readFile(t, filepath.Join(root, step.expectedPath))
+		title := step.arguments[len(step.arguments)-1]
+		if !strings.Contains(text, "\n# "+title+"\n") {
+			t.Errorf("tix %v wrote a note without the H1 %q:\n%s", step.arguments, title, text)
 		}
 	}
 }

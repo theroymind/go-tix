@@ -1,1 +1,42 @@
 prefix: tx
+backend: vault
+vault:
+  root: docs
+  type_property: type
+  tickets:
+    feature:
+      ticket_type: epic
+      statuses:
+        active: in_progress
+        done: completed
+        todo: open
+    task:
+      ticket_type: task
+      statuses:
+        active: in_progress
+        done: completed
+        todo: open
+      fields:
+        depends_on: dependencies
+        feature: parent
+  docs:
+    idea:
+      statuses:
+        - open
+      template: templates/idea.md
+      directory: ideas
+  criteria_heading: Acceptance criteria
+  ticket_templates:
+    feature: templates/feature.md
+    task: templates/task.md
+  ticket_directories:
+    task: tasks
+  files_heading: Files
+  required_sections:
+    feature:
+      - Description
+      - Acceptance criteria
+    task:
+      - Description
+      - Files
+      - Acceptance criteria
