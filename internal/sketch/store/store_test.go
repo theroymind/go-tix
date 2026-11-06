@@ -2,9 +2,11 @@ package store
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/theroymind/go-tix/contracts/sketch"
@@ -223,5 +225,92 @@ func assertOnlySketch(t *testing.T, dir string) {
 			names[index] = entry.Name()
 		}
 		t.Errorf("dir holds %q, want only %q", names, FileName)
+	}
+}
+
+var errEdit = errors.New("edit refused")
+
+func TestUpdatesAtOnceAllLand(t *testing.T) {
+	const updates = 20
+	dir := t.TempDir()
+	var group sync.WaitGroup
+	errs := make([]error, updates)
+	for index := range updates {
+		group.Go(func() {
+			errs[index] = Update(dir, func(value sketch.Sketch) (sketch.Sketch, error) {
+				value.Tasks = append(value.Tasks, sketch.Task{Name: fmt.Sprintf("task-%d", index)})
+				return value, nil
+			})
+		})
+	}
+	group.Wait()
+
+	if err := errors.Join(errs...); err != nil {
+		t.Fatalf("Update() = %v", err)
+	}
+	loaded, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(loaded.Tasks) != updates {
+		t.Errorf("Load() holds %d tasks, want %d: an update was lost", len(loaded.Tasks), updates)
+	}
+	assertOnlySketch(t, dir)
+}
+
+func TestUpdate(t *testing.T) {
+	tests := []struct {
+		name      string
+		existing  bool
+		edit      func(sketch.Sketch) (sketch.Sketch, error)
+		expected  error
+		leavesDir bool
+	}{
+		{"Starts from an empty sketch", false, func(value sketch.Sketch) (sketch.Sketch, error) {
+			if !reflect.DeepEqual(value, sketch.New()) {
+				return value, fmt.Errorf("got %+v", value)
+			}
+			value.Tasks = []sketch.Task{{Name: "frame-kills"}}
+			return value, nil
+		}, nil, true},
+		{"Edits the saved sketch", true, func(value sketch.Sketch) (sketch.Sketch, error) {
+			value.Tasks = value.Tasks[1:]
+			return value, nil
+		}, nil, true},
+		{"A refused edit writes nothing and removes the dirs it made", false,
+			func(value sketch.Sketch) (sketch.Sketch, error) { return value, errEdit }, errEdit, false},
+		{"An invalid result writes nothing", true, func(value sketch.Sketch) (sketch.Sketch, error) {
+			value.SchemaVersion = 2
+			return value, nil
+		}, validation.ErrInvalid, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parent := t.TempDir()
+			dir := FeatureDir(parent, "fight-camera")
+			if tt.existing {
+				if err := Save(dir, fixture()); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			err := Update(dir, tt.edit)
+
+			if !errors.Is(err, tt.expected) {
+				t.Fatalf("Update() = %v, want %v", err, tt.expected)
+			}
+			_, statErr := os.Stat(dir)
+			if (statErr == nil) != tt.leavesDir {
+				t.Errorf("dir exists = %v, want %v", statErr == nil, tt.leavesDir)
+			}
+			if entries, _ := os.ReadDir(parent); !tt.leavesDir && len(entries) != 0 {
+				t.Errorf("Update() left %d entries in the parent, want none", len(entries))
+			}
+			if tt.existing && err != nil {
+				if loaded, _ := Load(dir); !reflect.DeepEqual(loaded, fixture()) {
+					t.Errorf("a failed Update() changed the saved sketch to %+v", loaded)
+				}
+			}
+		})
 	}
 }

@@ -19,6 +19,7 @@ var (
 	ErrNotFound          = errors.New("no sketch")
 	ErrInvalidFile       = errors.New("invalid sketch file")
 	ErrMultipleDocuments = errors.New("more than one YAML document")
+	ErrLockUnsupported   = errors.New("locking a sketch isn't supported on this platform")
 )
 
 // FeatureDir returns the default directory of feature from the repo root: docs/features/<feature>.
@@ -64,6 +65,70 @@ func Save(dir string, value sketch.Sketch) error {
 		return err
 	}
 	return writeAtomically(Path(dir), text)
+}
+
+// Update runs edit on the sketch in dir, or on an empty one when dir holds none, and saves what it returns. It
+// holds an exclusive lock on dir from the load to the save, so two updates at once both land. When edit or the
+// save fails, nothing is written, and the directories Update created for it are removed again.
+func Update(dir string, edit func(sketch.Sketch) (sketch.Sketch, error)) (err error) {
+	created, err := makeDirs(dir)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			removeDirs(dir, created)
+		}
+	}()
+	unlock, err := lock(dir)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	value, err := Load(dir)
+	if errors.Is(err, ErrNotFound) {
+		value, err = sketch.New(), nil
+	}
+	if err != nil {
+		return err
+	}
+	edited, err := edit(value)
+	if err != nil {
+		return err
+	}
+	return Save(dir, edited)
+}
+
+// makeDirs creates dir and its missing parents, and returns the topmost one it created, or "" when dir existed.
+func makeDirs(dir string) (string, error) {
+	created := ""
+	for candidate := filepath.Clean(dir); ; {
+		if _, err := os.Stat(candidate); err == nil {
+			break
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return "", err
+		}
+		created = candidate
+		parent := filepath.Dir(candidate)
+		if parent == candidate {
+			break
+		}
+		candidate = parent
+	}
+	return created, os.MkdirAll(dir, directoryPermission)
+}
+
+// removeDirs removes dir and its parents up to created, the topmost one makeDirs made. os.Remove leaves a directory
+// that isn't empty, such as one another update has saved into since.
+func removeDirs(dir, created string) {
+	if created == "" {
+		return
+	}
+	for candidate := filepath.Clean(dir); ; candidate = filepath.Dir(candidate) {
+		if os.Remove(candidate) != nil || candidate == created {
+			return
+		}
+	}
 }
 
 func decode(text []byte) (sketch.Sketch, error) {
