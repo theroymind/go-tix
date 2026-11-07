@@ -3,7 +3,6 @@ package explorer
 import (
 	"fmt"
 	"maps"
-	"os"
 	"slices"
 
 	"github.com/theroymind/go-tix/contracts/sketch"
@@ -40,14 +39,7 @@ func (model *Model) askLink() {
 // link rewrites the selected node's note to name feature in its front matter, and shows the tree again.
 func (model *Model) link(feature string) {
 	node := model.selected()
-	filePath := model.filePath(node.Note.Path)
-	text, err := os.ReadFile(filePath)
-	if err == nil {
-		var linked string
-		if linked, err = note.SetFeature(string(text), feature); err == nil {
-			err = os.WriteFile(filePath, []byte(linked), fileMode)
-		}
-	}
+	err := model.setField(node.Note.Path, note.FeatureKey, feature)
 	if err != nil {
 		model.status = err.Error()
 		return
@@ -81,9 +73,15 @@ func (model *Model) filterFeature(choice string) {
 		model.feature = ""
 	}
 	keep := model.selectedPath()
-	model.tree = onlyFeature(model.loaded, model.feature)
+	model.applyFeature()
 	maps.Copy(model.expanded, tree.NoteFolders(model.tree))
 	model.showRows(keep)
+}
+
+// applyFeature shows the loaded tree with only the feature's notes, and counts their readiness.
+func (model *Model) applyFeature() {
+	model.tree = onlyFeature(model.loaded, model.feature)
+	model.readiness = countReadiness(model.tree)
 }
 
 // onlyFeature returns top rebuilt with only the notes of feature, so a file planned by another feature's note

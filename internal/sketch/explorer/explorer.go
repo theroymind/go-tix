@@ -1,6 +1,7 @@
 // Package explorer provides the sketch explorer, a Bubble Tea model that shows the repo tree with each note as a +
 // ghost node or a ~ on the file it plans and a preview of the selected node beside it, that adds, opens and deletes
-// notes, adds names from a note's target to it, filters the tree to one feature, and jumps between open questions.
+// notes, marks them ready or draft, adds names from a note's target to it, filters the tree to one feature, and jumps
+// between open questions.
 package explorer
 
 import (
@@ -42,6 +43,7 @@ type Model struct {
 	loaded       *tree.Node               // the tree as repo.Load read it
 	problems     []error                  // the notes that didn't read then
 	tree         *tree.Node               // the tree that shows: loaded, with only the feature's notes
+	readiness    readiness                // of the notes in tree
 	expanded     map[string]bool
 	notesOnly    bool
 	rows         []tree.Row
@@ -135,6 +137,8 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			model.askFeature()
 		case key.Matches(message, keys.Link):
 			model.askLink()
+		case key.Matches(message, keys.Ready):
+			model.toggleReady()
 		case key.Matches(message, keys.Question):
 			model.nextQuestion()
 		case key.Matches(message, keys.Reload):
@@ -264,7 +268,7 @@ func (model *Model) reload(keep string) {
 func (model *Model) show(loaded repo.Repo) {
 	model.loaded = loaded.Tree
 	model.problems = loaded.Problems
-	model.tree = onlyFeature(loaded.Tree, model.feature)
+	model.applyFeature()
 	if len(loaded.Problems) > 0 {
 		model.status = fmt.Sprintf(unreadableNotes, count(len(loaded.Problems), "note"), loaded.Problems[0])
 	}
@@ -441,10 +445,12 @@ func (model Model) View() tea.View {
 	return view
 }
 
-// header names the repo and counts the notes that show and their open questions, and names the feature filter.
+// header names the repo and counts the notes that show, how many are draft and ready, their open questions and
+// their dangling links, and names the feature filter.
 func (model Model) header() string {
-	text := fmt.Sprintf("%s  %s · %s", filepath.Base(model.root), count(model.tree.NotesBelow, "note"),
-		count(model.tree.OpenBelow, "open question"))
+	text := fmt.Sprintf(headerCounts, filepath.Base(model.root), count(model.tree.NotesBelow, "note"),
+		model.readiness.draft, model.readiness.ready, count(model.tree.OpenBelow, "open question"),
+		model.readiness.dangling)
 	if model.feature != "" {
 		text += "  feature: " + model.feature
 	}
@@ -465,7 +471,7 @@ func (model Model) footer() string {
 	}
 	var hints []string
 	for _, binding := range []key.Binding{keys.NotesOnly, keys.Add, keys.Attach, keys.Edit, keys.Delete, keys.Ref,
-		keys.Feature, keys.Link, keys.Question, keys.Quit} {
+		keys.Feature, keys.Link, keys.Ready, keys.Question} {
 		hints = append(hints, binding.Help().Key+" "+binding.Help().Desc)
 	}
 	return model.styles.footer.Render(ansi.Truncate(strings.Join(hints, hintSeparator), model.width, ""))
@@ -511,6 +517,10 @@ func (model Model) renderRow(index, width int) string {
 		mark = model.styles.changed.Render(mark)
 	}
 	switch {
+	case isDraft(node):
+		name = model.styles.draft.Italic(node.Ghost).Render(name)
+	case node.Note != nil && node.Ghost:
+		name = model.styles.planned.Render(name)
 	case node.Ghost:
 		name = model.styles.ghost.Render(name)
 	case node.IsDir:

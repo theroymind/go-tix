@@ -154,36 +154,50 @@ func TestTarget(t *testing.T) {
 	}
 }
 
-func TestSetFeature(t *testing.T) {
+func TestSetField(t *testing.T) {
 	tests := []struct {
 		name     string
+		key      string
+		value    string
 		text     string
 		expected string
 		err      error
 	}{
-		{"No front matter", "# app.ts\n", "---\nfeature: camera\n---\n# app.ts\n", nil},
-		{"An empty note", "", "---\nfeature: camera\n---\n", nil},
-		{"Front matter without a feature", "---\ntask: t\n---\nbody\n", "---\nfeature: camera\ntask: t\n---\nbody\n", nil},
-		{"Front matter with a feature", "---\ntask: t\nfeature: orbit\n---\n", "---\ntask: t\nfeature: camera\n---\n", nil},
-		{"Empty front matter", "---\n---\nbody\n", "---\nfeature: camera\n---\nbody\n", nil},
-		{"A feature line below the front matter stays", "---\n---\nfeature: orbit\n",
+		{"No front matter", FeatureKey, "camera", "# app.ts\n", "---\nfeature: camera\n---\n# app.ts\n", nil},
+		{"An empty note", FeatureKey, "camera", "", "---\nfeature: camera\n---\n", nil},
+		{"Front matter without a feature", FeatureKey, "camera", "---\ntask: t\n---\nbody\n",
+			"---\nfeature: camera\ntask: t\n---\nbody\n", nil},
+		{"Front matter with a feature", FeatureKey, "camera", "---\ntask: t\nfeature: orbit\n---\n",
+			"---\ntask: t\nfeature: camera\n---\n", nil},
+		{"Empty front matter", FeatureKey, "camera", "---\n---\nbody\n", "---\nfeature: camera\n---\nbody\n", nil},
+		{"A feature line below the front matter stays", FeatureKey, "camera", "---\n---\nfeature: orbit\n",
 			"---\nfeature: camera\n---\nfeature: orbit\n", nil},
-		{"Front matter with no closing line", "---\ntask: t\n", "", ErrFrontMatter},
+		{"Front matter with no closing line", FeatureKey, "camera", "---\ntask: t\n", "", ErrFrontMatter},
+		{"A status on a note with none", StatusKey, "ready", "body\n", "---\nstatus: ready\n---\nbody\n", nil},
+		{"A status added beside the feature", StatusKey, "ready", "---\nfeature: camera\n---\n",
+			"---\nstatus: ready\nfeature: camera\n---\n", nil},
+		{"A status replaced, leaving the feature", StatusKey, "draft", "---\nfeature: camera\nstatus: ready\n---\n",
+			"---\nfeature: camera\nstatus: draft\n---\n", nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := SetFeature(tt.text, "camera")
+			actual, err := SetField(tt.text, tt.key, tt.value)
 
 			if !errors.Is(err, tt.err) {
-				t.Fatalf("SetFeature() error = %v, want %v", err, tt.err)
+				t.Fatalf("SetField() error = %v, want %v", err, tt.err)
 			}
 			if actual != tt.expected {
-				t.Errorf("SetFeature() = %q, want %q", actual, tt.expected)
+				t.Errorf("SetField() = %q, want %q", actual, tt.expected)
 			}
-			if tt.err == nil {
-				if parsed, err := Parse("a.ts.sketch.md", actual); err != nil || parsed.Feature != "camera" {
-					t.Errorf("Parse(SetFeature()) = %+v, %v, want feature camera", parsed, err)
-				}
+			if tt.err != nil {
+				return
+			}
+			parsed, err := Parse("a.ts.sketch.md", actual)
+			if err != nil {
+				t.Fatalf("Parse(SetField()) error = %v", err)
+			}
+			if read := map[string]string{FeatureKey: parsed.Feature, StatusKey: string(parsed.Status)}; read[tt.key] != tt.value {
+				t.Errorf("Parse(SetField()) = %+v, want %s %s", parsed, tt.key, tt.value)
 			}
 		})
 	}

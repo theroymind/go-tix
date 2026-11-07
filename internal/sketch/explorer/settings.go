@@ -8,10 +8,10 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// keys are the explorer's key bindings. The footer leaves out the ones that move and reload, to fit in 100
+// keys are the explorer's key bindings. The footer leaves out the ones that move, reload and quit, to fit in 100
 // columns.
 var keys = struct {
-	Down, Up, Expand, Collapse, Toggle, NotesOnly, Add, Attach, Edit, Delete, Ref, Feature, Link, Question, Reload, Quit key.Binding
+	Down, Up, Expand, Collapse, Toggle, NotesOnly, Add, Attach, Edit, Delete, Ref, Feature, Link, Ready, Question, Reload, Quit key.Binding
 }{
 	Down:      key.NewBinding(key.WithKeys("j", "down"), key.WithHelp("j", "down")),
 	Up:        key.NewBinding(key.WithKeys("k", "up"), key.WithHelp("k", "up")),
@@ -26,6 +26,7 @@ var keys = struct {
 	Ref:       key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "ref")),
 	Feature:   key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "feature")),
 	Link:      key.NewBinding(key.WithKeys("L"), key.WithHelp("L", "link")),
+	Ready:     key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "ready")),
 	Question:  key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "question")),
 	Reload:    key.NewBinding(key.WithKeys("R"), key.WithHelp("R", "reload")),
 	Quit:      key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
@@ -55,10 +56,12 @@ const (
 	folderMode = 0o755
 	fileMode   = 0o644
 
-	// A new note starts with front matter naming the feature filter, when one is set, and then a heading naming
-	// the file it plans.
-	noteFrontMatter = "---\nfeature: %s\n---\n"
-	noteHeading     = "# %s\n\n"
+	// A new note starts with front matter naming the feature filter, when one is set, and marking it draft, and
+	// then a heading naming the file it plans.
+	noteFence   = "---\n"
+	noteFeature = "feature: %s\n"
+	noteDraft   = "status: draft\n"
+	noteHeading = "# %s\n\n"
 
 	namePrompt      = "new file in %s/: %s█"
 	deletePrompt    = "delete %s? y/n"
@@ -79,7 +82,10 @@ const (
 	linkedNote      = "linked %s to %s"
 	allFeatures     = "all features"
 	noOpenQuestions = "no open questions"
+	readyNeedsNote  = "y marks a note ready; a or A to add one"
+	markedNote      = "%s is %s"
 
+	headerCounts    = "%s  %s · %d draft · %d ready · %s · %d dangling"
 	unreadableNotes = "%s couldn't be read: %v"
 	unreadableBadge = "  %d unreadable"
 
@@ -94,7 +100,7 @@ var identifierPattern = regexp.MustCompile(`[\p{L}_][\p{L}\p{N}_]*`)
 
 // styles are the colors and text styles the explorer draws with, picked for a light or dark background.
 type styles struct {
-	header, footer, cursor, ghost, folder, added, changed, question, preview lipgloss.Style
+	header, footer, cursor, ghost, planned, draft, folder, added, changed, question, preview lipgloss.Style
 }
 
 func newStyles(isDark bool) styles {
@@ -108,6 +114,8 @@ func newStyles(isDark bool) styles {
 		footer:   lipgloss.NewStyle().Foreground(dim),
 		cursor:   lipgloss.NewStyle().Reverse(true),
 		ghost:    lipgloss.NewStyle().Foreground(dim).Italic(true),
+		planned:  lipgloss.NewStyle().Italic(true),
+		draft:    lipgloss.NewStyle().Foreground(dim),
 		folder:   lipgloss.NewStyle().Foreground(pick("#005fd7", "#5fafff")),
 		added:    lipgloss.NewStyle().Foreground(pick("#008700", "#5fd75f")),
 		changed:  lipgloss.NewStyle().Foreground(pick("#af8700", "#d7d75f")),

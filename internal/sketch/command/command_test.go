@@ -400,7 +400,7 @@ func TestUsageNamesEverything(t *testing.T) {
 	for name := range newProgram(nil).Commands {
 		words = append(words, name)
 	}
-	words = append(words, "help", "--json", "--all", sketch.NoteSuffix, "feature:", "status:", "-> PATH", "? QUESTION",
+	words = append(words, "help", "--json", "--all", "--feature", sketch.NoteSuffix, "feature:", "status:", "-> PATH", "? QUESTION",
 		"> ANSWER", "#fn", "#type", "#component", "#flow", "#test")
 	for _, status := range sketch.Statuses {
 		words = append(words, string(status))

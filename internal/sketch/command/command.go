@@ -1,6 +1,7 @@
 // Package command provides the sketch commands: the explorer, which bare sketch opens on the repo tree; ls, which
-// lists the repo's .sketch.md notes as a table or JSON; questions, which lists their questions; and help, which
-// documents the note format.
+// lists the repo's .sketch.md notes as a table or JSON; questions, which lists their questions; check, which says
+// whether notes are ready to build from; done, which deletes a feature's notes; and help, which documents the note
+// format.
 package command
 
 import (
@@ -34,10 +35,11 @@ file name and adds a note planning that file in the selected folder, or beside t
 note to the selected file, and on a file with a note either opens it; e opens the note in $EDITOR, or
 in the parent nvim when $NVIM is set, and d deletes it after asking. r on a note attached to a file lists the
 names in that file and adds the one you pick to the note as a "- uses" line; f filters the tree to one feature's
-notes, picked from tix's features and the ones notes name, and links new notes to it; and ? jumps to the next note
-with an open question. A note that couldn't be read shows as ! with the reason in the status line and preview,
-so e can open it to fix it. In a list, type to filter, the arrows or ctrl+n/ctrl+p move, enter picks and esc
-cancels.
+notes, picked from tix's features and the ones notes name, and links new notes to it; y marks the selected note
+ready, or back to draft, and new notes start draft, shown dimmed; and ? jumps to the next note with an open
+question. The header counts the notes, draft and ready, their open questions and their dangling links. A note
+that couldn't be read shows as ! with the reason in the status line and preview, so e can open it to fix it. In a
+list, type to filter, the arrows or ctrl+n/ctrl+p move, enter picks and esc cancels.
 
 commands:
   ls [--json]                lists every note under the repo root with the file it plans, + when that file is
@@ -49,6 +51,13 @@ commands:
   questions [--json] [--all] lists each open question as NOTE:LINE: QUESTION, by note and then line; --all adds
                              answered ones, each answer line below its question after > ; --json prints an array
                              of {path, line, text, answer}
+  check [--feature FEATURE]  lists each reason the notes, or only FEATURE's, aren't ready to build from, one per
+                             line as NOTE[:LINE]: PROBLEM, and fails when there is any: a note that isn't
+                             status: ready, an open question, a dangling link (to a file that neither exists nor
+                             is planned by a note), a feature tix has no ticket for, a note that couldn't be read,
+                             or a FEATURE with no notes
+  done FEATURE               deletes FEATURE's notes and prints each path, failing when it has none; committing
+                             is left to you
   help                       prints this
 
 A note is a plain markdown file beside the file it plans, named after it with .sketch.md added:
@@ -88,28 +97,42 @@ and #test for a behaviour to test. For example, src/useOrbit.ts.sketch.md:
 
 The repo root is the nearest directory above holding .tix or .git. In a git repo, sketch sees the files git does,
 tracked or not but never ignored; outside one, it skips hidden folders and node_modules. ls and questions list
-every note they can read, and then fail naming any they couldn't. In a tix repo, when tix can't be run, ls warns
-and lists the notes without checking their features. To quiet markdownlint's MD018 and MD041 on notes, see the
-README's .markdownlint-cli2.yaml override.
+every note they can read, and then fail naming any they couldn't. In a tix repo, when tix can't be run, ls and
+check warn and go on without checking features. To quiet markdownlint's MD018 and MD041 on notes, see the README's
+.markdownlint-cli2.yaml override.
 `
 
 const (
-	optionJSON  = "json"
-	optionAll   = "all"
-	tableHeader = "NOTE\tTARGET\tFEATURE\tSTATUS\tLINKS\tQUESTIONS"
-	tablePad    = 2
-	noValue     = "-"
+	optionJSON    = "json"
+	optionAll     = "all"
+	optionFeature = "feature"
+	tableHeader   = "NOTE\tTARGET\tFEATURE\tSTATUS\tLINKS\tQUESTIONS"
+	tablePad      = 2
+	noValue       = "-"
 
 	unknownFeatureMarker = " (not in tix)"
 	answerPrefix         = "  > "
 	warningFormat        = "%s: warning: not checking features: %v\n"
+
+	// check prints one problem per line, as PATH:LINE: problem when the line is known.
+	noStatusProblem       = "%s: not ready: no status"
+	notReadyProblem       = "%s: not ready: %s"
+	openQuestionProblem   = "%s:%d: open question: %s"
+	danglingLinkProblem   = "%s: dangling link -> %s"
+	unknownFeatureProblem = "%s: feature %s not in tix"
+	noNotesProblem        = "%s: no notes for this feature"
 )
 
 const programName = "sketch"
 
 var rootMarkers = []string{".tix", ".git"}
 
-var ErrUnreadableNotes = errors.New("some notes couldn't be read")
+var (
+	ErrUnreadableNotes    = errors.New("some notes couldn't be read")
+	ErrNotReady           = errors.New("not ready to build")
+	ErrNoNotes            = errors.New("no notes for feature")
+	ErrExpectedOneFeature = errors.New("done takes one feature")
+)
 
 // newProgram returns sketch's commands, which print warnings on stderr.
 func newProgram(stderr io.Writer) cli.Program {
@@ -121,6 +144,10 @@ func newProgram(stderr io.Writer) cli.Program {
 				return runList(arguments, stdout, stderr)
 			},
 			"questions": runQuestions,
+			"check": func(arguments []string, _ io.Reader, stdout io.Writer) error {
+				return runCheck(arguments, stdout, stderr)
+			},
+			"done": runDone,
 		},
 	}
 }

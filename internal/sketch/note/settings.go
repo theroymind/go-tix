@@ -1,8 +1,13 @@
 package note
 
+// The front matter keys sketch reads and writes.
+const (
+	FeatureKey = "feature"
+	StatusKey  = "status"
+)
+
 const (
 	frontMatterFence    = "---"
-	featureKey          = "feature:"
 	questionMarker      = "? "
 	answerMarker        = ">"
 	edgeMarker          = "->"

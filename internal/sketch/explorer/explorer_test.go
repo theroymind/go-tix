@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -186,7 +187,7 @@ func TestView(t *testing.T) {
 		excludes []string
 	}{
 		{"The header, footer and tree", nil,
-			[]string{"trial  2 notes · 1 open question", "q quit", "n notes ·", "L link", "▸   docs/", "▾   src/", "+ orbit.ts",
+			[]string{"trial  2 notes · 2 draft · 0 ready · 1 open question · 0 dangling", "y ready", "n notes ·", "L link", "▸   docs/", "▾   src/", "+ orbit.ts",
 				"~ app.ts ?1", "util.ts", "no notes below"},
 			[]string{"sketch.md"}},
 		{"A note's text", []string{"j", "j", "j"}, []string{"orbit note"}, nil},
@@ -245,20 +246,20 @@ func TestAdd(t *testing.T) {
 		mark     string
 	}{
 		{"a on a folder plans a file in it", "", []string{"j", "a", "useOrbit.ts", "enter"},
-			"src/useOrbit.ts.sketch.md", "# useOrbit.ts\n\n", "src/useOrbit.ts", "+"},
+			"src/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n# useOrbit.ts\n\n", "src/useOrbit.ts", "+"},
 		{"A name with folders makes them and opens them in the tree", "",
 			[]string{"j", "a", "composables/useOrbit.ts", "enter"},
-			"src/composables/useOrbit.ts.sketch.md", "# useOrbit.ts\n\n", "src/composables/useOrbit.ts", "+"},
+			"src/composables/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n# useOrbit.ts\n\n", "src/composables/useOrbit.ts", "+"},
 		{"a on a file plans one in its folder", "", []string{"j", "j", "j", "j", "j", "a", "x.ts", "enter"},
-			"src/x.ts.sketch.md", "# x.ts\n\n", "src/x.ts", "+"},
+			"src/x.ts.sketch.md", "---\nstatus: draft\n---\n# x.ts\n\n", "src/x.ts", "+"},
 		{"a on a top-level file plans one at the root", "", []string{"j", "j", "j", "j", "j", "j", "j", "a", "x.ts", "enter"},
-			"x.ts.sketch.md", "# x.ts\n\n", "x.ts", "+"},
+			"x.ts.sketch.md", "---\nstatus: draft\n---\n# x.ts\n\n", "x.ts", "+"},
 		{"backspace takes back a letter", "", []string{"j", "a", "useOrbix", "backspace", "t.ts", "enter"},
-			"src/useOrbit.ts.sketch.md", "# useOrbit.ts\n\n", "src/useOrbit.ts", "+"},
+			"src/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n# useOrbit.ts\n\n", "src/useOrbit.ts", "+"},
 		{"A feature filter goes in front matter", "orbit", []string{"j", "a", "useOrbit.ts", "enter"},
-			"src/useOrbit.ts.sketch.md", "---\nfeature: orbit\n---\n# useOrbit.ts\n\n", "src/useOrbit.ts", "+"},
+			"src/useOrbit.ts.sketch.md", "---\nfeature: orbit\nstatus: draft\n---\n# useOrbit.ts\n\n", "src/useOrbit.ts", "+"},
 		{"A on a file attaches a note to it", "", []string{"j", "j", "j", "j", "j", "A"},
-			"src/util.ts.sketch.md", "# util.ts\n\n", "src/util.ts", "~"},
+			"src/util.ts.sketch.md", "---\nstatus: draft\n---\n# util.ts\n\n", "src/util.ts", "~"},
 		{"a on a node with a note opens it", "", []string{"j", "j", "j", "a"},
 			"src/new/orbit.ts.sketch.md", "orbit note\n", "src/new/orbit.ts", "+"},
 		{"A on a node with a note opens it", "", []string{"j", "j", "j", "j", "A"},
@@ -359,7 +360,7 @@ func TestEscCancelsName(t *testing.T) {
 	if _, err := os.Stat(model.filePath("src/useOrbit.ts.sketch.md")); !os.IsNotExist(err) {
 		t.Errorf("the note was made: %v", err)
 	}
-	if view := ansi.Strip(model.View().Content); !strings.Contains(view, "q quit") {
+	if view := ansi.Strip(model.View().Content); !strings.Contains(view, "y ready") {
 		t.Errorf("the footer lacks the keys again:\n%s", view)
 	}
 }
@@ -680,14 +681,14 @@ func TestFeature(t *testing.T) {
 		{"Without a filter, every note", nil, "",
 			[]string{"docs", "src", "src/new", "src/new/orbit.ts", "src/app.ts",
 				"src/util.ts", "logo.png", "README.md"},
-			[]string{"3 notes · 3 open questions"}, []string{"feature:"}},
+			[]string{"3 notes · 3 draft · 0 ready · 3 open questions"}, []string{"feature:"}},
 		{"A feature hides other features' notes and ghosts", []string{"f", "c", "a", "m", "enter"}, "camera",
 			[]string{"docs", "src", "src/app.ts", "src/util.ts", "logo.png", "README.md"},
-			[]string{"feature: camera", "1 note · 1 open question", "~ app.ts ?1"}, []string{"plan.md", "orbit.ts"}},
+			[]string{"feature: camera", "1 note · 1 draft · 0 ready · 1 open question", "~ app.ts ?1"}, []string{"plan.md", "orbit.ts"}},
 		{"A feature only notes name", []string{"f", "o", "r", "enter"}, "orbit",
 			[]string{"docs", "docs/guide.md", "docs/plan.md", "src", "src/app.ts", "src/util.ts", "logo.png",
 				"README.md"},
-			[]string{"feature: orbit", "1 note · 2 open questions", "+ plan.md ?2", "  app.ts"}, nil},
+			[]string{"feature: orbit", "1 note · 1 draft · 0 ready · 2 open questions", "+ plan.md ?2", "  app.ts"}, nil},
 		{"With notes only, the feature's notes and their folders", []string{"f", "c", "a", "m", "enter", "n"},
 			"camera", []string{"src", "src/app.ts"}, []string{"feature: camera", "[notes only]"}, nil},
 		{"Picking a feature in notes only", []string{"n", "f", "o", "r", "enter"}, "orbit",
@@ -749,7 +750,7 @@ func TestFeatureLinksNewNotes(t *testing.T) {
 
 	model, _ = press(model, "f", "c", "a", "m", "enter", "j", "a", "useOrbit.ts", "enter")
 
-	if text := readNote(t, model, "src/useOrbit.ts.sketch.md"); text != "---\nfeature: camera\n---\n# useOrbit.ts\n\n" {
+	if text := readNote(t, model, "src/useOrbit.ts.sketch.md"); text != "---\nfeature: camera\nstatus: draft\n---\n# useOrbit.ts\n\n" {
 		t.Errorf("note = %q, want it linked to camera", text)
 	}
 	if model.selected().Path != "src/useOrbit.ts" {
@@ -885,7 +886,7 @@ func TestHeaderPlurals(t *testing.T) {
 	}
 	model.reload("docs")
 
-	if view := ansi.Strip(model.View().Content); !strings.Contains(view, "trial  1 note · 1 open question") {
+	if view := ansi.Strip(model.View().Content); !strings.Contains(view, "trial  1 note · 1 draft · 0 ready · 1 open question") {
 		t.Errorf("View() lacks the singular counts:\n%s", view)
 	}
 }
@@ -928,7 +929,7 @@ func TestUnreadableNote(t *testing.T) {
 	model, _ = press(model, "j", "j", "j", "j", "j", "R")
 
 	view := ansi.Strip(model.View().Content)
-	for _, text := range []string{"3 notes · 1 open question  1 unreadable", "! util.ts",
+	for _, text := range []string{"3 notes · 2 draft · 0 ready · 1 open question · 0 dangling  1 unreadable", "! util.ts",
 		"1 note couldn't be read: src/util.ts.sketch.md: bad front matter"} {
 		if !strings.Contains(view, text) {
 			t.Errorf("View() lacks %q:\n%s", text, view)
@@ -960,5 +961,104 @@ func TestAddOnFolderWithNote(t *testing.T) {
 	model, _ = press(model, "esc", "e")
 	if want := []string{model.filePath("src.sketch.md")}; !slices.Equal(*opened, want) {
 		t.Errorf("e opened %q, want %q", *opened, want)
+	}
+}
+
+func TestReady(t *testing.T) {
+	tests := []struct {
+		name     string
+		before   string
+		keys     []string
+		notePath string
+		text     string
+		status   string
+	}{
+		{"y marks a note with no front matter ready", "", []string{"j", "j", "j", "y"},
+			"src/new/orbit.ts.sketch.md", "---\nstatus: ready\n---\norbit note\n", "src/new/orbit.ts is ready"},
+		{"y marks a draft note ready, keeping its feature", "---\nfeature: camera\nstatus: draft\n---\norbit note\n",
+			[]string{"j", "j", "j", "y"}, "src/new/orbit.ts.sketch.md",
+			"---\nfeature: camera\nstatus: ready\n---\norbit note\n", "src/new/orbit.ts is ready"},
+		{"y again turns it back to draft", "", []string{"j", "j", "j", "y", "y"},
+			"src/new/orbit.ts.sketch.md", "---\nstatus: draft\n---\norbit note\n", "src/new/orbit.ts is draft"},
+		{"y on a file with no note says so", "", []string{"j", "j", "j", "j", "j", "y"},
+			"src/new/orbit.ts.sketch.md", "orbit note\n", readyNeedsNote},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := newModel(t)
+			if tt.before != "" {
+				writeFile(t, model.root, tt.notePath, tt.before)
+				model.reload("docs")
+			}
+
+			model, _ = press(model, tt.keys...)
+
+			if text := readNote(t, model, tt.notePath); text != tt.text {
+				t.Errorf("note = %q, want %q", text, tt.text)
+			}
+			if model.status != tt.status {
+				t.Errorf("status = %q, want %q", model.status, tt.status)
+			}
+		})
+	}
+}
+
+func TestReadyOnUnreadableNote(t *testing.T) {
+	model := newModel(t)
+	writeFile(t, model.root, "src/new/orbit.ts.sketch.md", "---\nfeature: [\n")
+	model.reload("docs")
+
+	model, _ = press(model, "j", "j", "j", "y")
+
+	if text := readNote(t, model, "src/new/orbit.ts.sketch.md"); text != "---\nfeature: [\n" {
+		t.Errorf("note = %q, want it left as it is", text)
+	}
+	if !strings.Contains(model.status, "bad front matter") {
+		t.Errorf("status = %q, want the note's problem", model.status)
+	}
+}
+
+func TestHeaderReadiness(t *testing.T) {
+	model := newModel(t)
+	writeFile(t, model.root, "src/app.ts.sketch.md", "---\nstatus: ready\n---\n-> src/util.ts\n-> src/gone.ts\n")
+	writeFile(t, model.root, "src/new/orbit.ts.sketch.md", "---\nstatus: draft\n---\n-> src/nowhere.ts\n")
+	writeFile(t, model.root, "README.md.sketch.md", "no status\n-> src/new/orbit.ts\n")
+	model.reload("docs")
+
+	want := "trial  3 notes · 2 draft · 1 ready · 0 open questions · 2 dangling"
+	if view := ansi.Strip(model.View().Content); !strings.Contains(view, want) {
+		t.Errorf("View() lacks %q:\n%s", want, view)
+	}
+}
+
+func TestDraftsDim(t *testing.T) {
+	model := newModel(t)
+	writeFile(t, model.root, "src/app.ts.sketch.md", "---\nstatus: ready\n---\n")
+	writeFile(t, model.root, "src/new/orbit.ts.sketch.md", "---\nstatus: ready\n---\n")
+	writeFile(t, model.root, "src/util.ts.sketch.md", "---\nstatus: draft\n---\n")
+	writeFile(t, model.root, "README.md.sketch.md", "no status\n")
+	model.reload("docs")
+	tests := []struct {
+		path  string
+		name  string
+		style lipgloss.Style
+		dim   bool
+	}{
+		{"src/app.ts", "app.ts", lipgloss.NewStyle(), false},
+		{"src/new/orbit.ts", "orbit.ts", model.styles.planned, false},
+		{"src/util.ts", "util.ts", model.styles.draft, true},
+		{"README.md", "README.md", model.styles.draft, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			row := model.renderRow(model.rowOf(tt.path), 40)
+
+			if !strings.Contains(row, tt.style.Render(tt.name)) {
+				t.Errorf("row %q doesn't draw %s as %q", row, tt.name, tt.style.Render(tt.name))
+			}
+			if dimmed := strings.Contains(row, model.styles.draft.Render(tt.name)); dimmed != tt.dim {
+				t.Errorf("row %q dimmed = %v, want %v", row, dimmed, tt.dim)
+			}
+		})
 	}
 }

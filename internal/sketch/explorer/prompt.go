@@ -131,14 +131,15 @@ func find(top *tree.Node, nodePath string) *tree.Node {
 	return node
 }
 
-// noteText is a new note planning target: front matter linking it to feature when there is one, then a heading
-// naming the file.
+// noteText is a new note planning target: front matter linking it to feature when there is one and marking it
+// draft, then a heading naming the file.
 func noteText(feature, target string) string {
-	text := fmt.Sprintf(noteHeading, path.Base(target))
+	frontMatter := noteFence
 	if feature != "" {
-		text = fmt.Sprintf(noteFrontMatter, feature) + text
+		frontMatter += fmt.Sprintf(noteFeature, feature)
 	}
-	return text
+	frontMatter += noteDraft + noteFence
+	return frontMatter + fmt.Sprintf(noteHeading, path.Base(target))
 }
 
 // writeNew writes text to a new file at filePath, making the folders above it. A file already there is left as it

@@ -153,23 +153,24 @@ func readAnswer(lines []string, start int) (string, int) {
 	return strings.TrimSpace(strings.Join(answer, "\n")), index - 1
 }
 
-// SetFeature returns text with its front matter linking it to feature: the feature line replaced when there is
-// one, added to the front matter when there isn't, or new front matter put on top when the note has none. Front
-// matter with no closing --- line fails with ErrFrontMatter.
-func SetFeature(text, feature string) (string, error) {
-	featureLine := featureKey + " " + feature
+// SetField returns text with its front matter giving the key name, such as FeatureKey or StatusKey, the value:
+// the key's line replaced when there is one, added to the front matter when there isn't, or new front matter put
+// on top when the note has none. Front matter with no closing --- line fails with ErrFrontMatter.
+func SetField(text, name, value string) (string, error) {
+	key := name + ":"
+	fieldLine := key + " " + value
 	lines := strings.Split(text, "\n")
 	if strings.TrimRightFunc(lines[0], unicode.IsSpace) != frontMatterFence {
-		return frontMatterFence + "\n" + featureLine + "\n" + frontMatterFence + "\n" + text, nil
+		return frontMatterFence + "\n" + fieldLine + "\n" + frontMatterFence + "\n" + text, nil
 	}
 	for index := 1; index < len(lines); index++ {
 		line := strings.TrimRightFunc(lines[index], unicode.IsSpace)
 		if line == frontMatterFence {
-			lines = slices.Insert(lines, 1, featureLine)
+			lines = slices.Insert(lines, 1, fieldLine)
 			return strings.Join(lines, "\n"), nil
 		}
-		if strings.HasPrefix(line, featureKey) {
-			lines[index] = featureLine
+		if strings.HasPrefix(line, key) {
+			lines[index] = fieldLine
 			return strings.Join(lines, "\n"), nil
 		}
 	}
