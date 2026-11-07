@@ -15,6 +15,8 @@ commands:
   path REF               (the absolute path of the file holding the ticket)
   ls [--status S] [--type T] [--tag T] [--parent REF] [--all] [--json]
   ready [--type T] [--json]
+  start REF              (status in_progress: being built)
+  review REF             (status in_review: built, being reviewed)
   done [--force] REF     (refuses while a criterion is unticked)
   set REF KEY=VALUE...   (raw write to a ticket or doc; takes the values the file holds, not the ones ls shows)
   unset REF KEY...       (removes each key; refuses a required one, and a ticket's description, its body)
@@ -54,6 +56,8 @@ var Program = cli.Program{
 		"path":      runPath,
 		"ls":        runLs,
 		"ready":     runReady,
+		"start":     runStart,
+		"review":    runReview,
 		"done":      runDone,
 		"set":       runSet,
 		"unset":     runUnset,

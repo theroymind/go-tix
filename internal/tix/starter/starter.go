@@ -28,6 +28,7 @@ const (
 	filesHeading           = "Files"
 	noteStatusTodo         = "todo"
 	noteStatusActive       = "active"
+	noteStatusReview       = "review"
 	noteStatusDone         = "done"
 	noteStatusOpen         = "open"
 	propertyDependsOn      = "depends_on"
@@ -45,6 +46,7 @@ func Profile(root string) backend.Profile {
 	statuses := map[string]ticket.Status{
 		noteStatusTodo:   ticket.StatusOpen,
 		noteStatusActive: ticket.StatusInProgress,
+		noteStatusReview: ticket.StatusInReview,
 		noteStatusDone:   ticket.StatusCompleted,
 	}
 	feature := backend.TicketMapping{TicketType: ticket.TypeEpic, Statuses: statuses}

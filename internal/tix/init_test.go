@@ -26,12 +26,14 @@ vault:
       statuses:
         active: in_progress
         done: completed
+        review: in_review
         todo: open
     task:
       ticket_type: task
       statuses:
         active: in_progress
         done: completed
+        review: in_review
         todo: open
       fields:
         depends_on: dependencies

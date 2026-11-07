@@ -5,10 +5,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/theroymind/go-tix/contracts/ticket"
-	"github.com/theroymind/go-tix/contracts/timestamp"
 	"github.com/theroymind/go-tix/internal/tix/backend"
 	"github.com/theroymind/railyard-cli"
 )
@@ -44,10 +42,7 @@ func runDone(arguments []string, _ io.Reader, _ io.Writer) error {
 			return err
 		}
 	}
-	return store.Apply(id, []backend.Change{
-		backend.SetField{Field: ticket.FieldStatus, Value: ticket.StatusCompleted},
-		backend.SetField{Field: ticket.FieldUpdatedAt, Value: timestamp.Format(time.Now())},
-	})
+	return setStatus(store, id, ticket.StatusCompleted)
 }
 
 // requireCriteriaMet fails naming every unmet criterion by its 1-based index and text.

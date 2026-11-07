@@ -60,7 +60,7 @@ updated_at: 2026-10-14T21:00:00-04:00
 | `id` | `<prefix>-<4 chars>`. The chars come from the ID characters `0123456789abcdefghjkmnpqrstvwxyz` (lowercase, no `i l o u`). |
 | `title` | Required and non-empty after trimming. |
 | `type` | Required: `epic`, `story` or `task`. |
-| `status` | `draft`, `open`, `in_progress`, `completed` or `canceled` (already in `internal/ticket/status.go`). |
+| `status` | `draft`, `open`, `in_progress`, `in_review`, `completed` or `canceled` (in `contracts/ticket/status.go`). `in_review` is a Railyard extension, not in v1: built and being reviewed. Like `in_progress` it's neither ready nor resolved. |
 | `priority` | An integer from 0 (highest) to 3. Defaults to 2. |
 | `tags` | Optional list of strings. |
 | `dependencies` | Optional list of ticket IDs. They must exist, can't include the ticket itself, and can't form a cycle. |
@@ -112,7 +112,7 @@ Flags come before positional arguments, because Go's `flag` stops at the first n
 | `tix dep REF DEPENDENCY_REF` / `tix undep REF DEPENDENCY_REF` | Adds or removes a dependency. `dep` rejects cycles and names the path. |
 | `tix ready [--type T] [--json]` | Ready tickets, sorted. |
 | `tix blocked [--json]` | Blocked tickets, each with the IDs blocking it. |
-| `tix start REF` / `tix done REF` / `tix cancel REF` | Sets the status to `in_progress` / `completed` / `canceled`. |
+| `tix start REF` / `tix review REF` / `tix done REF` / `tix cancel REF` | Sets the status to `in_progress` / `in_review` / `completed` / `canceled`. On a vault, it writes the note status the type maps to that status, and refuses one the type doesn't map. |
 | `tix reparent REF PARENT_REF` / `tix reparent --root REF` | Changes the parent and runs the parent validation. |
 | `tix edit REF` | Copies the ticket to a temp file, opens `$EDITOR` (falling back to `vi`), then reloads and validates. If it's valid it saves. If it's invalid, it prints the error, leaves the original untouched, and prints the temp path. Changing `id` isn't allowed. |
 | `tix tree [REF] [--all]` | Indented hierarchy, two spaces per level: `ID TYPE STATUS TITLE`. Hides resolved subtrees unless `--all`. |
@@ -143,7 +143,7 @@ These commands and rules are Railyard's, beyond v1. Files they write still match
 
 ## Writing tickets
 
-`tix init` sets up a starter vault: `feature` notes as epics, each in its own `features/<feature>/` directory, `task` notes as tasks in that feature's `tasks/` directory, with `feature` as the parent and `depends_on` as the dependencies, and `idea` docs in `ideas/`. A task with no feature goes in `features/uncategorized/tasks/`. Each starts from a template that init writes into `<root>/templates/`, refusing before it writes anything when one is already there. The templates' source is `internal/tix/starter/templates/`. The profile sets `files_heading: Files` and requires the sections below. Edit `.tix/config.yml` and the templates to fit the project. Each part of a ticket has one job, and nothing says twice what another part already says.
+`tix init` sets up a starter vault: `feature` notes as epics, each in its own `features/<feature>/` directory, `task` notes as tasks in that feature's `tasks/` directory, with `feature` as the parent and `depends_on` as the dependencies, and `idea` docs in `ideas/`. Feature and task notes say `status: todo`, `active`, `review` or `done`, for `open`, `in_progress`, `in_review` and `completed`. A task with no feature goes in `features/uncategorized/tasks/`. Each starts from a template that init writes into `<root>/templates/`, refusing before it writes anything when one is already there. The templates' source is `internal/tix/starter/templates/`. The profile sets `files_heading: Files` and requires the sections below. Edit `.tix/config.yml` and the templates to fit the project. Each part of a ticket has one job, and nothing says twice what another part already says.
 
 | Part | Job | Read by |
 | --- | --- | --- |
