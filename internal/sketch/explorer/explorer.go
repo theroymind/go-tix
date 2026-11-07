@@ -1,7 +1,7 @@
 // Package explorer provides the sketch explorer, a Bubble Tea model that shows the repo tree with each note as a +
 // ghost node or a ~ on the file it plans and a preview of the selected node beside it, that adds, opens and deletes
-// notes, marks them ready or draft, adds names from a note's target to it, filters the tree to one feature, and jumps
-// between open questions.
+// notes, marks them ready or draft, adds names from a note's target to it, filters the tree to one feature, kept per
+// branch, jumps between open questions and answers them, and lists its keys.
 package explorer
 
 import (
@@ -11,7 +11,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -26,20 +25,21 @@ import (
 	"github.com/theroymind/go-tix/internal/sketch/tree"
 )
 
-// Open returns the command that opens the file at filePath in an editor and then sends done with the editor's
-// error.
-type Open func(filePath string, done func(error) tea.Msg) tea.Cmd
+// Open returns the command that opens the file at filePath in an editor, on line when it's above 0, and then sends
+// done with the editor's error.
+type Open func(filePath string, line int, done func(error) tea.Msg) tea.Cmd
 
 // editedMsg says the editor a note was opened in has returned.
 type editedMsg struct{ err error }
 
 // Model is the explorer's state: the tree, which folders are open, whether only notes show, the cursor, the picker
-// in the preview pane, and the prompt or status line in the footer.
+// or help in the preview pane, and the prompt or status line in the footer.
 type Model struct {
 	root         string
 	open         Open
 	listFeatures func() ([]string, error) // tix's features
 	feature      string                   // the feature filter; a new note links to it when set
+	featureFile  string                   // the file that keeps the feature filter for the branch, or "" outside git
 	loaded       *tree.Node               // the tree as repo.Load read it
 	problems     []error                  // the notes that didn't read then
 	tree         *tree.Node               // the tree that shows: loaded, with only the feature's notes
@@ -55,12 +55,14 @@ type Model struct {
 	styles       styles
 	preview      []string
 	picker       picker
+	help         bool // the help overlay shows in the preview pane
 	prompt       prompt
 	status       string // a message for the footer, until the next key
 }
 
-// New returns the explorer for the repo at root, with the tree repo.Load reads and every folder above a note open
-// so that every note shows. Notes open in the editor editor.Open picks.
+// New returns the explorer for the repo at root, with the tree repo.Load reads, the feature filter the branch
+// last had, every folder above a note open so that every note shows, and only notes showing when there are any.
+// Notes open in the editor editor.Open picks.
 func New(root string) (Model, error) {
 	loaded, err := repo.Load(root)
 	if err != nil {
@@ -68,7 +70,10 @@ func New(root string) (Model, error) {
 	}
 	model := Model{root: root, open: editor.Open, listFeatures: refs.New(root).Features,
 		expanded: tree.NoteFolders(loaded.Tree), styles: newStyles(true)}
+	model.featureFile = featureFile(root)
+	model.feature = readFeature(model.featureFile)
 	model.show(loaded)
+	model.notesOnly = model.tree.NotesBelow > 0
 	model.rows = tree.Flatten(model.tree, model.expanded, model.notesOnly)
 	return model, nil
 }
@@ -103,6 +108,8 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		model.status = ""
 		switch {
+		case model.help:
+			model.help = false
 		case model.picker.kind != pickNone:
 			return model, model.answerPicker(message)
 		case model.prompt.kind == promptName:
@@ -119,14 +126,12 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			model.expand()
 		case key.Matches(message, keys.Collapse):
 			model.collapse()
-		case key.Matches(message, keys.Toggle):
-			model.toggle()
+		case key.Matches(message, keys.Enter):
+			return model, model.enter()
 		case key.Matches(message, keys.NotesOnly):
 			model.toggleNotesOnly()
 		case key.Matches(message, keys.Add):
 			return model, model.add()
-		case key.Matches(message, keys.Attach):
-			return model, model.attach()
 		case key.Matches(message, keys.Edit):
 			return model, model.edit()
 		case key.Matches(message, keys.Delete):
@@ -139,10 +144,16 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			model.askLink()
 		case key.Matches(message, keys.Ready):
 			model.toggleReady()
-		case key.Matches(message, keys.Question):
-			model.nextQuestion()
+		case key.Matches(message, keys.Answer):
+			return model, model.answer()
+		case key.Matches(message, keys.NextQuestion):
+			model.jumpToQuestion(1)
+		case key.Matches(message, keys.PreviousQuestion):
+			model.jumpToQuestion(-1)
 		case key.Matches(message, keys.Reload):
 			model.reload(model.selectedPath())
+		case key.Matches(message, keys.Help):
+			model.help = true
 		}
 	}
 	return model, nil
@@ -159,23 +170,6 @@ func (model *Model) paste(text string) {
 	}
 }
 
-// nextQuestion moves the cursor to the next node in the tree whose note has an open question, opening the folders
-// above it, and wraps around from the last one to the first.
-func (model *Model) nextQuestion() {
-	all := nodes(model.tree)
-	selectedPath := model.selectedPath()
-	current := slices.IndexFunc(all, func(node *tree.Node) bool { return node.Path == selectedPath })
-	for step := 1; step <= len(all); step++ {
-		node := all[(current+step)%len(all)]
-		if node.OpenQuestions > 0 {
-			model.openFoldersAbove(node.Path)
-			model.showRows(node.Path)
-			return
-		}
-	}
-	model.status = noOpenQuestions
-}
-
 // add asks for the name of a file to plan in the selected folder, or opens the selected file's note, or asks for
 // the name of a file to plan in the selected file's folder.
 func (model *Model) add() tea.Cmd {
@@ -186,7 +180,7 @@ func (model *Model) add() tea.Cmd {
 	case node.IsDir:
 		folder = node.Path
 	case node.Note != nil:
-		return model.openNote(node.Note.Path)
+		return model.openNote(node.Note.Path, 0)
 	default:
 		folder = path.Dir(node.Path)
 	}
@@ -194,27 +188,26 @@ func (model *Model) add() tea.Cmd {
 	return nil
 }
 
-// attach opens the selected node's note, or creates one for the selected file.
-func (model *Model) attach() tea.Cmd {
-	node := model.selected()
-	switch {
-	case node == nil || node.IsDir:
-		model.status = attachNeedsFile
+// enter opens or closes the selected folder, and on a file opens its note, creating it when there's none.
+func (model *Model) enter() tea.Cmd {
+	if node := model.selected(); node != nil && node.IsDir {
+		model.toggle()
 		return nil
-	case node.Note != nil:
-		return model.openNote(node.Note.Path)
 	}
-	return model.createNote(node.Path)
+	return model.edit()
 }
 
-// edit opens the selected node's note.
+// edit opens the selected node's note, or creates one for the selected file when it has none.
 func (model *Model) edit() tea.Cmd {
 	node := model.selected()
-	if node == nil || node.Note == nil {
+	switch {
+	case node != nil && node.Note != nil:
+		return model.openNote(node.Note.Path, 0)
+	case node == nil || node.IsDir:
 		model.status = noNoteToEdit
 		return nil
 	}
-	return model.openNote(node.Note.Path)
+	return model.createNote(node.Path)
 }
 
 // askDelete asks before deleting the selected node's note.
@@ -237,7 +230,7 @@ func (model *Model) createNote(target string) tea.Cmd {
 	}
 	model.openFoldersAbove(target)
 	model.reload(target)
-	return model.openNote(notePath)
+	return model.openNote(notePath, 0)
 }
 
 func (model *Model) openFoldersAbove(nodePath string) {
@@ -246,9 +239,10 @@ func (model *Model) openFoldersAbove(nodePath string) {
 	}
 }
 
-// openNote opens the note at notePath in the editor, which sends editedMsg when it returns.
-func (model *Model) openNote(notePath string) tea.Cmd {
-	return model.open(model.filePath(notePath), func(err error) tea.Msg { return editedMsg{err: err} })
+// openNote opens the note at notePath in the editor, on line when it's above 0, and the editor sends editedMsg
+// when it returns.
+func (model *Model) openNote(notePath string, line int) tea.Cmd {
+	return model.open(model.filePath(notePath), line, func(err error) tea.Msg { return editedMsg{err: err} })
 }
 
 // reload reads the tree from disk again and puts the cursor on the node at keep, or the nearest folder above it
@@ -429,7 +423,10 @@ func (model Model) View() tea.View {
 	treePane := lipgloss.NewStyle().Width(treeWidth).Height(height).Render(strings.Join(treeLines, "\n"))
 
 	previewLines := model.preview
-	if model.picker.kind != pickNone {
+	switch {
+	case model.help:
+		previewLines = helpLines()
+	case model.picker.kind != pickNone:
 		previewLines = model.picker.lines(height)
 	}
 	var previewText []string
@@ -463,18 +460,22 @@ func (model Model) header() string {
 	return model.styles.header.Render(ansi.Truncate(text, model.width, ""))
 }
 
-// footer shows the prompt and the status message when there is one, and otherwise lists the keys.
+// footer shows the prompt and the status message when there is one, and otherwise names the most used keys.
 func (model Model) footer() string {
 	line := strings.TrimSpace(model.prompt.line() + "  " + model.status)
 	if line != "" {
 		return ansi.Truncate(line, model.width, "")
 	}
-	var hints []string
-	for _, binding := range []key.Binding{keys.NotesOnly, keys.Add, keys.Attach, keys.Edit, keys.Delete, keys.Ref,
-		keys.Feature, keys.Link, keys.Ready, keys.Question} {
-		hints = append(hints, binding.Help().Key+" "+binding.Help().Desc)
+	return model.styles.footer.Render(ansi.Truncate(strings.Join(footerHints, hintSeparator), model.width, ""))
+}
+
+// helpLines lists every key with what it does, under a title.
+func helpLines() []string {
+	lines := []string{helpTitle, ""}
+	for _, binding := range helpKeys {
+		lines = append(lines, fmt.Sprintf(helpLine, binding.Help().Key, binding.Help().Desc))
 	}
-	return model.styles.footer.Render(ansi.Truncate(strings.Join(hints, hintSeparator), model.width, ""))
+	return lines
 }
 
 // renderRow draws one tree row: its indent, an arrow on a folder, the note's + or ~, the name, and how many open

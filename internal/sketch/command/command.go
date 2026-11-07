@@ -29,17 +29,21 @@ const usage = `usage: sketch [<command> [arguments]]
 
 With no command, in a terminal, sketch opens the explorer: the repo tree with each note shown as a + ghost node
 when the file it plans doesn't exist yet or as ~ on that file when it does, and the selected node's note or first
-lines beside it. j/k or the arrows move, l/enter opens a folder, h closes one, n shows only notes and the folders
-above them, R reloads the tree, which also happens when the terminal regains focus, and q quits. a asks for a
-file name and adds a note planning that file in the selected folder, or beside the selected file, A attaches a
-note to the selected file, and on a file with a note either opens it; e opens the note in $EDITOR, or
-in the parent nvim when $NVIM is set, and d deletes it after asking. r on a note attached to a file lists the
-names in that file and adds the one you pick to the note as a "- uses" line; f filters the tree to one feature's
-notes, picked from tix's features and the ones notes name, and links new notes to it; y marks the selected note
-ready, or back to draft, and new notes start draft, shown dimmed; and ? jumps to the next note with an open
-question. The header counts the notes, draft and ready, their open questions and their dangling links. A note
-that couldn't be read shows as ! with the reason in the status line and preview, so e can open it to fix it. In a
-list, type to filter, the arrows or ctrl+n/ctrl+p move, enter picks and esc cancels.
+lines beside it. It opens showing only notes and the folders above them when there are any, and ? lists every
+key. j/k or the arrows move, l opens a folder, h closes one, enter opens or closes a folder, n switches between
+notes only and the whole tree, R reloads the tree, which also happens when the terminal regains focus, and q
+quits. a asks for a file name, tab completing folders, and adds a note planning that file in the selected folder,
+or beside the selected file; a typed .sketch.md or .sketch comes out, so useOrbit.sketch.ts plans useOrbit.ts,
+and a name with no extension is fine. enter or e on a file opens its note, adding one when it has none, in
+$EDITOR, or in the parent nvim when $NVIM is set, and d deletes it after asking. r on a note attached to a file
+lists the names in that file and adds the one you pick to the note as a "- uses" line; f filters the tree to one
+feature's notes, picked from tix's features and the ones notes name, links new notes to it, and is kept for the
+branch until cleared; L links the note to a feature; y marks the selected note ready, or back to draft, and new
+notes start draft, shown dimmed; ] and [ jump to the next and previous note with an open question, and > adds a
+"> " line under the note's first open question and opens the editor on it. The header counts the notes, draft and
+ready, their open questions and their dangling links. A note that couldn't be read shows as ! with the reason in
+the status line and preview, so e can open it to fix it. In a list, type to filter, the arrows or ctrl+n/ctrl+p
+move, enter picks and esc cancels.
 
 commands:
   ls [--json]                lists every note under the repo root with the file it plans, + when that file is

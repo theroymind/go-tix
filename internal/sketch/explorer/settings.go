@@ -8,29 +8,39 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// keys are the explorer's key bindings. The footer leaves out the ones that move, reload and quit, to fit in 100
-// columns.
+// keys are the explorer's key bindings, in the order the help overlay lists them.
 var keys = struct {
-	Down, Up, Expand, Collapse, Toggle, NotesOnly, Add, Attach, Edit, Delete, Ref, Feature, Link, Ready, Question, Reload, Quit key.Binding
+	Down, Up, Expand, Collapse, Enter, NotesOnly, Add, Edit, Delete, Ref, Feature, Link, Ready, Answer, NextQuestion,
+	PreviousQuestion, Reload, Help, Quit key.Binding
 }{
-	Down:      key.NewBinding(key.WithKeys("j", "down"), key.WithHelp("j", "down")),
-	Up:        key.NewBinding(key.WithKeys("k", "up"), key.WithHelp("k", "up")),
-	Expand:    key.NewBinding(key.WithKeys("l", "right"), key.WithHelp("l", "open")),
-	Collapse:  key.NewBinding(key.WithKeys("h", "left"), key.WithHelp("h", "close")),
-	Toggle:    key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "toggle")),
-	NotesOnly: key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "notes")),
-	Add:       key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "add")),
-	Attach:    key.NewBinding(key.WithKeys("A"), key.WithHelp("A", "attach")),
-	Edit:      key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit")),
-	Delete:    key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete")),
-	Ref:       key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "ref")),
-	Feature:   key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "feature")),
-	Link:      key.NewBinding(key.WithKeys("L"), key.WithHelp("L", "link")),
-	Ready:     key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "ready")),
-	Question:  key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "question")),
-	Reload:    key.NewBinding(key.WithKeys("R"), key.WithHelp("R", "reload")),
-	Quit:      key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
+	Down:             key.NewBinding(key.WithKeys("j", "down"), key.WithHelp("j ↓", "down")),
+	Up:               key.NewBinding(key.WithKeys("k", "up"), key.WithHelp("k ↑", "up")),
+	Expand:           key.NewBinding(key.WithKeys("l", "right"), key.WithHelp("l →", "open a folder, or step into it")),
+	Collapse:         key.NewBinding(key.WithKeys("h", "left"), key.WithHelp("h ←", "close a folder, or go up to it")),
+	Enter:            key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "toggle a folder; on a file, edit its note")),
+	NotesOnly:        key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "notes only, or the whole tree")),
+	Add:              key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "add a note planning a new file")),
+	Edit:             key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit the note, adding one to a file without")),
+	Delete:           key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete the note")),
+	Ref:              key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "add a name from the note's file")),
+	Feature:          key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "filter to a feature")),
+	Link:             key.NewBinding(key.WithKeys("L"), key.WithHelp("L", "link the note to a feature")),
+	Ready:            key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "mark the note ready, or draft")),
+	Answer:           key.NewBinding(key.WithKeys(">"), key.WithHelp(">", "answer the note's first open question")),
+	NextQuestion:     key.NewBinding(key.WithKeys("]"), key.WithHelp("]", "next note with an open question")),
+	PreviousQuestion: key.NewBinding(key.WithKeys("["), key.WithHelp("[", "previous note with an open question")),
+	Reload:           key.NewBinding(key.WithKeys("R"), key.WithHelp("R", "reload")),
+	Help:             key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
+	Quit:             key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
 }
+
+// helpKeys are the bindings the help overlay lists, every one of them.
+var helpKeys = []key.Binding{keys.Down, keys.Up, keys.Expand, keys.Collapse, keys.Enter, keys.NotesOnly, keys.Add,
+	keys.Edit, keys.Delete, keys.Ref, keys.Feature, keys.Link, keys.Ready, keys.Answer, keys.NextQuestion,
+	keys.PreviousQuestion, keys.Reload, keys.Help, keys.Quit}
+
+// footerHints are the few keys the footer names, each with a short name, ending with ? for the rest.
+var footerHints = []string{"n notes", "a add", "e edit", "f feature", "y ready", "> answer", "] question", "? help"}
 
 const (
 	indent        = "  "
@@ -63,27 +73,33 @@ const (
 	noteDraft   = "status: draft\n"
 	noteHeading = "# %s\n\n"
 
-	namePrompt      = "new file in %s/: %s█"
-	deletePrompt    = "delete %s? y/n"
-	editorFailed    = "editor: %v"
-	attachNeedsFile = "A attaches a note to a file; a adds one in a folder"
-	noNoteToEdit    = "no note; a or A to add one"
-	noNoteToDelete  = "no note to delete"
+	namePrompt     = "plan file: %s/%s█"
+	deletePrompt   = "delete %s? y/n"
+	editorFailed   = "editor: %v"
+	noNoteToEdit   = "no note; a adds one in a folder"
+	noNoteToDelete = "no note to delete"
 
 	// r adds a line naming the identifier picked from the note's target.
 	usesLine             = "- uses `%s`"
 	namesTitle           = "names in %s"
 	noNames              = "no names in %s"
-	refNeedsAttachedNote = "r adds a name from the file a note is attached to; A attaches one"
+	refNeedsAttachedNote = "r adds a name from the file a note is attached to; e adds one to a file"
 
 	featureTitle    = "filter to feature"
 	linkTitle       = "link %s to feature"
-	linkNeedsNote   = "L links a note to a feature; a or A to add one"
+	linkNeedsNote   = "L links a note to a feature; a or e to add one"
 	linkedNote      = "linked %s to %s"
 	allFeatures     = "all features"
+	featureFolder   = "sketch/filter" // under the git folder, a file per branch keeps its feature filter
 	noOpenQuestions = "no open questions"
-	readyNeedsNote  = "y marks a note ready; a or A to add one"
-	markedNote      = "%s is %s"
+	noneToAnswer    = "> answers a note's open question; this has none"
+	answerLine      = "> "
+
+	helpTitle      = "keys (any key closes this)"
+	helpLine       = "%-6s %s"
+	sketchExt      = ".sketch" // a stray one, as in useOrbit.sketch.ts, comes out of a typed name
+	readyNeedsNote = "y marks a note ready; a or e to add one"
+	markedNote     = "%s is %s"
 
 	headerCounts    = "%s  %s · %d draft · %d ready · %s · %d dangling"
 	unreadableNotes = "%s couldn't be read: %v"

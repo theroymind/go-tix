@@ -24,7 +24,7 @@ tix done "$id"
 
 ```bash
 go install github.com/theroymind/go-tix/cmd/sketch@latest
-sketch                    # the explorer; a add · A attach · e edit · d delete · r ref · f feature · ? question · n notes · R reload
+sketch                    # the explorer; enter/e edit · a add · d delete · y ready · > answer · ]/[ questions · f feature · ? help
 sketch ls --json          # every note with its target, status, body, links and questions, for agents
 sketch questions --json   # the open questions; --all adds answered ones with their answers
 ```

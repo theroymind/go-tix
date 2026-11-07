@@ -1,7 +1,9 @@
 package explorer
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -34,10 +36,13 @@ func newModel(t *testing.T) Model {
 	if err != nil {
 		t.Fatal(err)
 	}
-	model.open = func(string, func(error) tea.Msg) tea.Cmd {
+	model.open = func(string, int, func(error) tea.Msg) tea.Cmd {
 		t.Error("a note opened outside the test's editor")
 		return nil
 	}
+	// The tests start from the whole tree; TestOpensNotesOnly covers New opening on notes only.
+	model.notesOnly = false
+	model.refreshRows()
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
 	return updated.(Model)
 }
@@ -72,6 +77,8 @@ func press(model Model, keys ...string) (Model, tea.Cmd) {
 			message = tea.KeyPressMsg{Code: tea.KeyEscape}
 		case "backspace":
 			message = tea.KeyPressMsg{Code: tea.KeyBackspace}
+		case "tab":
+			message = tea.KeyPressMsg{Code: tea.KeyTab}
 		case "ctrl+c":
 			message = tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 		default:
@@ -113,7 +120,6 @@ func TestKeys(t *testing.T) {
 				"logo.png", "README.md"}},
 		{"enter closes an open folder", []string{"enter", "enter"}, "docs",
 			[]string{"docs", "src", "src/new", "src/new/orbit.ts", "src/app.ts", "src/util.ts", "logo.png", "README.md"}},
-		{"enter on a file does nothing", []string{"j", "j", "j", "enter"}, "src/new/orbit.ts", nil},
 		{"h closes an open folder", []string{"j", "h"}, "src",
 			[]string{"docs", "src", "logo.png", "README.md"}},
 		{"left on a file goes to its folder", []string{"j", "j", "j", "left"}, "src/new", nil},
@@ -187,7 +193,8 @@ func TestView(t *testing.T) {
 		excludes []string
 	}{
 		{"The header, footer and tree", nil,
-			[]string{"trial  2 notes · 2 draft · 0 ready · 1 open question · 0 dangling", "y ready", "n notes ·", "L link", "▸   docs/", "▾   src/", "+ orbit.ts",
+			[]string{"trial  2 notes · 2 draft · 0 ready · 1 open question · 0 dangling", "n notes · a add · e edit",
+				"y ready", "> answer", "] question", "? help", "▸   docs/", "▾   src/", "+ orbit.ts",
 				"~ app.ts ?1", "util.ts", "no notes below"},
 			[]string{"sketch.md"}},
 		{"A note's text", []string{"j", "j", "j"}, []string{"orbit note"}, nil},
@@ -219,7 +226,7 @@ func TestView(t *testing.T) {
 // recordOpens makes model's editor record the files it opens and return at once.
 func recordOpens(model *Model) *[]string {
 	opened := []string{}
-	model.open = func(filePath string, done func(error) tea.Msg) tea.Cmd {
+	model.open = func(filePath string, _ int, done func(error) tea.Msg) tea.Cmd {
 		opened = append(opened, filePath)
 		return func() tea.Msg { return done(nil) }
 	}
@@ -258,11 +265,21 @@ func TestAdd(t *testing.T) {
 			"src/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n# useOrbit.ts\n\n", "src/useOrbit.ts", "+"},
 		{"A feature filter goes in front matter", "orbit", []string{"j", "a", "useOrbit.ts", "enter"},
 			"src/useOrbit.ts.sketch.md", "---\nfeature: orbit\nstatus: draft\n---\n# useOrbit.ts\n\n", "src/useOrbit.ts", "+"},
-		{"A on a file attaches a note to it", "", []string{"j", "j", "j", "j", "j", "A"},
+		{"e on a file without a note adds one", "", []string{"j", "j", "j", "j", "j", "e"},
 			"src/util.ts.sketch.md", "---\nstatus: draft\n---\n# util.ts\n\n", "src/util.ts", "~"},
+		{"enter on a file without a note adds one", "", []string{"j", "j", "j", "j", "j", "enter"},
+			"src/util.ts.sketch.md", "---\nstatus: draft\n---\n# util.ts\n\n", "src/util.ts", "~"},
+		{"A typed .sketch.md comes off", "", []string{"j", "a", "useOrbit.ts.sketch.md", "enter"},
+			"src/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n# useOrbit.ts\n\n", "src/useOrbit.ts", "+"},
+		{"A typed .sketch before the extension comes out", "", []string{"j", "a", "useOrbit.sketch.ts", "enter"},
+			"src/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n# useOrbit.ts\n\n", "src/useOrbit.ts", "+"},
+		{"A name with no extension", "", []string{"j", "a", "useOrbit", "enter"},
+			"src/useOrbit.sketch.md", "---\nstatus: draft\n---\n# useOrbit\n\n", "src/useOrbit", "+"},
 		{"a on a node with a note opens it", "", []string{"j", "j", "j", "a"},
 			"src/new/orbit.ts.sketch.md", "orbit note\n", "src/new/orbit.ts", "+"},
-		{"A on a node with a note opens it", "", []string{"j", "j", "j", "j", "A"},
+		{"e on a node with a note opens it", "", []string{"j", "j", "j", "j", "e"},
+			"src/app.ts.sketch.md", "app note\n? why\n", "src/app.ts", "~"},
+		{"enter on a node with a note opens it", "", []string{"j", "j", "j", "j", "enter"},
 			"src/app.ts.sketch.md", "app note\n? why\n", "src/app.ts", "~"},
 		{"Naming a file that has a note opens it", "", []string{"j", "a", "app.ts", "enter"},
 			"src/app.ts.sketch.md", "app note\n? why\n", "src/app.ts", "~"},
@@ -307,7 +324,9 @@ func TestAddRejects(t *testing.T) {
 		{"A . folder", "./x.ts", ErrNameSegment},
 		{"An empty folder", "a//x.ts", ErrNameSegment},
 		{"A trailing slash", "hooks/", ErrNameSegment},
-		{"A note's name", "x.ts.sketch.md", ErrNoteName},
+		{"Only .sketch.md", ".sketch.md", ErrEmptyName},
+		{"Only .sketch", ".sketch", ErrEmptyName},
+		{"A .. folder after normalising", "../x.sketch.ts", ErrNameSegment},
 		{"A ghost folder", "new", ErrFolderName},
 	}
 	for _, tt := range tests {
@@ -374,7 +393,7 @@ func TestPromptTakesKeys(t *testing.T) {
 		t.Errorf("command %v, typed %q, selected %q, want q, d and j typed", command, model.prompt.typed,
 			model.selected().Path)
 	}
-	if view := ansi.Strip(model.View().Content); !strings.Contains(view, "new file in src/: qdj") {
+	if view := ansi.Strip(model.View().Content); !strings.Contains(view, "plan file: src/qdj") {
 		t.Errorf("the footer lacks the prompt:\n%s", view)
 	}
 }
@@ -403,11 +422,11 @@ func TestEdit(t *testing.T) {
 	}
 }
 
-func TestEditWithoutNote(t *testing.T) {
+func TestEditOnFolderWithoutNote(t *testing.T) {
 	model := newModel(t)
 	opened := recordOpens(&model)
 
-	model, command := press(model, "j", "j", "j", "j", "j", "e")
+	model, command := press(model, "e")
 
 	if command != nil || len(*opened) > 0 || model.status != noNoteToEdit {
 		t.Errorf("command %v, opened %q, status %q, want only %q", command, *opened, model.status, noNoteToEdit)
@@ -416,7 +435,7 @@ func TestEditWithoutNote(t *testing.T) {
 
 func TestEditorFails(t *testing.T) {
 	model := newModel(t)
-	model.open = func(_ string, done func(error) tea.Msg) tea.Cmd {
+	model.open = func(_ string, _ int, done func(error) tea.Msg) tea.Cmd {
 		return func() tea.Msg { return done(os.ErrPermission) }
 	}
 	model, command := press(model, "j", "j", "j", "e")
@@ -813,12 +832,15 @@ func TestNextQuestion(t *testing.T) {
 		keys     []string
 		selected string
 	}{
-		{"? moves to the first note with a question", []string{"?"}, "src/app.ts"},
-		{"? again moves to the next", []string{"?", "?"}, "src/util.ts"},
-		{"? goes on past the folders", []string{"?", "?", "?"}, "README.md"},
-		{"? wraps around from the last", []string{"?", "?", "?", "?"}, "src/app.ts"},
-		{"? opens the folders above a closed note", []string{"j", "h", "?"}, "src/app.ts"},
-		{"? works in notes only", []string{"n", "?", "?"}, "src/util.ts"},
+		{"] moves to the first note with a question", []string{"]"}, "src/app.ts"},
+		{"] again moves to the next", []string{"]", "]"}, "src/util.ts"},
+		{"] goes on past the folders", []string{"]", "]", "]"}, "README.md"},
+		{"] wraps around from the last", []string{"]", "]", "]", "]"}, "src/app.ts"},
+		{"] opens the folders above a closed note", []string{"j", "h", "]"}, "src/app.ts"},
+		{"] works in notes only", []string{"n", "]", "]"}, "src/util.ts"},
+		{"[ moves back, wrapping from the first to the last", []string{"["}, "README.md"},
+		{"[ again moves to the one before", []string{"[", "["}, "src/util.ts"},
+		{"[ undoes ]", []string{"]", "]", "["}, "src/app.ts"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -832,7 +854,7 @@ func TestNextQuestion(t *testing.T) {
 }
 
 func TestNextQuestionSkipsOtherFeatures(t *testing.T) {
-	model, _ := press(featureModel(t), "f", "o", "r", "enter", "?", "?")
+	model, _ := press(featureModel(t), "f", "o", "r", "enter", "]", "[")
 
 	if model.selected().Path != "docs/plan.md" || model.status != "" {
 		t.Errorf("selected %q, status %q, want docs/plan.md every time", model.selected().Path, model.status)
@@ -844,7 +866,7 @@ func TestNextQuestionWithoutAny(t *testing.T) {
 	writeFile(t, model.root, "src/app.ts.sketch.md", "? why\n> because\n")
 	model.reload("docs")
 
-	model, _ = press(model, "?")
+	model, _ = press(model, "]")
 
 	if model.selected().Path != "docs" || model.status != noOpenQuestions {
 		t.Errorf("selected %q, status %q, want docs and %q", model.selected().Path, model.status, noOpenQuestions)
@@ -1058,6 +1080,258 @@ func TestDraftsDim(t *testing.T) {
 			}
 			if dimmed := strings.Contains(row, model.styles.draft.Render(tt.name)); dimmed != tt.dim {
 				t.Errorf("row %q dimmed = %v, want %v", row, dimmed, tt.dim)
+			}
+		})
+	}
+}
+
+func TestTabCompletesFolders(t *testing.T) {
+	tests := []struct {
+		name     string
+		selected string
+		keys     []string
+		typed    string
+	}{
+		{"A ghost folder completes with a slash", "src", []string{"a", "n", "tab"}, "new/"},
+		{"No match leaves the name", "src", []string{"a", "x", "tab"}, "x"},
+		{"Files don't complete", "src", []string{"a", "app", "tab"}, "app"},
+		{"Several matches complete as far as they agree", "src", []string{"a", "c", "tab"}, "compo"},
+		{"Nothing typed and folders that don't agree stay as typed", "src", []string{"a", "tab"}, ""},
+		{"A typed folder completes inside it", "src", []string{"a", "components/b", "tab"}, "components/button/"},
+		{"At the root, top-level folders", "README.md", []string{"a", "d", "tab"}, "docs/"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := newModel(t)
+			writeFile(t, model.root, "src/components/button/b.ts", "b\n")
+			writeFile(t, model.root, "src/composables/c.ts", "c\n")
+			model.reload("docs")
+			model = selectPath(t, model, tt.selected)
+
+			model, _ = press(model, tt.keys...)
+
+			if model.prompt.typed != tt.typed {
+				t.Errorf("typed = %q, want %q", model.prompt.typed, tt.typed)
+			}
+		})
+	}
+}
+
+func TestAIsGone(t *testing.T) {
+	model := newModel(t)
+	opened := recordOpens(&model)
+
+	model, command := press(model, "j", "j", "j", "j", "j", "A")
+
+	if command != nil || len(*opened) > 0 {
+		t.Errorf("A gave %v and opened %q, want nothing", command, *opened)
+	}
+	if _, err := os.Stat(model.filePath("src/util.ts.sketch.md")); !os.IsNotExist(err) {
+		t.Errorf("A made a note: %v", err)
+	}
+}
+
+func TestEnterOnFolderDoesNotEdit(t *testing.T) {
+	model := newModel(t)
+	opened := recordOpens(&model)
+	writeFile(t, model.root, "src.sketch.md", "src note\n")
+	model.reload("src")
+
+	model, _ = press(model, "enter")
+
+	if len(*opened) > 0 || model.expanded["src"] {
+		t.Errorf("opened %q, src open %v, want src closed and nothing opened", *opened, model.expanded["src"])
+	}
+}
+
+func TestHelp(t *testing.T) {
+	model, _ := press(newModel(t), "?")
+
+	view := ansi.Strip(model.View().Content)
+	for _, binding := range helpKeys {
+		if line := fmt.Sprintf(helpLine, binding.Help().Key, binding.Help().Desc); !strings.Contains(view, line) {
+			t.Errorf("help lacks %q:\n%s", line, view)
+		}
+	}
+	for _, name := range []string{"esc", "q", "j"} {
+		t.Run(name+" closes it and does nothing else", func(t *testing.T) {
+			closed, command := press(model, name)
+
+			if closed.help || command != nil || closed.selected().Path != "docs" {
+				t.Errorf("help %v, command %v, selected %q, want help closed, nothing else", closed.help, command,
+					closed.selected().Path)
+			}
+			if view := ansi.Strip(closed.View().Content); strings.Contains(view, helpTitle) {
+				t.Errorf("View() still shows help:\n%s", view)
+			}
+		})
+	}
+}
+
+func TestAnswer(t *testing.T) {
+	tests := []struct {
+		name string
+		note string
+		text string
+		line int
+	}{
+		{"Under the only question", "app note\n? why\n", "app note\n? why\n> \n", 3},
+		{"Under the first open one, past answered ones", "---\nstatus: draft\n---\n? what\n> this\n? why\n? who\n",
+			"---\nstatus: draft\n---\n? what\n> this\n? why\n> \n? who\n", 7},
+		{"With no last newline", "? why", "? why\n> ", 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := newModel(t)
+			writeFile(t, model.root, "src/app.ts.sketch.md", tt.note)
+			model.reload("src/app.ts")
+			var opened []string
+			var lines []int
+			model.open = func(filePath string, line int, done func(error) tea.Msg) tea.Cmd {
+				opened = append(opened, filePath)
+				lines = append(lines, line)
+				return func() tea.Msg { return done(nil) }
+			}
+
+			model, _ = press(model, ">")
+
+			if text := readNote(t, model, "src/app.ts.sketch.md"); text != tt.text {
+				t.Errorf("note = %q, want %q", text, tt.text)
+			}
+			if want := []string{model.filePath("src/app.ts.sketch.md")}; !slices.Equal(opened, want) ||
+				!slices.Equal(lines, []int{tt.line}) {
+				t.Errorf("opened %q on %v, want %q on %d", opened, lines, want, tt.line)
+			}
+		})
+	}
+}
+
+func TestAnswerWithoutOpenQuestion(t *testing.T) {
+	tests := []struct {
+		name     string
+		selected string
+	}{
+		{"A note with none", "src/new/orbit.ts"},
+		{"A file with no note", "src/util.ts"},
+		{"A folder", "src"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := selectPath(t, newModel(t), tt.selected)
+			opened := recordOpens(&model)
+
+			model, command := press(model, ">")
+
+			if command != nil || len(*opened) > 0 || model.status != noneToAnswer {
+				t.Errorf("command %v, opened %q, status %q, want only %q", command, *opened, model.status, noneToAnswer)
+			}
+			if text := readNote(t, model, "src/new/orbit.ts.sketch.md"); text != "orbit note\n" {
+				t.Errorf("orbit note = %q, want it untouched", text)
+			}
+		})
+	}
+}
+
+// gitRepo writes files to a new git repo on branch main and returns its root.
+func gitRepo(t *testing.T) string {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "trial")
+	for file, text := range files {
+		writeFile(t, root, file, text)
+	}
+	writeFile(t, root, "src/app.ts.sketch.md", "---\nfeature: camera\n---\napp note\n")
+	command := exec.Command("git", "init", "--quiet", "--initial-branch", "main")
+	command.Dir = root
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, output)
+	}
+	return root
+}
+
+func openRepo(t *testing.T, root string) Model {
+	t.Helper()
+	model, err := New(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	model.listFeatures = func() ([]string, error) { return nil, nil }
+	return model
+}
+
+func TestFeatureSticksPerBranch(t *testing.T) {
+	tests := []struct {
+		name    string
+		keys    []string
+		feature string
+	}{
+		{"A feature picked is there on reopening", []string{"f", "c", "a", "m", "enter"}, "camera"},
+		{"Clearing it clears it on reopening", []string{"f", "c", "a", "m", "enter", "f", "enter"}, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := gitRepo(t)
+
+			_, _ = press(openRepo(t, root), tt.keys...)
+			reopened := openRepo(t, root)
+
+			if reopened.feature != tt.feature {
+				t.Errorf("feature on reopening = %q, want %q", reopened.feature, tt.feature)
+			}
+			wantNotes := map[string]int{"camera": 1, "": 2}[tt.feature]
+			if reopened.tree.NotesBelow != wantNotes {
+				t.Errorf("%d notes show on reopening, want %d", reopened.tree.NotesBelow, wantNotes)
+			}
+			kept := filepath.Join(root, ".git", "sketch", "filter", "main")
+			if _, err := os.Stat(kept); (err == nil) != (tt.feature != "") {
+				t.Errorf("stat %s: %v, want it kept only while the filter is set", kept, err)
+			}
+		})
+	}
+}
+
+func TestFeatureDoesNotStickOnOtherBranches(t *testing.T) {
+	root := gitRepo(t)
+	_, _ = press(openRepo(t, root), "f", "c", "a", "m", "enter")
+	command := exec.Command("git", "checkout", "--quiet", "-b", "other")
+	command.Dir = root
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("git checkout: %v\n%s", err, output)
+	}
+
+	if feature := openRepo(t, root).feature; feature != "" {
+		t.Errorf("feature on another branch = %q, want none", feature)
+	}
+}
+
+func TestFeatureOutsideGitIsNotKept(t *testing.T) {
+	if model := featureModel(t); model.featureFile != "" {
+		t.Errorf("featureFile = %q outside git, want none", model.featureFile)
+	}
+}
+
+func TestOpensNotesOnly(t *testing.T) {
+	tests := []struct {
+		name      string
+		files     map[string]string
+		notesOnly bool
+	}{
+		{"With notes", map[string]string{"src/app.ts": "app\n", "src/app.ts.sketch.md": "note\n"}, true},
+		{"Without notes", map[string]string{"src/app.ts": "app\n"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			for file, text := range tt.files {
+				writeFile(t, root, file, text)
+			}
+
+			model, err := New(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if model.notesOnly != tt.notesOnly {
+				t.Errorf("notesOnly = %v, want %v", model.notesOnly, tt.notesOnly)
 			}
 		})
 	}

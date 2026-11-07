@@ -20,7 +20,6 @@ var (
 	ErrEmptyName    = errors.New("type a file name")
 	ErrAbsoluteName = errors.New("the name must be relative to the folder")
 	ErrNameSegment  = errors.New("the name can't hold an empty, . or .. folder")
-	ErrNoteName     = errors.New("type the file's name, without " + sketch.NoteSuffix)
 	ErrFolderName   = errors.New("that's a folder; type a file name")
 )
 
@@ -62,6 +61,8 @@ func (model *Model) answerName(message tea.KeyPressMsg) tea.Cmd {
 	case "backspace":
 		typed := []rune(model.prompt.typed)
 		model.prompt.typed = string(typed[:max(0, len(typed)-1)])
+	case "tab":
+		model.prompt.typed = completeFolder(model.loaded, model.prompt.path, model.prompt.typed)
 	case "enter":
 		target, err := newTarget(model.root, model.tree, model.prompt.path, model.prompt.typed)
 		if err != nil {
@@ -90,18 +91,17 @@ func (model *Model) answerDelete(message tea.KeyPressMsg) {
 	model.reload(model.selectedPath())
 }
 
-// newTarget returns the slash-separated path from the repo root of the file typed names in folder. The name may
-// hold folders, as in hooks/useX.ts, but not empty, . or .. ones, and must not be absolute, name a note, or name a
-// folder, whether it's on disk under root or a ghost in top.
+// newTarget returns the slash-separated path from the repo root of the file typed names in folder, with a stray
+// .sketch.md or .sketch taken out. The name may hold folders, as in hooks/useX.ts, but not empty, . or .. ones,
+// and must not be absolute or name a folder, whether it's on disk under root or a ghost in top.
 func newTarget(root string, top *tree.Node, folder, typed string) (string, error) {
 	name := strings.TrimSpace(typed)
-	switch {
-	case name == "":
-		return "", ErrEmptyName
-	case strings.HasPrefix(name, "/") || filepath.IsAbs(name):
+	if strings.HasPrefix(name, "/") || filepath.IsAbs(name) {
 		return "", ErrAbsoluteName
-	case strings.HasSuffix(name, sketch.NoteSuffix):
-		return "", ErrNoteName
+	}
+	name = withoutSketch(name)
+	if name == "" {
+		return "", ErrEmptyName
 	}
 	for _, segment := range strings.Split(name, "/") {
 		if segment == "" || segment == "." || segment == ".." {
@@ -118,8 +118,57 @@ func newTarget(root string, top *tree.Node, folder, typed string) (string, error
 	return target, nil
 }
 
-// find returns the node at nodePath under top, or nil when there's none.
+// withoutSketch returns name with a trailing .sketch.md taken off, and then a .sketch at the end or before the
+// last extension, so useOrbit.ts.sketch.md and useOrbit.sketch.ts both give useOrbit.ts.
+func withoutSketch(name string) string {
+	name = strings.TrimSuffix(name, sketch.NoteSuffix)
+	folder, base := path.Split(name)
+	extension := path.Ext(base)
+	stem := strings.TrimSuffix(base, extension)
+	switch {
+	case extension == sketchExt:
+		base = stem
+	case strings.HasSuffix(stem, sketchExt):
+		base = strings.TrimSuffix(stem, sketchExt) + extension
+	}
+	return folder + base
+}
+
+// completeFolder returns typed with its last segment completed to the folders under folder in top that it starts:
+// to the one folder and a slash when only one matches, or as far as the matches agree when several do. It returns
+// typed as it is when none matches.
+func completeFolder(top *tree.Node, folder, typed string) string {
+	typedFolder, partial := path.Split(typed)
+	parent := find(top, path.Join(folder, typedFolder))
+	if parent == nil {
+		return typed
+	}
+	var matches []string
+	for _, child := range parent.Children {
+		if child.IsDir && strings.HasPrefix(child.Name, partial) {
+			matches = append(matches, child.Name)
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return typed
+	case 1:
+		return typedFolder + matches[0] + "/"
+	}
+	common := matches[0]
+	for _, match := range matches[1:] {
+		for !strings.HasPrefix(match, common) {
+			common = common[:len(common)-1]
+		}
+	}
+	return typedFolder + common
+}
+
+// find returns the node at nodePath under top, top itself for the root folder, or nil when there's none.
 func find(top *tree.Node, nodePath string) *tree.Node {
+	if nodePath == rootFolder {
+		return top
+	}
 	node := top
 	for _, name := range strings.Split(nodePath, "/") {
 		index := slices.IndexFunc(node.Children, func(child *tree.Node) bool { return child.Name == name })

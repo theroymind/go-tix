@@ -1,9 +1,15 @@
 package explorer
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/theroymind/go-tix/contracts/sketch"
 	"github.com/theroymind/go-tix/internal/sketch/note"
@@ -72,10 +78,65 @@ func (model *Model) filterFeature(choice string) {
 	if choice == allFeatures {
 		model.feature = ""
 	}
+	if err := saveFeature(model.featureFile, model.feature); err != nil {
+		model.status = err.Error()
+	}
 	keep := model.selectedPath()
 	model.applyFeature()
 	maps.Copy(model.expanded, tree.NoteFolders(model.tree))
 	model.showRows(keep)
+}
+
+// featureFile returns the file that keeps the feature filter for the branch checked out in the repo at root,
+// under its git folder, or "" outside git or with no branch checked out.
+func featureFile(root string) string {
+	gitFolder, err := gitOutput(root, "rev-parse", "--absolute-git-dir")
+	if err != nil {
+		return ""
+	}
+	branch, err := gitOutput(root, "symbolic-ref", "--short", "HEAD")
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(gitFolder, featureFolder, filepath.FromSlash(branch))
+}
+
+// gitOutput runs git with arguments in root and returns what it prints, trimmed.
+func gitOutput(root string, arguments ...string) (string, error) {
+	command := exec.Command("git", arguments...)
+	command.Dir = root
+	output, err := command.Output()
+	return strings.TrimSpace(string(output)), err
+}
+
+// readFeature returns the feature kept in filePath, or "" when there's none.
+func readFeature(filePath string) string {
+	if filePath == "" {
+		return ""
+	}
+	text, err := os.ReadFile(filePath)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(text))
+}
+
+// saveFeature keeps feature in filePath, or removes the file when feature is "". With no file it does nothing.
+func saveFeature(filePath, feature string) error {
+	switch {
+	case filePath == "":
+		return nil
+	case feature == "":
+		err := os.Remove(filePath)
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(filePath), folderMode); err != nil {
+		return err
+	}
+	return os.WriteFile(filePath, []byte(feature+"\n"), fileMode)
 }
 
 // applyFeature shows the loaded tree with only the feature's notes, and counts their readiness.
