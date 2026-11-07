@@ -1,13 +1,13 @@
 ---
 type: task
-status: todo
+status: done
 feature: sketch-explorer
 scope: large
 review: pending
 depends_on: []
 summary: Delete the old builder, grammar and YAML store, and parse .sketch.md notes into the new contract, listed by sketch ls --json.
 created_at: 2026-11-07T03:20:52Z
-updated_at: 2026-11-07T03:21:03Z
+updated_at: 2026-11-07T03:26:50Z
 ---
 
 # Retire the builder and read notes
@@ -30,8 +30,8 @@ Delete the old sketch, then rebuild its core around notes: `contracts/sketch` ge
 
 ## Acceptance criteria
 
-- [ ] `internal/sketch/{builder,grammar,store,merge,show}`, liner, the old sketch epic's notes and the YAML-helpers idea are gone, and `make check` passes.
-- [ ] A note parses into front matter, items (`#fn name rest`) and questions (`?` with an optional `>` answer), and any other line is free text.
-- [ ] `useOrbit.ts.sketch.md` maps to the target `useOrbit.ts` in the same folder.
-- [ ] `sketch ls` prints a table of notes and their targets, and `--json` prints notes that pass `Validate`.
-- [ ] `sketch help` documents the note format, so an agent can learn it from the binary.
+- [x] `internal/sketch/{builder,grammar,store,merge,show}`, liner, the old sketch epic's notes and the YAML-helpers idea are gone, and `make check` passes.
+- [x] A note parses into front matter, items (`#fn name rest`) and questions (`?` with an optional `>` answer), and any other line is free text.
+- [x] `useOrbit.ts.sketch.md` maps to the target `useOrbit.ts` in the same folder.
+- [x] `sketch ls` prints a table of notes and their targets, and `--json` prints notes that pass `Validate`.
+- [x] `sketch help` documents the note format, so an agent can learn it from the binary.

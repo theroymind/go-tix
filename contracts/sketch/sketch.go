@@ -1,5 +1,5 @@
-// Package sketch provides the Sketch contract: a feature's rough shape of code, as tasks, then files by repo
-// path, then typed items made of typed lines, which sketch stores in a feature's sketch.yml.
+// Package sketch provides the Note contract: a plain .sketch.md note beside the file it plans, read as the
+// feature and task it links to, the items it names and the questions it asks.
 package sketch
 
 import (
@@ -12,200 +12,108 @@ import (
 	"github.com/theroymind/go-tix/contracts/validation"
 )
 
-// Sketch is one feature's sketch: the schema version it was written with and its tasks in the order they were
-// added. The feature it belongs to is the directory that holds it, not a field.
-type Sketch struct {
-	SchemaVersion int    `yaml:"schema_version" json:"schema_version"`
-	Tasks         []Task `yaml:"tasks,omitempty" json:"tasks,omitempty"`
+// Note is one note: its slash-separated path from the repo root, the path of the file it plans, the feature and
+// task its front matter links it to, and its items and questions in the order they appear.
+type Note struct {
+	SchemaVersion int        `json:"schema_version"`
+	Path          string     `json:"path"`
+	Target        string     `json:"target"`
+	Feature       string     `json:"feature,omitempty"`
+	Task          string     `json:"task,omitempty"`
+	Items         []Item     `json:"items,omitempty"`
+	Questions     []Question `json:"questions,omitempty"`
 }
 
-// Task is one task of a feature and the files it touches, in the order they were added.
-type Task struct {
-	Name  string `yaml:"name" json:"name"`
-	Files []File `yaml:"files,omitempty" json:"files,omitempty"`
-}
-
-// File is one file a task touches, by its slash-separated path from the repo root, and the items it holds.
-type File struct {
-	Path  string `yaml:"path" json:"path"`
-	Items []Item `yaml:"items,omitempty" json:"items,omitempty"`
-}
-
-// Item is one named piece of a file, such as a type or a function, and the lines that describe it. An item
-// keeps this one shape in every language.
+// Item is one named piece the note plans, from a line such as #fn useOrbit target Ref<Vec3>: its type, its name,
+// and the rest of the line as Text.
 type Item struct {
-	Type  ItemType `yaml:"type" json:"type"`
-	Name  string   `yaml:"name" json:"name"`
-	Lines []Line   `yaml:"lines,omitempty" json:"lines,omitempty"`
+	Type ItemType `json:"type"`
+	Name string   `json:"name"`
+	Text string   `json:"text,omitempty"`
 }
 
-// Line is one typed line of an item, such as an input, an output or a question. Only an ask line holds an
-// Answer, and it's open while its Answer is empty.
-type Line struct {
-	Type   LineType `yaml:"type" json:"type"`
-	Text   string   `yaml:"text" json:"text"`
-	Answer string   `yaml:"answer,omitempty" json:"answer,omitempty"`
-}
-
-// IsOpen reports whether the line is a question still waiting for its answer.
-func (value Line) IsOpen() bool {
-	return value.Type == LineTypeAsk && strings.TrimSpace(value.Answer) == ""
+// Question is one question the note asks, from a line starting ? , with the answer from a line starting > right
+// under it, and the question's 1-based line number in the note. It's open while Answer is empty.
+type Question struct {
+	Text   string `json:"text"`
+	Answer string `json:"answer,omitempty"`
+	Line   int    `json:"line"`
 }
 
 // ItemType is the kind of an item.
 type ItemType string
 
-// LineType is the kind of a line.
-type LineType string
-
-// New returns an empty sketch at the current schema version.
-func New() Sketch {
-	return Sketch{SchemaVersion: SchemaVersion}
-}
-
-// Trimmed returns a copy of value with the spaces around every name, path, line text and answer removed, the form
-// Validate compares and the store saves.
-func (value Sketch) Trimmed() Sketch {
-	trimmed := value
-	trimmed.Tasks = make([]Task, len(value.Tasks))
-	for taskIndex, task := range value.Tasks {
-		task.Name = strings.TrimSpace(task.Name)
-		task.Files = slices.Clone(task.Files)
-		for fileIndex, file := range task.Files {
-			file.Path = strings.TrimSpace(file.Path)
-			file.Items = slices.Clone(file.Items)
-			for itemIndex, item := range file.Items {
-				item.Name = strings.TrimSpace(item.Name)
-				item.Lines = slices.Clone(item.Lines)
-				for lineIndex := range item.Lines {
-					line := &item.Lines[lineIndex]
-					line.Text, line.Answer = strings.TrimSpace(line.Text), strings.TrimSpace(line.Answer)
-				}
-				file.Items[itemIndex] = item
-			}
-			task.Files[fileIndex] = file
-		}
-		trimmed.Tasks[taskIndex] = task
-	}
-	if value.Tasks == nil {
-		trimmed.Tasks = nil
-	}
-	return trimmed
-}
-
 func (itemType ItemType) IsValid() bool {
 	return slices.Contains(ItemTypes, itemType)
 }
 
-func (lineType LineType) IsValid() bool {
-	return slices.Contains(LineTypes, lineType)
-}
-
-// Validate rejects an unknown schema version and a task name used twice. Names, paths and line texts compare
-// with the spaces around them trimmed.
-func (value Sketch) Validate() error {
+// Validate rejects an unknown schema version, a path or target that isn't a clean repo path, a path that isn't
+// the target's followed by NoteSuffix, and a feature or task holding a control character.
+func (value Note) Validate() error {
 	var problems validation.Errors
 	if value.SchemaVersion != SchemaVersion {
 		problems.Add(FieldSchemaVersion, problemUnknownVersion)
 	}
-	seen := map[string]bool{}
-	for index, task := range value.Tasks {
-		field := fmt.Sprintf(fieldIndexFormat, FieldTasks, index)
-		problems.AddNested(field, task.Validate())
-		addDuplicate(&problems, field+"."+FieldName, task.Name, seen, problemDuplicateTask)
+	addRepoPath(&problems, FieldPath, value.Path)
+	addRepoPath(&problems, FieldTarget, value.Target)
+	if value.Path != "" && value.Target != "" && value.Path != value.Target+NoteSuffix {
+		problems.Add(FieldPath, problemNotTarget)
 	}
-	return problems.Err()
-}
-
-// Validate rejects an empty name and a file path used twice in the task.
-func (value Task) Validate() error {
-	var problems validation.Errors
-	addBlank(&problems, FieldName, value.Name)
-	seen := map[string]bool{}
-	for index, file := range value.Files {
-		field := fmt.Sprintf(fieldIndexFormat, FieldFiles, index)
-		problems.AddNested(field, file.Validate())
-		addDuplicate(&problems, field+"."+FieldPath, file.Path, seen, problemDuplicateFile)
-	}
-	return problems.Err()
-}
-
-// Validate rejects an empty path, one that isn't clean and relative inside the repo, and an item name used
-// twice in the file.
-func (value File) Validate() error {
-	var problems validation.Errors
-	addBlank(&problems, FieldPath, value.Path)
-	if repoPath := strings.TrimSpace(value.Path); repoPath != "" && !isRepoPath(repoPath) {
-		problems.Add(FieldPath, problemRepoPath)
-	}
-	seen := map[string]bool{}
+	addControl(&problems, FieldFeature, value.Feature)
+	addControl(&problems, FieldTask, value.Task)
 	for index, item := range value.Items {
-		field := fmt.Sprintf(fieldIndexFormat, FieldItems, index)
-		problems.AddNested(field, item.Validate())
-		addDuplicate(&problems, field+"."+FieldName, item.Name, seen, problemDuplicateItem)
+		problems.AddNested(fmt.Sprintf(fieldIndexFormat, FieldItems, index), item.Validate())
+	}
+	for index, question := range value.Questions {
+		problems.AddNested(fmt.Sprintf(fieldIndexFormat, FieldQuestions, index), question.Validate())
 	}
 	return problems.Err()
 }
 
-// Validate rejects an unknown item type and an empty name.
+// Validate rejects an unknown item type and an empty name or one holding a control character.
 func (value Item) Validate() error {
 	var problems validation.Errors
 	if !value.Type.IsValid() {
 		problems.Add(FieldType, validation.InvalidOption(ItemTypes))
 	}
-	addBlank(&problems, FieldName, value.Name)
-	for index, line := range value.Lines {
-		problems.AddNested(fmt.Sprintf(fieldIndexFormat, FieldLines, index), line.Validate())
-	}
+	addRequired(&problems, FieldName, value.Name)
 	return problems.Err()
 }
 
-// Validate rejects an unknown line type, empty text, and an answer on a line that isn't a question.
-func (value Line) Validate() error {
+// Validate rejects empty text and a line number below 1.
+func (value Question) Validate() error {
 	var problems validation.Errors
-	if !value.Type.IsValid() {
-		problems.Add(FieldType, validation.InvalidOption(LineTypes))
+	addRequired(&problems, FieldText, value.Text)
+	if value.Line < 1 {
+		problems.Add(FieldLine, problemLine)
 	}
-	addBlank(&problems, FieldText, value.Text)
-	if value.Type != LineTypeAsk && strings.TrimSpace(value.Answer) != "" {
-		problems.Add(FieldAnswer, problemAnswerNotAsk)
-	}
-	addControl(&problems, FieldAnswer, value.Answer)
 	return problems.Err()
 }
 
-// addBlank reports text that's empty once trimmed, and text holding a control character, such as a tab, which a
-// name, path or line can't carry onto one line of a prompt or a table.
-func addBlank(problems *validation.Errors, field, text string) {
+// addRepoPath reports a path that's empty, holds a control character, or isn't slash-separated, relative, clean
+// and inside the repo, so two spellings of one file can't both appear.
+func addRepoPath(problems *validation.Errors, field, repoPath string) {
+	addRequired(problems, field, repoPath)
+	if repoPath == "" {
+		return
+	}
+	if path.IsAbs(repoPath) || path.Clean(repoPath) != repoPath || repoPath == parentDirectory ||
+		strings.HasPrefix(repoPath, parentDirectory+"/") {
+		problems.Add(field, problemRepoPath)
+	}
+}
+
+// addRequired reports text that's empty once trimmed, and text holding a control character.
+func addRequired(problems *validation.Errors, field, text string) {
 	if strings.TrimSpace(text) == "" {
 		problems.Add(field, problemRequired)
 	}
 	addControl(problems, field, text)
 }
 
-// addControl reports text holding a control character once trimmed.
+// addControl reports text holding a control character, such as a tab, which can't sit on one row of a table.
 func addControl(problems *validation.Errors, field, text string) {
-	if strings.ContainsFunc(strings.TrimSpace(text), unicode.IsControl) {
+	if strings.ContainsFunc(text, unicode.IsControl) {
 		problems.Add(field, problemControl)
 	}
-}
-
-// isRepoPath reports whether repoPath is slash-separated, relative, already clean, and stays inside the repo, so
-// two spellings of one file can't both appear.
-func isRepoPath(repoPath string) bool {
-	return !path.IsAbs(repoPath) && path.Clean(repoPath) == repoPath && repoPath != parentDirectory &&
-		!strings.HasPrefix(repoPath, parentDirectory+"/")
-}
-
-// addDuplicate reports name when seen already holds it, comparing trimmed, and ignores a blank name, which
-// addBlank reports.
-func addDuplicate(problems *validation.Errors, field, name string, seen map[string]bool, problem string) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return
-	}
-	if seen[name] {
-		problems.Add(field, problem)
-	}
-	seen[name] = true
 }

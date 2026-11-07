@@ -1,5 +1,5 @@
-// Package refs finds a feature's directory and tasks: beside the feature's tix note inside a tix repo, found by
-// running tix path, and docs/features/<feature> from the repo root outside one.
+// Package refs looks a feature up in tix: whether the repo is a tix repo, and the feature's tasks, found by
+// running tix ls.
 package refs
 
 import (
@@ -16,13 +16,11 @@ import (
 	"github.com/theroymind/railyard-cli/strictjson"
 
 	"github.com/theroymind/go-tix/contracts/ticket"
-	"github.com/theroymind/go-tix/internal/sketch/store"
 )
 
 const (
 	tixDirectory = ".tix"
 	tixCommand   = "tix"
-	pathCommand  = "path"
 	listCommand  = "ls"
 	parentOption = "--parent"
 	allOption    = "--all"
@@ -30,16 +28,14 @@ const (
 )
 
 var (
-	ErrNotATicket   = errors.New("is not a tix ticket")
-	ErrTixNotFound  = errors.New("this is a tix repo, but tix isn't on PATH; install it with go install ./cmd/tix")
-	ErrRelativePath = errors.New("tix path printed a path that isn't absolute")
-	ErrTixOutput    = errors.New("tix ls printed tickets sketch can't read")
+	ErrTixNotFound = errors.New("this is a tix repo, but tix isn't on PATH; install it with go install ./cmd/tix")
+	ErrTixOutput   = errors.New("tix ls printed tickets sketch can't read")
 )
 
 // Runner runs a child command in a directory and returns its stdout, as cli.RunChildIn does.
 type Runner func(directory, name string, arguments []string, stdin io.Reader) ([]byte, error)
 
-// Resolver finds feature directories from a repo root, running tix through Run.
+// Resolver looks features up in tix from a repo root, running tix through Run.
 type Resolver struct {
 	Root string
 	Run  Runner
@@ -67,30 +63,8 @@ func RunQuiet(directory, name string, arguments []string, stdin io.Reader) ([]by
 	return stdout.Bytes(), nil
 }
 
-// FeatureDir returns the directory a feature's sketch lives in. Inside a tix repo, one whose root holds .tix, the
-// feature must be a ticket, and the directory is the one holding its note; a feature that isn't one fails with
-// ErrNotATicket, naming it, and a missing tix fails with ErrTixNotFound. Outside one, any feature name works,
-// and the directory is store.FeatureDir's.
-func (resolver Resolver) FeatureDir(feature string) (string, error) {
-	if !resolver.IsTixRepo() {
-		return store.FeatureDir(resolver.Root, feature), nil
-	}
-	output, err := resolver.Run(resolver.Root, tixCommand, []string{pathCommand, feature}, nil)
-	if errors.Is(err, exec.ErrNotFound) {
-		return "", fmt.Errorf("%w: %w", ErrTixNotFound, err)
-	}
-	if err != nil {
-		return "", fmt.Errorf("feature %q %w: %w", feature, ErrNotATicket, err)
-	}
-	path := strings.TrimSpace(string(output))
-	if !filepath.IsAbs(path) {
-		return "", fmt.Errorf("feature %q: %w: %q", feature, ErrRelativePath, path)
-	}
-	return filepath.Dir(path), nil
-}
-
-// Tasks returns the ids of the feature's child tickets, done ones included, in tix's order, for the builder to
-// offer after task. Outside a tix repo, a feature has no tasks to offer, and Tasks returns none.
+// Tasks returns the ids of the feature's child tickets, done ones included, in tix's order.
+// Outside a tix repo, a feature has no tasks to offer, and Tasks returns none.
 func (resolver Resolver) Tasks(feature string) ([]string, error) {
 	if !resolver.IsTixRepo() {
 		return nil, nil

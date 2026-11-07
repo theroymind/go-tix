@@ -1,6 +1,5 @@
-// Package command provides the sketch commands: feature, which opens the builder prompt on a feature's sketch, an
-// edit under -C, which runs one grammar command or a stdin batch and saves it, show, which prints the sketch as a
-// table, JSON or markdown, and questions and answer, which list a sketch's open questions and record their answers.
+// Package command provides the sketch commands: ls, which lists the repo's .sketch.md notes as a table or JSON,
+// and help, which documents the note format.
 package command
 
 import (
@@ -9,301 +8,133 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
+	"text/tabwriter"
 
 	cli "github.com/theroymind/railyard-cli"
 
 	"github.com/theroymind/go-tix/contracts/sketch"
-	"github.com/theroymind/go-tix/internal/sketch/builder"
-	"github.com/theroymind/go-tix/internal/sketch/grammar"
-	"github.com/theroymind/go-tix/internal/sketch/marks"
-	"github.com/theroymind/go-tix/internal/sketch/questions"
-	"github.com/theroymind/go-tix/internal/sketch/refs"
-	"github.com/theroymind/go-tix/internal/sketch/show"
-	"github.com/theroymind/go-tix/internal/sketch/store"
+	"github.com/theroymind/go-tix/internal/sketch/note"
 )
 
 const usage = `usage: sketch <command> [arguments]
 
 commands:
-  feature FEATURE        (opens the builder: a prompt at the feature that runs each line as a command and saves
-                         it, with where to print the full context, undo, edit to open the item in $EDITOR, tab
-                         completion and history; exit, quit or ctrl-D leaves)
-  -C FEATURE[/TASK[/FILE[:ITEM]]] VERB [ARGS]
-                         (runs one command at that context, saves, and prints the context it leaves)
-  -C FEATURE[/TASK[/FILE[:ITEM]]] -
-                         (runs each line of stdin as a command, each at the context the last one left, and
-                         saves once, only when every line succeeds)
-  show FEATURE [--json | --md]
-                         (marks each item ~ when its file already names it, + when it's new)
-  questions FEATURE [--json]
-                         (the open questions, each with its number and the context of its item)
-  answer FEATURE N TEXT  (records TEXT as question N's answer and closes it)
-  help
+  ls [--json]   lists every note under the repo root with the file it plans, its feature and task, and how many
+                items and questions it holds; --json prints them as an array of notes
+  help          prints this
 
-verbs:
-  task NAME, file PATH   add the task or file, or open it
-  fn (f), type (t), component, hook, flow, tune, rule, test NAME
-                         add an item to the file, or open the one of that name
-  in (i), out (o), case (c), ask (a), rule (r), field, prop TEXT
-                         add a line to the item; rule adds a line inside an item and an item at file level
-  mv NAME                rename the item, else the file, else the task
-  rm [N]                 remove line N of the item, else the item, file or task
-  set N TEXT             replace line N's text
-  .., /                  step up a level, or back to the feature, in the builder or a stdin batch
+A note is a plain markdown file beside the file it plans, named after it with .sketch.md added:
+src/useOrbit.ts.sketch.md plans src/useOrbit.ts, whether or not that file exists yet. Write whatever you like in
+it; these lines give it structure, and every other line is free text, never an error:
 
-Lines are numbered from 1, as show --md prints them, and questions from 1 across the whole sketch, answered ones
-included, so answering one never renumbers the rest. The repo root is the nearest directory above holding .tix
-or .git. Inside a tix repo, FEATURE must be a tix ticket, and its sketch.yml sits beside the ticket's note;
-outside one, any name works, and it lives in docs/features/FEATURE. Send several commands as one stdin batch
-rather than as parallel calls: a batch lands whole or not at all.
+  ---                         optional front matter, only at the very top, between two --- lines:
+  feature: FEATURE            the tix feature the note belongs to
+  task: TASK                  and the tix task
+  ---
+  #TYPE NAME [TEXT]           an item the file will hold, where TYPE is one of
+                              fn, type, component, hook, flow, tune, rule or test, and TEXT is the rest of the
+                              line, such as #fn useOrbit target Ref<Vec3>
+  ? QUESTION                  an open question
+  > ANSWER                    on the line right under a question, its answer
+
+Markers start the line. A #word that isn't an item type, such as #todo, and a # heading are free text, and so is
+a > line that isn't right under a question. The repo root is the nearest directory above holding .tix or .git.
+ls skips hidden folders and node_modules, lists every note it can read, and then fails naming any it couldn't.
 `
 
 const (
-	optionJSON     = "json"
-	optionMarkdown = "md"
-	contextOption  = "-C"
-	stdinCommand   = "-"
+	optionJSON  = "json"
+	tableHeader = "NOTE\tTARGET\tFEATURE\tTASK\tITEMS\tQUESTIONS"
+	tablePad    = 2
+	noValue     = "-"
 )
 
 var rootMarkers = []string{".tix", ".git"}
 
-// runChild runs tix for refs, a variable so tests can stand in for the tix on PATH.
-var runChild refs.Runner = refs.RunQuiet
-
-var (
-	ErrBothFormats  = errors.New("--json and --md can't both be given")
-	ErrNeedsFeature = errors.New("needs exactly one FEATURE")
-	ErrNeedsCommand = errors.New("needs a context and a command")
-	ErrNoCommands   = errors.New("stdin holds no commands")
-	ErrNeedsAnswer  = errors.New("needs FEATURE, a question number and its answer")
-)
+var ErrUnreadableNotes = errors.New("some notes couldn't be read")
 
 var Program = cli.Program{
 	Name:  "sketch",
 	Usage: usage,
 	Commands: map[string]cli.Command{
-		"feature":     runFeature,
-		contextOption: runEdit,
-		"show":        runShow,
-		"questions":   runQuestions,
-		"answer":      runAnswer,
+		"ls": runList,
 	},
 }
 
-// runEdit runs one grammar command at the context its first argument names, or, when the command is -, every
-// line of stdin in order, each at the context the line before it left. The command's words are joined with
-// single spaces, so a quoted argument and separate words read the same. The sketch is saved once, only when
-// every command succeeds, and the context the last one leaves is printed.
-func runEdit(arguments []string, stdin io.Reader, stdout io.Writer) error {
-	if len(arguments) < 2 {
-		return cli.NewUsageError(ErrNeedsCommand)
-	}
-	at, err := grammar.ParseContext(arguments[0])
-	if err != nil {
-		return cli.NewUsageError(err)
-	}
-	isBatch := len(arguments) == 2 && arguments[1] == stdinCommand
-	var lines []string
-	if isBatch {
-		if lines, err = readLines(stdin); err != nil {
-			return err
-		}
-	}
-	root, dir, err := locate(at.Feature)
-	if err != nil {
-		return err
-	}
-	next := at
-	err = store.Update(root, dir, func(value sketch.Sketch) (sketch.Sketch, error) {
-		if isBatch {
-			return applyBatch(value, at, lines, &next)
-		}
-		edited, leaves, err := grammar.Apply(value, at, strings.Join(arguments[1:], " "))
-		next = leaves
-		return edited, err
+// runList prints every note under the repo root that reads and validates, as a table or a JSON array, and then
+// fails naming each note that didn't, so one bad note never hides the rest.
+func runList(arguments []string, _ io.Reader, stdout io.Writer) error {
+	parsed, err := cli.Parse(arguments, cli.Specification{
+		Options: []cli.Option{{Name: optionJSON, Type: cli.OptionTypeBoolean}},
 	})
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintln(stdout, next)
-	return err
-}
-
-// applyBatch applies each line in turn, carrying the context, and names the 1-based line that fails. Blank lines
-// are skipped, and a batch of none is refused. next receives the context the last line leaves.
-func applyBatch(value sketch.Sketch, at grammar.Context, lines []string, next *grammar.Context) (sketch.Sketch, error) {
-	applied := 0
-	for index, line := range lines {
-		if strings.TrimSpace(line) == "" {
+	root, err := repoRootFromWorkingDir()
+	if err != nil {
+		return err
+	}
+	paths, err := note.Find(root)
+	if err != nil {
+		return err
+	}
+	notes := []sketch.Note{}
+	var problems []error
+	for _, notePath := range paths {
+		value, err := loadValid(root, notePath)
+		if err != nil {
+			problems = append(problems, err)
 			continue
 		}
-		var err error
-		if value, at, err = grammar.Apply(value, at, line); err != nil {
-			return value, fmt.Errorf("line %d: %w", index+1, err)
-		}
-		applied++
+		notes = append(notes, value)
 	}
-	if applied == 0 {
-		return value, cli.NewUsageError(ErrNoCommands)
+	if parsed.IsEnabled(optionJSON) {
+		err = cli.WriteJSON(stdout, notes)
+	} else {
+		err = writeTable(stdout, notes)
 	}
-	*next = at
+	if err != nil {
+		return err
+	}
+	if len(problems) > 0 {
+		return fmt.Errorf("%w:\n%w", ErrUnreadableNotes, errors.Join(problems...))
+	}
+	return nil
+}
+
+// loadValid loads the note at notePath and checks it against the contract.
+func loadValid(root, notePath string) (sketch.Note, error) {
+	value, err := note.Load(root, notePath)
+	if err != nil {
+		return sketch.Note{}, err
+	}
+	if err := value.Validate(); err != nil {
+		return sketch.Note{}, fmt.Errorf("%s: %w", notePath, err)
+	}
 	return value, nil
 }
 
-func readLines(stdin io.Reader) ([]string, error) {
-	text, err := io.ReadAll(stdin)
-	if err != nil {
-		return nil, err
-	}
-	return strings.Split(strings.ReplaceAll(string(text), "\r\n", "\n"), "\n"), nil
-}
-
-// runFeature opens the builder on the feature. Inside a tix repo, the feature must be a ticket, and its tix tasks
-// complete after task.
-func runFeature(arguments []string, _ io.Reader, stdout io.Writer) error {
-	if len(arguments) != 1 {
-		return cli.NewUsageError(ErrNeedsFeature)
-	}
-	feature, err := parseFeature(arguments[0])
-	if err != nil {
+// writeTable writes one row per note, with - for a feature or task the note doesn't name.
+func writeTable(writer io.Writer, notes []sketch.Note) error {
+	table := tabwriter.NewWriter(writer, 0, 0, tablePad, ' ', 0)
+	if _, err := fmt.Fprintln(table, tableHeader); err != nil {
 		return err
 	}
-	root, dir, err := locate(feature)
-	if err != nil {
-		return err
-	}
-	tasks, err := refs.Resolver{Root: root, Run: runChild}.Tasks(feature)
-	if err != nil {
-		return err
-	}
-	load := func() (sketch.Sketch, error) {
-		value, err := store.Load(dir)
-		if errors.Is(err, store.ErrNotFound) {
-			return sketch.New(), nil
+	for _, value := range notes {
+		_, err := fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%d\t%d\n", value.Path, value.Target, orNoValue(value.Feature),
+			orNoValue(value.Task), len(value.Items), len(value.Questions))
+		if err != nil {
+			return err
 		}
-		return value, err
 	}
-	update := func(edit func(sketch.Sketch) (sketch.Sketch, error)) error { return store.Update(root, dir, edit) }
-	session := builder.NewSession(feature, update, load, builder.ExternalEditor())
-	completer := builder.Completer{Root: root, Session: session, Load: load, Tasks: tasks}
-	return builder.Run(session, completer, stdout)
+	return table.Flush()
 }
 
-func runShow(arguments []string, _ io.Reader, stdout io.Writer) error {
-	parsed, err := cli.Parse(arguments, cli.Specification{
-		Options: []cli.Option{
-			{Name: optionJSON, Type: cli.OptionTypeBoolean},
-			{Name: optionMarkdown, Type: cli.OptionTypeBoolean},
-		},
-		AllowsPositionals: true,
-	})
-	if err != nil {
-		return err
+func orNoValue(text string) string {
+	if text == "" {
+		return noValue
 	}
-	if len(parsed.Positionals) != 1 {
-		return cli.NewUsageError(ErrNeedsFeature)
-	}
-	asJSON, asMarkdown := parsed.IsEnabled(optionJSON), parsed.IsEnabled(optionMarkdown)
-	if asJSON && asMarkdown {
-		return cli.NewUsageError(ErrBothFormats)
-	}
-	feature, root, value, err := loadFeature(parsed.Positionals[0])
-	if err != nil {
-		return err
-	}
-	reader := marks.NewReader(root)
-	mark := func(path, name string) (string, error) {
-		itemMark, err := reader.Mark(path, name)
-		return string(itemMark), err
-	}
-	switch {
-	case asJSON:
-		return cli.WriteJSON(stdout, value)
-	case asMarkdown:
-		return show.Markdown(stdout, feature, value, mark)
-	default:
-		return show.Table(stdout, value, mark)
-	}
-}
-
-func runQuestions(arguments []string, _ io.Reader, stdout io.Writer) error {
-	parsed, err := cli.Parse(arguments, cli.Specification{
-		Options:           []cli.Option{{Name: optionJSON, Type: cli.OptionTypeBoolean}},
-		AllowsPositionals: true,
-	})
-	if err != nil {
-		return err
-	}
-	if len(parsed.Positionals) != 1 {
-		return cli.NewUsageError(ErrNeedsFeature)
-	}
-	feature, _, value, err := loadFeature(parsed.Positionals[0])
-	if err != nil {
-		return err
-	}
-	open := questions.Open(feature, value)
-	if parsed.IsEnabled(optionJSON) {
-		return cli.WriteJSON(stdout, open)
-	}
-	return show.Questions(stdout, open)
-}
-
-// runAnswer records an answer. Its words are joined with single spaces, as an edit's are.
-func runAnswer(arguments []string, _ io.Reader, _ io.Writer) error {
-	if len(arguments) < 3 {
-		return cli.NewUsageError(ErrNeedsAnswer)
-	}
-	feature, err := parseFeature(arguments[0])
-	if err != nil {
-		return err
-	}
-	number, err := strconv.Atoi(arguments[1])
-	if err != nil {
-		return cli.NewUsageError(fmt.Errorf("%w: %q isn't a question number", ErrNeedsAnswer, arguments[1]))
-	}
-	root, dir, err := locate(feature)
-	if err != nil {
-		return err
-	}
-	answer := strings.Join(arguments[2:], " ")
-	return store.Update(root, dir, func(value sketch.Sketch) (sketch.Sketch, error) {
-		return questions.Answer(value, number, answer)
-	})
-}
-
-// parseFeature reads a FEATURE argument, refusing a deeper context.
-func parseFeature(argument string) (string, error) {
-	at, err := grammar.ParseContext(argument)
-	if err != nil || at.Task != "" {
-		return "", cli.NewUsageError(fmt.Errorf("%w: %q", ErrNeedsFeature, argument))
-	}
-	return at.Feature, nil
-}
-
-// loadFeature reads a FEATURE argument and loads its sketch, returning the feature, the repo root and the sketch.
-func loadFeature(argument string) (string, string, sketch.Sketch, error) {
-	feature, err := parseFeature(argument)
-	if err != nil {
-		return "", "", sketch.Sketch{}, err
-	}
-	root, dir, err := locate(feature)
-	if err != nil {
-		return "", "", sketch.Sketch{}, err
-	}
-	value, err := store.Load(dir)
-	return feature, root, value, err
-}
-
-// locate returns the repo root and the directory the feature's sketch lives in.
-func locate(feature string) (string, string, error) {
-	root, err := repoRootFromWorkingDir()
-	if err != nil {
-		return "", "", err
-	}
-	dir, err := refs.Resolver{Root: root, Run: runChild}.FeatureDir(feature)
-	return root, dir, err
+	return text
 }
 
 func repoRootFromWorkingDir() (string, error) {

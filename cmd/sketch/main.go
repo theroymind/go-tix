@@ -1,8 +1,7 @@
-// Command sketch roughs out a feature's files, types and functions as a sketch.yml beside the feature's notes,
-// one short command at a time.
+// Command sketch lists the plain .sketch.md notes that plan a repo's files, each one beside the file it plans.
 //
-// Run sketch -C FEATURE/TASK/FILE fn NAME to add an item, sketch -C FEATURE/TASK/FILE:ITEM in TEXT to add a line
-// to it, and sketch show FEATURE to print the sketch, with --json for a program or --md for a reader.
+// Run sketch ls for a table of notes and their targets, sketch ls --json for the same as JSON, and sketch help for
+// the note format.
 package main
 
 import (

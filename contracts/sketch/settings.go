@@ -2,20 +2,21 @@ package sketch
 
 const (
 	FieldSchemaVersion = "schema_version"
-	FieldTasks         = "tasks"
-	FieldName          = "name"
-	FieldFiles         = "files"
 	FieldPath          = "path"
+	FieldTarget        = "target"
+	FieldFeature       = "feature"
+	FieldTask          = "task"
 	FieldItems         = "items"
+	FieldQuestions     = "questions"
 	FieldType          = "type"
-	FieldLines         = "lines"
+	FieldName          = "name"
 	FieldText          = "text"
-	FieldAnswer        = "answer"
+	FieldLine          = "line"
 )
 
 const (
-	ItemTypeType      ItemType = "type"
 	ItemTypeFn        ItemType = "fn"
+	ItemTypeType      ItemType = "type"
 	ItemTypeComponent ItemType = "component"
 	ItemTypeHook      ItemType = "hook"
 	ItemTypeFlow      ItemType = "flow"
@@ -24,37 +25,23 @@ const (
 	ItemTypeTest      ItemType = "test"
 )
 
-const (
-	LineTypeField LineType = "field"
-	LineTypeIn    LineType = "in"
-	LineTypeOut   LineType = "out"
-	LineTypeProp  LineType = "prop"
-	LineTypeCase  LineType = "case"
-	LineTypeAsk   LineType = "ask"
-	LineTypeRule  LineType = "rule"
-)
-
-// SchemaVersion is the only sketch schema version this package reads and writes.
+// SchemaVersion is the only note schema version this package reads and writes.
 const SchemaVersion = 1
 
-var (
-	// ItemTypes are the kinds of item a file can hold, in the order the builder offers them.
-	ItemTypes = []ItemType{ItemTypeType, ItemTypeFn, ItemTypeComponent, ItemTypeHook, ItemTypeFlow, ItemTypeTune,
-		ItemTypeRule, ItemTypeTest}
-	// LineTypes are the kinds of line an item can hold, in the order the builder offers them.
-	LineTypes = []LineType{LineTypeField, LineTypeIn, LineTypeOut, LineTypeProp, LineTypeCase, LineTypeAsk,
-		LineTypeRule}
-)
+// NoteSuffix ends every note's file name: the note for useOrbit.ts is useOrbit.ts.sketch.md, in the same folder.
+const NoteSuffix = ".sketch.md"
+
+// ItemTypes are the kinds of item a note can name.
+var ItemTypes = []ItemType{ItemTypeFn, ItemTypeType, ItemTypeComponent, ItemTypeHook, ItemTypeFlow, ItemTypeTune,
+	ItemTypeRule, ItemTypeTest}
 
 const (
 	problemRequired       = "is required"
 	problemUnknownVersion = "must be 1"
-	problemDuplicateTask  = "duplicates an earlier task name"
-	problemDuplicateFile  = "duplicates an earlier file path in this task"
-	problemDuplicateItem  = "duplicates an earlier item name in this file"
-	problemAnswerNotAsk   = "only an ask line holds an answer"
 	problemControl        = "must not hold a control character, such as a tab"
 	problemRepoPath       = "must be a clean path relative to the repo root, inside it"
+	problemNotTarget      = "must be the target's path followed by " + NoteSuffix
+	problemLine           = "must be a line number from 1"
 	fieldIndexFormat      = "%s.%d"
 	parentDirectory       = ".."
 )
