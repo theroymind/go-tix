@@ -12,15 +12,17 @@ import (
 	"github.com/theroymind/railyard-cli/strictjson"
 
 	"github.com/theroymind/go-tix/contracts/sketch"
+	"github.com/theroymind/go-tix/internal/sketch/note"
 )
 
 const orbitNote = `---
 feature: sketch-explorer
-task: read-notes
+status: ready
 ---
 Orbit the camera.
 
 #fn useOrbit target Ref<Vec3>
+-> ./camera.ts : reads the target
 ? who owns the camera
 > the fight
 `
@@ -43,7 +45,7 @@ func inRepo(t *testing.T, files map[string]string, arguments ...string) (cli.Exi
 	}
 	t.Chdir(filepath.Join(root, "client"))
 	var stdout, stderr strings.Builder
-	exitCode := Program.Run(arguments, strings.NewReader(""), &stdout, &stderr)
+	exitCode := Run(arguments, strings.NewReader(""), &stdout, &stderr)
 	return exitCode, stdout.String(), stderr.String()
 }
 
@@ -57,61 +59,91 @@ func TestList(t *testing.T) {
 		stderrHas string
 	}{
 		{"No notes", map[string]string{"main.go": ""}, []string{"ls"}, cli.ExitCodeSuccess,
-			"NOTE  TARGET  FEATURE  TASK  ITEMS  QUESTIONS\n", ""},
+			"NOTE  TARGET  FEATURE  STATUS  LINKS  QUESTIONS\n", ""},
 		{"A table of notes and targets", map[string]string{
 			"src/useOrbit.ts.sketch.md": orbitNote,
-			"a.go.sketch.md":            "just thinking\n? why\n",
+			"a.go.sketch.md":            "just thinking\n? why\n-> b.go\n-> c.go\n",
 		}, []string{"ls"}, cli.ExitCodeSuccess,
-			"NOTE                       TARGET            FEATURE          TASK        ITEMS      QUESTIONS\n" +
-				"a.go.sketch.md             +a.go             -                -           -          1\n" +
-				"src/useOrbit.ts.sketch.md  +src/useOrbit.ts  sketch-explorer  read-notes  +useOrbit  1\n", ""},
-		{"Marks against targets that exist", map[string]string{
-			"src/useOrbit.ts":           "export function useOrbit() {}\nconst useOrbitSpeed = 1\n",
-			"src/useOrbit.ts.sketch.md": "#fn useOrbit\n#fn useOrbitSpeed\n#tune Speed\n#type Orbit\n",
+			"NOTE                       TARGET            FEATURE          STATUS  LINKS  QUESTIONS\n" +
+				"a.go.sketch.md             +a.go             -                -       2      1\n" +
+				"src/useOrbit.ts.sketch.md  +src/useOrbit.ts  sketch-explorer  ready   1      1\n", ""},
+		{"Marks against a target that exists", map[string]string{
+			"src/useOrbit.ts": "export function useOrbit() {}\n", "src/useOrbit.ts.sketch.md": "#fn useOrbit\n",
 		}, []string{"ls"}, cli.ExitCodeSuccess,
-			"NOTE                       TARGET            FEATURE  TASK  ITEMS                                      QUESTIONS\n" +
-				"src/useOrbit.ts.sketch.md  ~src/useOrbit.ts  -        -     ~useOrbit, ~useOrbitSpeed, +Speed, +Orbit  0\n", ""},
+			"NOTE                       TARGET            FEATURE  STATUS  LINKS  QUESTIONS\n" +
+				"src/useOrbit.ts.sketch.md  ~src/useOrbit.ts  -        -       0      0\n", ""},
 		{"No notes as JSON", map[string]string{}, []string{"ls", "--json"}, cli.ExitCodeSuccess, "[]\n", ""},
 		{"A note as JSON", map[string]string{"src/useOrbit.ts.sketch.md": orbitNote, "src/useOrbit.ts": "useOrbitSpeed"},
 			[]string{"ls", "--json"},
 			cli.ExitCodeSuccess, `[
   {
-    "schema_version": 1,
+    "schema_version": 2,
     "path": "src/useOrbit.ts.sketch.md",
     "target": "src/useOrbit.ts",
     "mark": "changed",
     "feature": "sketch-explorer",
-    "task": "read-notes",
-    "items": [
+    "status": "ready",
+    "body": "Orbit the camera.\n\n#fn useOrbit target Ref<Vec3>\n-> ./camera.ts : reads the target\n? who owns the camera\n> the fight\n",
+    "edges": [
       {
-        "type": "fn",
-        "name": "useOrbit",
-        "text": "target Ref<Vec3>",
-        "mark": "new"
+        "to": "src/camera.ts",
+        "label": "reads the target"
       }
     ],
     "questions": [
       {
         "text": "who owns the camera",
         "answer": "the fight",
-        "line": 8
+        "line": 9
       }
     ]
   }
 ]
 `, ""},
+		{"Edges marked against the repo and its notes", map[string]string{
+			"a.go.sketch.md": "-> b.go\n-> c.go\n-> d.go\n", "b.go": "", "c.go.sketch.md": "",
+		}, []string{"ls", "--json"}, cli.ExitCodeSuccess, `[
+  {
+    "schema_version": 2,
+    "path": "a.go.sketch.md",
+    "target": "a.go",
+    "mark": "new",
+    "body": "-> b.go\n-> c.go\n-> d.go\n",
+    "edges": [
+      {
+        "to": "b.go",
+        "mark": "changed"
+      },
+      {
+        "to": "c.go",
+        "mark": "new"
+      },
+      {
+        "to": "d.go"
+      }
+    ]
+  },
+  {
+    "schema_version": 2,
+    "path": "c.go.sketch.md",
+    "target": "c.go",
+    "mark": "new",
+    "body": ""
+  }
+]
+`, ""},
 		{"A bad note is named after the rest are listed", map[string]string{
 			"a.go.sketch.md": "---\nfeature: [x\n---\n",
-			"b.go.sketch.md": "#fn b\n",
+			"b.go.sketch.md": "? b\n",
 		}, []string{"ls"}, cli.ExitCodeFailure,
-			"NOTE            TARGET  FEATURE  TASK  ITEMS  QUESTIONS\n" +
-				"b.go.sketch.md  +b.go   -        -     +b     0\n", "a.go.sketch.md: bad front matter"},
+			"NOTE            TARGET  FEATURE  STATUS  LINKS  QUESTIONS\n" +
+				"b.go.sketch.md  +b.go   -        -       0      1\n", "a.go.sketch.md: bad front matter"},
 		{"A note whose target is a folder is named", map[string]string{
-			"web/.keep": "", "web.sketch.md": "#fn a\n", "b.go.sketch.md": "",
+			"web/.keep": "", "web.sketch.md": "a\n", "b.go.sketch.md": "",
 		}, []string{"ls"}, cli.ExitCodeFailure,
-			"NOTE            TARGET  FEATURE  TASK  ITEMS  QUESTIONS\n" +
-				"b.go.sketch.md  +b.go   -        -     -      0\n", "web.sketch.md: "},
-		{"A note that doesn't validate is named", map[string]string{"c.go.sketch.md": "#fn c\x1bd\n"},
+			"NOTE            TARGET  FEATURE  STATUS  LINKS  QUESTIONS\n" +
+				"b.go.sketch.md  +b.go   -        -       0      0\n", "web.sketch.md: plans a folder"},
+		{"A note that doesn't validate is named", map[string]string{"c.go.sketch.md": "---\nstatus: done\n---\n"},
 			[]string{"ls", "--json"}, cli.ExitCodeFailure, "[]\n", "c.go.sketch.md: "},
 		{"An unknown option", map[string]string{}, []string{"ls", "--md"}, cli.ExitCodeUsage, "", "md"},
 	}
@@ -135,8 +167,8 @@ func TestList(t *testing.T) {
 func TestQuestions(t *testing.T) {
 	notes := map[string]string{
 		"web/app.tsx.sketch.md":     "? which router\n",
-		"src/useOrbit.ts.sketch.md": orbitNote + "? how fast\n\n? what eases it\n",
-		"a.go.sketch.md":            "? answered\n> yes\n",
+		"src/useOrbit.ts.sketch.md": orbitNote + "? how fast\n\n\n? what eases it\n",
+		"a.go.sketch.md":            "? answered\n\n> yes\n> and more\n",
 	}
 	tests := []struct {
 		name      string
@@ -148,8 +180,17 @@ func TestQuestions(t *testing.T) {
 	}{
 		{"No notes", map[string]string{}, []string{"questions"}, cli.ExitCodeSuccess, "", ""},
 		{"Open questions by note, then line", notes, []string{"questions"}, cli.ExitCodeSuccess,
-			"src/useOrbit.ts.sketch.md:10: how fast\n" +
-				"src/useOrbit.ts.sketch.md:12: what eases it\n" +
+			"src/useOrbit.ts.sketch.md:11: how fast\n" +
+				"src/useOrbit.ts.sketch.md:14: what eases it\n" +
+				"web/app.tsx.sketch.md:1: which router\n", ""},
+		{"Every question, with its answer below it", notes, []string{"questions", "--all"}, cli.ExitCodeSuccess,
+			"a.go.sketch.md:1: answered\n" +
+				"  > yes\n" +
+				"  > and more\n" +
+				"src/useOrbit.ts.sketch.md:9: who owns the camera\n" +
+				"  > the fight\n" +
+				"src/useOrbit.ts.sketch.md:11: how fast\n" +
+				"src/useOrbit.ts.sketch.md:14: what eases it\n" +
 				"web/app.tsx.sketch.md:1: which router\n", ""},
 		{"No open questions as JSON", map[string]string{"a.go.sketch.md": "? answered\n> yes\n"},
 			[]string{"questions", "--json"}, cli.ExitCodeSuccess, "[]\n", ""},
@@ -159,6 +200,22 @@ func TestQuestions(t *testing.T) {
     "path": "web/app.tsx.sketch.md",
     "line": 2,
     "text": "which router"
+  }
+]
+`, ""},
+		{"Every question as JSON", map[string]string{
+			"a.go.sketch.md": "? answered\n> yes\n> and more\n? open\n",
+		}, []string{"questions", "--json", "--all"}, cli.ExitCodeSuccess, `[
+  {
+    "path": "a.go.sketch.md",
+    "line": 1,
+    "text": "answered",
+    "answer": "yes\nand more"
+  },
+  {
+    "path": "a.go.sketch.md",
+    "line": 4,
+    "text": "open"
   }
 ]
 `, ""},
@@ -222,34 +279,40 @@ func TestListResolvesFeatures(t *testing.T) {
 	}{
 		{"Inside a tix repo, an unknown feature is flagged and the rest list", true, tickets, notes, []string{"ls"},
 			cli.ExitCodeSuccess,
-			"NOTE            TARGET  FEATURE                      TASK  ITEMS  QUESTIONS\n" +
-				"a.go.sketch.md  +a.go   sketch-explorer              -     -      0\n" +
-				"b.go.sketch.md  +b.go   sketch-explorr (not in tix)  -     -      0\n" +
-				"c.go.sketch.md  +c.go   -                            -     -      0\n", "", "ls --all --json\n"},
-		{"Flagged as JSON", true, tickets, map[string]string{"b.go.sketch.md": "---\nfeature: sketch-explorr\n---\n"},
-			[]string{"ls", "--json"}, cli.ExitCodeSuccess, `[
+			"NOTE            TARGET  FEATURE                      STATUS  LINKS  QUESTIONS\n" +
+				"a.go.sketch.md  +a.go   sketch-explorer              -       0      0\n" +
+				"b.go.sketch.md  +b.go   sketch-explorr (not in tix)  -       0      0\n" +
+				"c.go.sketch.md  +c.go   -                            -       0      0\n", "", "ls --all --json\n"},
+		{"Inside a tix repo with no note naming a feature, tix isn't run", true, tickets,
+			map[string]string{"c.go.sketch.md": ""}, []string{"ls"}, cli.ExitCodeSuccess,
+			"NOTE            TARGET  FEATURE  STATUS  LINKS  QUESTIONS\n" +
+				"c.go.sketch.md  +c.go   -        -       0      0\n", "", ""},
+		{"Outside a tix repo, any feature is accepted without running tix", false, tickets, notes, []string{"ls"},
+			cli.ExitCodeSuccess,
+			"NOTE            TARGET  FEATURE          STATUS  LINKS  QUESTIONS\n" +
+				"a.go.sketch.md  +a.go   sketch-explorer  -       0      0\n" +
+				"b.go.sketch.md  +b.go   sketch-explorr   -       0      0\n" +
+				"c.go.sketch.md  +c.go   -                -       0      0\n", "", ""},
+		{"Inside a tix repo without tix on PATH, the notes list with a warning", true, "",
+			map[string]string{"b.go.sketch.md": "---\nfeature: sketch-explorr\n---\n"}, []string{"ls", "--json"},
+			cli.ExitCodeSuccess, `[
   {
-    "schema_version": 1,
+    "schema_version": 2,
     "path": "b.go.sketch.md",
     "target": "b.go",
     "mark": "new",
     "feature": "sketch-explorr",
-    "unknown_feature": true
+    "body": ""
   }
 ]
-`, "", "ls --all --json\n"},
-		{"Inside a tix repo with no note naming a feature, tix isn't run", true, tickets,
-			map[string]string{"c.go.sketch.md": ""}, []string{"ls"}, cli.ExitCodeSuccess,
-			"NOTE            TARGET  FEATURE  TASK  ITEMS  QUESTIONS\n" +
-				"c.go.sketch.md  +c.go   -        -     -      0\n", "", ""},
-		{"Outside a tix repo, any feature is accepted without running tix", false, tickets, notes, []string{"ls"},
+`, "sketch: warning: not checking features: this is a tix repo, but tix isn't on PATH", ""},
+		{"Inside a tix repo where tix fails, the notes list with a warning", true, "not json", notes, []string{"ls"},
 			cli.ExitCodeSuccess,
-			"NOTE            TARGET  FEATURE          TASK  ITEMS  QUESTIONS\n" +
-				"a.go.sketch.md  +a.go   sketch-explorer  -     -      0\n" +
-				"b.go.sketch.md  +b.go   sketch-explorr   -     -      0\n" +
-				"c.go.sketch.md  +c.go   -                -     -      0\n", "", ""},
-		{"Inside a tix repo without tix on PATH", true, "", notes, []string{"ls"}, cli.ExitCodeFailure, "",
-			"tix isn't on PATH", ""},
+			"NOTE            TARGET  FEATURE          STATUS  LINKS  QUESTIONS\n" +
+				"a.go.sketch.md  +a.go   sketch-explorer  -       0      0\n" +
+				"b.go.sketch.md  +b.go   sketch-explorr   -       0      0\n" +
+				"c.go.sketch.md  +c.go   -                -       0      0\n",
+			"sketch: warning: not checking features: tix ls printed tickets sketch can't read", "ls --all --json\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -267,7 +330,7 @@ func TestListResolvesFeatures(t *testing.T) {
 			if stdout != tt.stdout {
 				t.Errorf("sketch %q stdout =\n%s\nwant\n%s", tt.arguments, stdout, tt.stdout)
 			}
-			if !strings.Contains(stderr, tt.stderrHas) {
+			if !strings.Contains(stderr, tt.stderrHas) || (tt.stderrHas == "" && stderr != "") {
 				t.Errorf("sketch %q stderr = %q, want it to say %q", tt.arguments, stderr, tt.stderrHas)
 			}
 			if runs, _ := os.ReadFile(log); string(runs) != tt.runs {
@@ -281,7 +344,7 @@ func TestListResolvesFeatures(t *testing.T) {
 func TestListJSONDecodes(t *testing.T) {
 	_, stdout, _ := inRepo(t, map[string]string{
 		"src/useOrbit.ts.sketch.md": orbitNote,
-		"web/app.tsx.sketch.md":     "#component App\n#hook useApp\n? open\n",
+		"web/app.tsx.sketch.md":     "---\nstatus: draft\n---\n-> ../src/useOrbit.ts\n? open\n> over\n> lines\n",
 	}, "ls", "--json")
 
 	var notes []sketch.Note
@@ -330,23 +393,44 @@ func TestRepoRoot(t *testing.T) {
 	}
 }
 
-// TestUsageNamesEverything keeps the help text in step with the code: every subcommand, every item type, and
-// each note marker.
+// TestUsageNamesEverything keeps the help text in step with the code: every subcommand and option, each line
+// sketch reads, and each suggested marker.
 func TestUsageNamesEverything(t *testing.T) {
 	var words []string
-	for name := range Program.Commands {
+	for name := range newProgram(nil).Commands {
 		words = append(words, name)
 	}
-	words = append(words, "help", sketch.NoteSuffix, "feature:", "task:", "#TYPE", "? QUESTION", "> ANSWER")
-	for _, itemType := range sketch.ItemTypes {
-		words = append(words, string(itemType))
+	words = append(words, "help", "--json", "--all", sketch.NoteSuffix, "feature:", "status:", "-> PATH", "? QUESTION",
+		"> ANSWER", "#fn", "#type", "#component", "#flow", "#test")
+	for _, status := range sketch.Statuses {
+		words = append(words, string(status))
 	}
 	for _, word := range words {
 		t.Run(word, func(t *testing.T) {
-			if !regexp.MustCompile(`(^|[\s,])` + regexp.QuoteMeta(word) + `([\s,]|$)`).MatchString(usage) {
+			if !regexp.MustCompile(`(^|[\s,|\[])` + regexp.QuoteMeta(word) + `([\s,|\]]|$)`).MatchString(usage) {
 				t.Errorf("usage doesn't name %q", word)
 			}
 		})
+	}
+}
+
+// TestUsageExampleParses checks that the example note in the help text reads as the note it describes.
+func TestUsageExampleParses(t *testing.T) {
+	_, example, _ := strings.Cut(usage, "For example, src/useOrbit.ts.sketch.md:\n\n")
+	example, _, _ = strings.Cut(example, "\n\nThe repo root")
+	lines := strings.Split(example, "\n")
+	for index, line := range lines {
+		lines[index] = strings.TrimPrefix(line, "  ")
+	}
+
+	parsed, err := note.Parse("src/useOrbit.ts.sketch.md", strings.Join(lines, "\n"))
+
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	if parsed.Feature != "camera" || parsed.Status != sketch.StatusDraft || len(parsed.Edges) != 1 ||
+		len(parsed.Questions) != 1 || parsed.Questions[0].Answer == "" {
+		t.Errorf("the example parses as %+v, want a draft camera note with one link and one answered question", parsed)
 	}
 }
 

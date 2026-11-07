@@ -25,23 +25,29 @@ tix done "$id"
 ```bash
 go install github.com/theroymind/go-tix/cmd/sketch@latest
 sketch                    # the explorer; a add · A attach · e edit · d delete · r ref · f feature · ? question · n notes · R reload
-sketch ls --json          # every note with its target, marks, items and questions, for agents
-sketch questions --json   # the open questions
+sketch ls --json          # every note with its target, status, body, links and questions, for agents
+sketch questions --json   # the open questions; --all adds answered ones with their answers
 ```
 
-A note is free text. These lines give it structure, and `sketch help` has the details:
+A note is a blueprint for whoever builds the file, person or agent, and its whole body is read as written. sketch reads only a few lines, and `sketch help` has the details:
 
 ```markdown
 ---
 feature: camera-controls
+status: draft
 ---
 # useOrbit.ts
-#fn useOrbit target Ref<Vec3>
+
+#fn useOrbit(target: Ref<Vec3>) -> { yaw, pitch }
+#test releasing the drag eases back to rest
+-> ./useCamera.ts : reads the pitch limits
+
 ? clamp pitch here or in useCamera
-> in useCamera, it owns the limits
+> in useCamera,
+> it owns the limits
 ```
 
-`feature:` and `task:` link the note to tix tickets. `#fn`, `#type`, `#component`, `#hook`, `#flow`, `#tune`, `#rule` and `#test` name an item. A `?` line is an open question until a `>` line right under it answers it.
+`feature:` links the note to a tix feature, and `status:` is `draft` or `ready`. A `-> path : label` line links to another file, from the repo root or, starting with `./` or `../`, from the note's folder. A `?` line is an open question until `>` lines right under it, or under one blank line, answer it. `#fn`, `#type`, `#component`, `#flow` and `#test` are a suggested convention for describing what the file holds; sketch doesn't parse them. tix is optional: without it, `sketch ls` warns and skips checking features.
 
 In LazyVim, this spec in `~/.config/nvim/lua/plugins/sketch.lua` opens it in a float on `<leader>k`, as LazyVim opens lazygit. `e` in the float hides it and opens the note in that nvim, and the next `<leader>k` brings the explorer back. The explorer reloads when its terminal regains focus, and `R` reloads it by hand.
 
@@ -86,7 +92,7 @@ return {
 }
 ```
 
-The `#TYPE` lines read as headings without a space to markdownlint, and a note needn't start with a heading. With markdownlint-cli2 0.23.0 or later, as LazyVim's markdown extra runs, this `.markdownlint-cli2.yaml` at the repo root turns off those two rules for notes only:
+The `#fn`-style lines read as headings without a space to markdownlint, and a note needn't start with a heading. With markdownlint-cli2 0.23.0 or later, as LazyVim's markdown extra runs, this `.markdownlint-cli2.yaml` at the repo root turns off those two rules for notes only:
 
 ```yaml
 overrides:

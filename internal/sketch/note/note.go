@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -21,11 +22,11 @@ var (
 	ErrFrontMatter = errors.New("bad front matter")
 )
 
-// frontMatter holds the keys a note's front matter links it with. Any other key is ignored, since notes are
+// frontMatter holds the keys sketch reads from a note's front matter. Any other key is ignored, since notes are
 // written by hand.
 type frontMatter struct {
 	Feature string `yaml:"feature"`
-	Task    string `yaml:"task"`
+	Status  string `yaml:"status"`
 }
 
 // Target returns the path of the file the note at notePath plans, in the same folder: a/b/useOrbit.ts.sketch.md
@@ -48,27 +49,31 @@ func Load(root, notePath string) (sketch.Note, error) {
 }
 
 // Parse reads text as the note at notePath. Optional YAML front matter between --- lines at the very top gives
-// the feature and task. Below it, a line #TYPE NAME REST, where TYPE is a sketch item type, names an item; a line
-// starting ? asks a question, and a line starting > right under it answers it. Every other line is free text and
-// is skipped. Only front matter with no closing --- line, or that isn't YAML, fails, with ErrFrontMatter.
+// the feature and status, and everything below it is the body, kept as written. In the body, a line -> PATH or
+// -> PATH : LABEL links to another file, and a line starting ? asks a question, answered by the lines starting >
+// right under it, or under one blank line below it. Every other line is free text. Only front matter with no
+// closing --- line, or that isn't YAML, fails, with ErrFrontMatter.
 func Parse(notePath, text string) (sketch.Note, error) {
 	target, err := Target(notePath)
 	if err != nil {
 		return sketch.Note{}, err
 	}
 	value := sketch.Note{SchemaVersion: sketch.SchemaVersion, Path: notePath, Target: target}
-	lines := strings.Split(text, "\n")
-	for index := range lines {
-		lines[index] = strings.TrimRightFunc(lines[index], unicode.IsSpace)
+	rawLines := strings.Split(text, "\n")
+	lines := make([]string, len(rawLines))
+	for index, line := range rawLines {
+		lines[index] = strings.TrimRightFunc(line, unicode.IsSpace)
 	}
-	body, err := readFrontMatter(lines, &value)
+	bodyStart, err := readFrontMatter(lines, &value)
 	if err != nil {
 		return sketch.Note{}, fmt.Errorf("%s: %w", notePath, err)
 	}
-	for index := body; index < len(lines); index++ {
+	value.Body = strings.Join(rawLines[bodyStart:], "\n")
+	noteFolder := path.Dir(notePath)
+	for index := bodyStart; index < len(lines); index++ {
 		line := lines[index]
-		if item, isItem := parseItem(line); isItem {
-			value.Items = append(value.Items, item)
+		if edge, isEdge := parseEdge(line, noteFolder); isEdge {
+			value.Edges = append(value.Edges, edge)
 			continue
 		}
 		questionText, isQuestion := strings.CutPrefix(line, questionMarker)
@@ -77,18 +82,13 @@ func Parse(notePath, text string) (sketch.Note, error) {
 			continue
 		}
 		question := sketch.Question{Text: questionText, Line: index + 1}
-		if index+1 < len(lines) {
-			if answer, isAnswer := parseAnswer(lines[index+1]); isAnswer {
-				question.Answer = answer
-				index++
-			}
-		}
+		question.Answer, index = readAnswer(lines, index+1)
 		value.Questions = append(value.Questions, question)
 	}
 	return value, nil
 }
 
-// readFrontMatter fills value's feature and task from the front matter at the top of lines, when there is any,
+// readFrontMatter fills value's feature and status from the front matter at the top of lines, when there is any,
 // and returns the index of the first line below it.
 func readFrontMatter(lines []string, value *sketch.Note) (int, error) {
 	if lines[0] != frontMatterFence {
@@ -102,10 +102,55 @@ func readFrontMatter(lines []string, value *sketch.Note) (int, error) {
 		if err := yaml.Unmarshal([]byte(strings.Join(lines[1:index], "\n")), &fields); err != nil {
 			return 0, fmt.Errorf("%w: %w", ErrFrontMatter, err)
 		}
-		value.Feature, value.Task = strings.TrimSpace(fields.Feature), strings.TrimSpace(fields.Task)
+		value.Feature = strings.TrimSpace(fields.Feature)
+		value.Status = sketch.Status(strings.TrimSpace(fields.Status))
 		return index + 1, nil
 	}
 	return 0, fmt.Errorf("%w: no closing %s line", ErrFrontMatter, frontMatterFence)
+}
+
+// parseEdge reads a line -> PATH or -> PATH : LABEL as an edge. PATH is from the repo root, or from noteFolder when
+// it starts with ./ or ../, and is stored clean and from the repo root. A line with no path, or whose path leaves
+// the repo, is free text.
+func parseEdge(line, noteFolder string) (sketch.Edge, bool) {
+	link, isLink := strings.CutPrefix(line, edgeMarker)
+	if !isLink {
+		return sketch.Edge{}, false
+	}
+	linkPath, label, _ := strings.Cut(link, labelSeparator)
+	linkPath = strings.TrimSpace(linkPath)
+	if strings.HasPrefix(linkPath, currentFolderPrefix) || strings.HasPrefix(linkPath, parentFolderPrefix) {
+		linkPath = path.Join(noteFolder, linkPath)
+	}
+	linkPath = path.Clean(linkPath)
+	if linkPath == "." || linkPath == parentFolder || strings.HasPrefix(linkPath, parentFolderPrefix) ||
+		path.IsAbs(linkPath) {
+		return sketch.Edge{}, false
+	}
+	return sketch.Edge{To: linkPath, Label: strings.TrimSpace(label)}, true
+}
+
+// readAnswer reads the answer starting at lines[start]: the consecutive lines starting >, which may follow one
+// blank line, each with the > and surrounding spaces cut, joined with newlines. It returns the answer and the
+// index of its last line, or start-1 when there's no answer, so the blank line stays free text.
+func readAnswer(lines []string, start int) (string, int) {
+	first := start
+	if first < len(lines) && lines[first] == "" {
+		first++
+	}
+	var answer []string
+	index := first
+	for ; index < len(lines); index++ {
+		text, isAnswer := strings.CutPrefix(lines[index], answerMarker)
+		if !isAnswer {
+			break
+		}
+		answer = append(answer, strings.TrimSpace(text))
+	}
+	if len(answer) == 0 {
+		return "", start - 1
+	}
+	return strings.TrimSpace(strings.Join(answer, "\n")), index - 1
 }
 
 // SetFeature returns text with its front matter linking it to feature: the feature line replaced when there is
@@ -129,35 +174,4 @@ func SetFeature(text, feature string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("%w: no closing %s line", ErrFrontMatter, frontMatterFence)
-}
-
-// parseItem reads a line #TYPE NAME REST as an item. A #word that isn't an item type, such as an Obsidian tag,
-// a # heading, and an item type with no name are free text.
-func parseItem(line string) (sketch.Item, bool) {
-	marked, isMarked := strings.CutPrefix(line, itemMarker)
-	if !isMarked {
-		return sketch.Item{}, false
-	}
-	itemType, afterType := cutWord(marked)
-	name, rest := cutWord(afterType)
-	if !sketch.ItemType(itemType).IsValid() || name == "" {
-		return sketch.Item{}, false
-	}
-	return sketch.Item{Type: sketch.ItemType(itemType), Name: name, Text: rest}, true
-}
-
-// parseAnswer reads a line starting > as an answer, the text after it trimmed.
-func parseAnswer(line string) (string, bool) {
-	answer, isAnswer := strings.CutPrefix(line, answerMarker)
-	return strings.TrimSpace(answer), isAnswer
-}
-
-// cutWord splits text at its first run of spaces, returning the word before it and the text after, trimmed.
-// text that starts with a space has an empty first word.
-func cutWord(text string) (string, string) {
-	end := strings.IndexFunc(text, unicode.IsSpace)
-	if end < 0 {
-		return text, ""
-	}
-	return text[:end], strings.TrimSpace(text[end:])
 }

@@ -1,9 +1,9 @@
 ---
 type: feature
-status: todo
+status: active
 summary: Sketch notes become free-form blueprints for agents, with links, a ready status, a paired nvim editor and a whole-feature plan view with a Mermaid graph.
 created_at: 2026-11-07T18:47:01Z
-updated_at: 2026-11-07T18:47:01Z
+updated_at: 2026-11-07T18:54:39Z
 ---
 
 # Sketch blueprints

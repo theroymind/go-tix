@@ -15,10 +15,11 @@ func validNote() Note {
 		Target:        "src/useOrbit.ts",
 		Mark:          MarkChanged,
 		Feature:       "sketch-explorer",
-		Task:          "read-notes",
-		Items: []Item{{Type: ItemTypeFn, Name: "useOrbit", Text: "target Ref<Vec3>", Mark: MarkChanged},
-			{Type: ItemTypeType, Name: "Orbit", Mark: MarkNew}},
-		Questions: []Question{{Text: "who owns the camera?", Line: 7}, {Text: "how fast?", Answer: "1 rad/s", Line: 9}},
+		Status:        StatusReady,
+		Body:          "Orbit the camera.\n\tfn useOrbit(target)\n",
+		Edges: []Edge{{To: "src/camera.ts", Label: "reads the target", Mark: MarkChanged},
+			{To: "src/speed.ts", Mark: MarkNew}, {To: "src/gone.ts"}},
+		Questions: []Question{{Text: "who owns the camera?", Line: 7}, {Text: "how fast?", Answer: "1 rad/s\nmaybe 2", Line: 9}},
 	}
 }
 
@@ -30,15 +31,14 @@ func TestNoteValidate(t *testing.T) {
 	}{
 		{"A note with every part", func(*Note) {}, nil},
 		{"A bare note", func(value *Note) {
-			value.Mark, value.Feature, value.Task, value.Items, value.Questions = "", "", "", nil, nil
+			value.Mark, value.Feature, value.Status, value.Body, value.Edges, value.Questions = "", "", "", "", nil, nil
 		}, nil},
 		{"An unknown note mark", func(value *Note) { value.Mark = "+" }, []string{FieldMark}},
-		{"An unknown item mark", func(value *Note) { value.Items[0].Mark = "~" }, []string{"items.0.mark"}},
-		{"An unmarked item", func(value *Note) { value.Items[0].Mark = "" }, nil},
-		{"A feature tix doesn't know", func(value *Note) { value.UnknownFeature = true }, nil},
-		{"An unknown feature with no feature", func(value *Note) { value.UnknownFeature, value.Feature = true, "" },
-			[]string{FieldUnknownFeature}},
-		{"An unknown schema version", func(value *Note) { value.SchemaVersion = 2 }, []string{FieldSchemaVersion}},
+		{"A draft note", func(value *Note) { value.Status = StatusDraft }, nil},
+		{"An unknown status", func(value *Note) { value.Status = "done" }, []string{FieldStatus}},
+		{"A status in the wrong case", func(value *Note) { value.Status = "Ready" }, []string{FieldStatus}},
+		{"A body with control characters", func(value *Note) { value.Body = "a\tb\r\n\x1b" }, nil},
+		{"An unknown schema version", func(value *Note) { value.SchemaVersion = 1 }, []string{FieldSchemaVersion}},
 		{"A missing schema version", func(value *Note) { value.SchemaVersion = 0 }, []string{FieldSchemaVersion}},
 		{"A missing target", func(value *Note) { value.Target = "" }, []string{FieldTarget}},
 		{"A missing path", func(value *Note) { value.Path = "" }, []string{FieldPath}},
@@ -54,12 +54,13 @@ func TestNoteValidate(t *testing.T) {
 			value.Target, value.Path = "src//useOrbit.ts", "src//useOrbit.ts.sketch.md"
 		}, []string{FieldPath, FieldTarget}},
 		{"A tab in the feature", func(value *Note) { value.Feature = "sketch\texplorer" }, []string{FieldFeature}},
-		{"An escape in the task", func(value *Note) { value.Task = "read\x1bnotes" }, []string{FieldTask}},
-		{"An unknown item type", func(value *Note) { value.Items[1].Type = "struct" }, []string{"items.1.type"}},
-		{"An empty item name", func(value *Note) { value.Items[0].Name = " " }, []string{"items.0.name"}},
-		{"A control character in an item name", func(value *Note) { value.Items[0].Name = "use\x00Orbit" },
-			[]string{"items.0.name"}},
-		{"A repeated item name", func(value *Note) { value.Items[1].Name = "useOrbit" }, nil},
+		{"An edge with no path", func(value *Note) { value.Edges[0].To = "" }, []string{"edges.0.to"}},
+		{"An edge that isn't clean", func(value *Note) { value.Edges[1].To = "src/./speed.ts" }, []string{"edges.1.to"}},
+		{"An edge escaping the repo", func(value *Note) { value.Edges[0].To = "../camera.ts" }, []string{"edges.0.to"}},
+		{"An absolute edge", func(value *Note) { value.Edges[0].To = "/src/camera.ts" }, []string{"edges.0.to"}},
+		{"A control character in an edge label", func(value *Note) { value.Edges[0].Label = "a\tb" },
+			[]string{"edges.0.label"}},
+		{"An unknown edge mark", func(value *Note) { value.Edges[2].Mark = "!" }, []string{"edges.2.mark"}},
 		{"An empty question", func(value *Note) { value.Questions[0].Text = "" }, []string{"questions.0.text"}},
 		{"A question without a line number", func(value *Note) { value.Questions[1].Line = 0 },
 			[]string{"questions.1.line"}},
@@ -83,21 +84,20 @@ func TestNoteValidate(t *testing.T) {
 	}
 }
 
-func TestItemTypeIsValid(t *testing.T) {
+func TestStatusIsValid(t *testing.T) {
 	tests := []struct {
 		name     string
-		itemType ItemType
+		status   Status
 		expected bool
 	}{
-		{"fn", ItemTypeFn, true},
-		{"test", ItemTypeTest, true},
-		{"An empty type", "", false},
-		{"The wrong case", "Fn", false},
-		{"A tag that isn't a type", "todo", false},
+		{"Draft", StatusDraft, true},
+		{"Ready", StatusReady, true},
+		{"Unset", "", true},
+		{"Unknown", "done", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if actual := tt.itemType.IsValid(); actual != tt.expected {
+			if actual := tt.status.IsValid(); actual != tt.expected {
 				t.Errorf("IsValid() = %v, want %v", actual, tt.expected)
 			}
 		})

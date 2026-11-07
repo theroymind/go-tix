@@ -1,5 +1,5 @@
 // Package command provides the sketch commands: the explorer, which bare sketch opens on the repo tree; ls, which
-// lists the repo's .sketch.md notes as a table or JSON; questions, which lists their open questions; and help, which
+// lists the repo's .sketch.md notes as a table or JSON; questions, which lists their questions; and help, which
 // documents the note format.
 package command
 
@@ -40,67 +40,99 @@ so e can open it to fix it. In a list, type to filter, the arrows or ctrl+n/ctrl
 cancels.
 
 commands:
-  ls [--json]          lists every note under the repo root with the file it plans, + when that file is new
-                       or ~ when it exists, its feature and task, its items, each + when the file doesn't
-                       hold its name yet or ~ when it does, and how many questions it asks; in a tix repo, a
-                       feature tix has no ticket for is flagged (not in tix); --json prints an array of notes
-                       with mark new or changed, and unknown_feature: true on a flagged one
-  questions [--json]   lists each open question as NOTE:LINE: QUESTION, by note and then line; --json prints
-                       an array of {path, line, text}
-  help                 prints this
+  ls [--json]                lists every note under the repo root with the file it plans, + when that file is
+                             new or ~ when it exists, its feature and status, how many links it has and how
+                             many questions it asks; in a tix repo, a feature tix has no ticket for is flagged
+                             (not in tix); --json prints an array of notes, each with its whole body, its links
+                             as edges, + (new) when a note plans the linked file or ~ (changed) when it exists,
+                             and its questions
+  questions [--json] [--all] lists each open question as NOTE:LINE: QUESTION, by note and then line; --all adds
+                             answered ones, each answer line below its question after > ; --json prints an array
+                             of {path, line, text, answer}
+  help                       prints this
 
 A note is a plain markdown file beside the file it plans, named after it with .sketch.md added:
-src/useOrbit.ts.sketch.md plans src/useOrbit.ts, whether or not that file exists yet. Write whatever you like in
-it; these lines give it structure, and every other line is free text, never an error:
+src/useOrbit.ts.sketch.md plans src/useOrbit.ts, whether or not that file exists yet. It's a blueprint for
+whoever builds the file, person or agent, and its whole body is read as written. sketch reads only these lines;
+every other line is free text, never an error:
 
   ---                         optional front matter, only at the very top, between two --- lines:
   feature: FEATURE            the tix feature the note belongs to
-  task: TASK                  and the tix task
+  status: draft|ready         whether the note is still being written or is ready to build from
   ---
-  #TYPE NAME [TEXT]           an item the file will hold, where TYPE is one of
-                              fn, type, component, hook, flow, tune, rule or test, and TEXT is the rest of the
-                              line, such as #fn useOrbit target Ref<Vec3>
+  -> PATH [: LABEL]           a link to another file, from the repo root, or from the note's folder when PATH
+                              starts with ./ or ../, such as -> ./camera.ts : reads the target
   ? QUESTION                  an open question
-  > ANSWER                    on the line right under a question, its answer
+  > ANSWER                    answers the question above it, on the line right under it or under one blank
+                              line, and runs on over the > lines that follow
 
-Markers start the line. A #word that isn't an item type, such as #todo, and a # heading are free text, and so is
-a > line that isn't right under a question. The repo root is the nearest directory above holding .tix or .git.
-In a git repo, sketch sees the files git does, tracked or not but never ignored; outside one, it skips hidden
-folders and node_modules. ls and questions list every note they can read, and then fail naming any they
-couldn't. To quiet markdownlint's MD018 and MD041 on notes, see the README's .markdownlint-cli2.yaml override.
+Markers start the line. A > line that isn't under a question is free text, and so is a link that leaves the repo.
+To describe what the file holds, these markers are a suggested, language-neutral convention; sketch doesn't
+parse them: #fn for a function, #type for a type, #component for a UI component, #flow for a sequence of steps,
+and #test for a behaviour to test. For example, src/useOrbit.ts.sketch.md:
+
+  ---
+  feature: camera
+  status: draft
+  ---
+  Orbit the camera around the fight.
+
+  #fn useOrbit(target: Ref<Vec3>) -> { yaw, pitch }
+  #flow drag -> update yaw and pitch -> ease back when released
+  #test releasing the drag eases back to rest
+  -> ./camera.ts : reads the camera's target
+
+  ? how fast does it ease back
+  > about 1 rad/s,
+  > slower when zoomed in
+
+The repo root is the nearest directory above holding .tix or .git. In a git repo, sketch sees the files git does,
+tracked or not but never ignored; outside one, it skips hidden folders and node_modules. ls and questions list
+every note they can read, and then fail naming any they couldn't. In a tix repo, when tix can't be run, ls warns
+and lists the notes without checking their features. To quiet markdownlint's MD018 and MD041 on notes, see the
+README's .markdownlint-cli2.yaml override.
 `
 
 const (
 	optionJSON  = "json"
-	tableHeader = "NOTE\tTARGET\tFEATURE\tTASK\tITEMS\tQUESTIONS"
+	optionAll   = "all"
+	tableHeader = "NOTE\tTARGET\tFEATURE\tSTATUS\tLINKS\tQUESTIONS"
 	tablePad    = 2
 	noValue     = "-"
 
 	unknownFeatureMarker = " (not in tix)"
-	itemSeparator        = ", "
+	answerPrefix         = "  > "
+	warningFormat        = "%s: warning: not checking features: %v\n"
 )
+
+const programName = "sketch"
 
 var rootMarkers = []string{".tix", ".git"}
 
 var ErrUnreadableNotes = errors.New("some notes couldn't be read")
 
-var Program = cli.Program{
-	Name:  "sketch",
-	Usage: usage,
-	Commands: map[string]cli.Command{
-		"ls":        runList,
-		"questions": runQuestions,
-	},
+// newProgram returns sketch's commands, which print warnings on stderr.
+func newProgram(stderr io.Writer) cli.Program {
+	return cli.Program{
+		Name:  programName,
+		Usage: usage,
+		Commands: map[string]cli.Command{
+			"ls": func(arguments []string, _ io.Reader, stdout io.Writer) error {
+				return runList(arguments, stdout, stderr)
+			},
+			"questions": runQuestions,
+		},
+	}
 }
 
 // Run runs sketch with arguments: the explorer when there are none and stdin and stdout are a terminal, otherwise
 // the command they name, with no arguments printing the usage.
 func Run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) cli.ExitCode {
 	if len(arguments) > 0 || !isTerminal(stdin) || !isTerminal(stdout) {
-		return Program.Run(arguments, stdin, stdout, stderr)
+		return newProgram(stderr).Run(arguments, stdin, stdout, stderr)
 	}
 	if err := runExplorer(stdin, stdout); err != nil {
-		_, _ = fmt.Fprintf(stderr, "%s: %v\n", Program.Name, err)
+		_, _ = fmt.Fprintf(stderr, "%s: %v\n", programName, err)
 		return cli.ExitCodeFailure
 	}
 	return cli.ExitCodeSuccess
@@ -129,11 +161,11 @@ func runExplorer(stdin io.Reader, stdout io.Writer) error {
 	return unreadable(final.(explorer.Model).Problems())
 }
 
-// runList prints every note under the repo root that reads and validates, marked against its target and, in a
-// tix repo, flagged when tix has no ticket for its feature, as a table or a JSON array. It then fails naming each
-// note that didn't read, so one bad note never hides the rest.
-func runList(arguments []string, _ io.Reader, stdout io.Writer) error {
-	asJSON, err := parseJSONOption(arguments)
+// runList prints every note under the repo root that reads and validates, marked against the repo, as a table
+// or a JSON array; in a tix repo, the table flags a feature tix has no ticket for. It then fails naming each note
+// that didn't read, so one bad note never hides the rest.
+func runList(arguments []string, stdout, stderr io.Writer) error {
+	parsed, err := parseOptions(arguments, optionJSON)
 	if err != nil {
 		return err
 	}
@@ -145,13 +177,11 @@ func runList(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if err := flagUnknownFeatures(refs.New(root), loaded.Notes); err != nil {
-		return err
-	}
-	if asJSON {
+	unknown := unknownFeatures(refs.New(root), loaded.Notes, stderr)
+	if parsed.IsEnabled(optionJSON) {
 		err = cli.WriteJSON(stdout, loaded.Notes)
 	} else {
-		err = writeTable(stdout, loaded.Notes)
+		err = writeTable(stdout, loaded.Notes, unknown)
 	}
 	if err != nil {
 		return err
@@ -159,10 +189,10 @@ func runList(arguments []string, _ io.Reader, stdout io.Writer) error {
 	return unreadable(loaded.Problems)
 }
 
-// runQuestions prints each open question under the repo root with the note and line that asks it, as
-// path:line: text lines or a JSON array, and then fails naming each note that didn't read.
+// runQuestions prints each open question under the repo root, or with --all every question, with the note and
+// line that asks it, as path:line: text lines or a JSON array, and then fails naming each note that didn't read.
 func runQuestions(arguments []string, _ io.Reader, stdout io.Writer) error {
-	asJSON, err := parseJSONOption(arguments)
+	parsed, err := parseOptions(arguments, optionJSON, optionAll)
 	if err != nil {
 		return err
 	}
@@ -174,11 +204,14 @@ func runQuestions(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	open := questions.Open(loaded.Notes)
-	if asJSON {
-		err = cli.WriteJSON(stdout, open)
+	listed := questions.Open(loaded.Notes)
+	if parsed.IsEnabled(optionAll) {
+		listed = questions.All(loaded.Notes)
+	}
+	if parsed.IsEnabled(optionJSON) {
+		err = cli.WriteJSON(stdout, listed)
 	} else {
-		err = writeQuestions(stdout, open)
+		err = writeQuestions(stdout, listed)
 	}
 	if err != nil {
 		return err
@@ -186,33 +219,35 @@ func runQuestions(arguments []string, _ io.Reader, stdout io.Writer) error {
 	return unreadable(loaded.Problems)
 }
 
-// parseJSONOption parses a command's arguments, which take only --json, and reports whether it was given.
-func parseJSONOption(arguments []string) (bool, error) {
-	parsed, err := cli.Parse(arguments, cli.Specification{
-		Options: []cli.Option{{Name: optionJSON, Type: cli.OptionTypeBoolean}},
-	})
-	if err != nil {
-		return false, err
+// parseOptions parses a command's arguments, which take only the named boolean options.
+func parseOptions(arguments []string, names ...string) (cli.Arguments, error) {
+	var options []cli.Option
+	for _, name := range names {
+		options = append(options, cli.Option{Name: name, Type: cli.OptionTypeBoolean})
 	}
-	return parsed.IsEnabled(optionJSON), nil
+	return cli.Parse(arguments, cli.Specification{Options: options})
 }
 
-// flagUnknownFeatures sets UnknownFeature on each note whose feature tix has no ticket for. It asks tix once, and
-// only in a tix repo where some note names a feature; outside one, any feature is accepted.
-func flagUnknownFeatures(resolver refs.Resolver, notes []sketch.Note) error {
+// unknownFeatures returns the set of features notes name that tix has no ticket for. It asks tix once, and only
+// in a tix repo where some note names a feature; outside one, any feature is accepted. When tix can't be run, it
+// warns on stderr and accepts every feature, so the notes still list.
+func unknownFeatures(resolver refs.Resolver, notes []sketch.Note, stderr io.Writer) map[string]bool {
 	namesFeature := func(value sketch.Note) bool { return value.Feature != "" }
 	if !resolver.IsTixRepo() || !slices.ContainsFunc(notes, namesFeature) {
 		return nil
 	}
 	tickets, err := resolver.Tickets()
 	if err != nil {
-		return err
+		_, _ = fmt.Fprintf(stderr, warningFormat, programName, err)
+		return nil
 	}
-	for index := range notes {
-		feature := notes[index].Feature
-		notes[index].UnknownFeature = feature != "" && !tickets[feature]
+	unknown := map[string]bool{}
+	for _, value := range notes {
+		if value.Feature != "" && !tickets[value.Feature] {
+			unknown[value.Feature] = true
+		}
 	}
-	return nil
+	return unknown
 }
 
 // unreadable joins the errors of notes that didn't read under ErrUnreadableNotes, or returns nil when there are
@@ -225,24 +260,20 @@ func unreadable(problems []error) error {
 }
 
 // writeTable writes one row per note: its target with + when the file is new or ~ when it exists, its feature
-// marked when tix doesn't know it, and each item's name with its own + or ~. A feature, task or items the note
-// doesn't have show as -.
-func writeTable(writer io.Writer, notes []sketch.Note) error {
+// marked when it's among unknown, its status, and how many links and questions it has. A feature or status the
+// note doesn't have shows as -.
+func writeTable(writer io.Writer, notes []sketch.Note, unknown map[string]bool) error {
 	table := tabwriter.NewWriter(writer, 0, 0, tablePad, ' ', 0)
 	if _, err := fmt.Fprintln(table, tableHeader); err != nil {
 		return err
 	}
 	for _, value := range notes {
 		feature := orNoValue(value.Feature)
-		if value.UnknownFeature {
+		if unknown[value.Feature] {
 			feature += unknownFeatureMarker
 		}
-		var items []string
-		for _, item := range value.Items {
-			items = append(items, item.Mark.Symbol()+item.Name)
-		}
-		_, err := fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%d\n", value.Path, value.Mark.Symbol()+value.Target, feature,
-			orNoValue(value.Task), orNoValue(strings.Join(items, itemSeparator)), len(value.Questions))
+		_, err := fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%d\t%d\n", value.Path, value.Mark.Symbol()+value.Target, feature,
+			orNoValue(string(value.Status)), len(value.Edges), len(value.Questions))
 		if err != nil {
 			return err
 		}
@@ -250,11 +281,20 @@ func writeTable(writer io.Writer, notes []sketch.Note) error {
 	return table.Flush()
 }
 
-// writeQuestions writes one path:line: text line per question, the form editors and grep use.
-func writeQuestions(writer io.Writer, open []questions.Question) error {
-	for _, question := range open {
+// writeQuestions writes one path:line: text line per question, the form editors and grep use, followed by each
+// line of its answer, if it has one, after > .
+func writeQuestions(writer io.Writer, listed []questions.Question) error {
+	for _, question := range listed {
 		if _, err := fmt.Fprintf(writer, "%s:%d: %s\n", question.Path, question.Line, question.Text); err != nil {
 			return err
+		}
+		if question.Answer == "" {
+			continue
+		}
+		for _, line := range strings.Split(question.Answer, "\n") {
+			if _, err := fmt.Fprintln(writer, answerPrefix+line); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
