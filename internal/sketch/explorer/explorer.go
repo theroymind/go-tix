@@ -292,14 +292,27 @@ func (model *Model) editExternally() tea.Cmd {
 	return model.external(model.filePath(notePath), 0, func(err error) tea.Msg { return editedMsg{err: err} })
 }
 
-// askDelete asks before deleting the selected node's note.
+// askDelete asks before deleting the selected node's note, or on a folder every note under it that shows.
 func (model *Model) askDelete() {
 	node := model.selected()
-	if node == nil || node.Note == nil {
+	switch {
+	case node != nil && node.IsDir:
+		var notes []string
+		for _, below := range nodes(node) {
+			if below.Note != nil {
+				notes = append(notes, below.Note.Path)
+			}
+		}
+		if len(notes) == 0 {
+			model.status = noNotesToDelete
+			return
+		}
+		model.prompt = prompt{kind: promptDelete, path: node.Path + folderSuffix, notes: notes}
+	case node == nil || node.Note == nil:
 		model.status = noNoteToDelete
-		return
+	default:
+		model.prompt = prompt{kind: promptDelete, path: node.Note.Path, notes: []string{node.Note.Path}}
 	}
-	model.prompt = prompt{kind: promptDelete, path: node.Note.Path}
 }
 
 // createNote writes a new note planning target, unless one is already there, then shows it in the tree and opens

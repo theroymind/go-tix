@@ -37,10 +37,11 @@ the selected file; on a note, a opens it. A typed .sketch.md or .sketch comes ou
 useOrbit.ts, and a name with no extension is fine; a new note's name shows in the status line. enter or e on a
 file opens its note, adding one when it has none, for editing in the preview pane beside the tree: esc saves it and
 goes back to the tree, ctrl+s saves, ctrl+x goes back without saving, asking first when there are changes, and
-ctrl+c saves and quits. E opens the note in $EDITOR instead, and d deletes it after asking. Inside an nvim that has
-the sketch_show function the README's LazyVim spec defines, the preview hides, moving onto a note, in the tree or
-the plan view, shows it in nvim's main window, and enter, e, a and > open it there with focus; in an nvim without
-it, the preview pane edits notes and E opens them with nvim --remote. r on a note lists the repo's files and planned ones and adds the one you pick to the note as a
+ctrl+c saves and quits. E opens the note in $EDITOR instead. d deletes the note after asking, or on a folder every
+note under it that shows, and removes the folders that leaves empty. Inside an nvim that has the sketch_show
+function the README's LazyVim spec defines, the preview hides, moving onto a note, in the tree or the plan view,
+shows it in nvim's main window, and enter, e, a and > open it there with focus; in an nvim without it, the preview
+pane edits notes and E opens them with nvim --remote. r on a note lists the repo's files and planned ones and adds the one you pick to the note as a
 "-> path" line; f filters the tree to one feature's notes, picked from tix's features and the ones notes name,
 links new notes to it, and is kept for the branch until cleared; L links the note to a feature; y marks the
 selected note ready, or back to draft, and new notes start draft, shown dimmed; ] and [ jump to the next and

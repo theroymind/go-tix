@@ -28,14 +28,15 @@ type promptKind int
 const (
 	promptNone   promptKind = iota
 	promptName              // asks for the name of a file to plan in a folder
-	promptDelete            // asks y/n before deleting a note
+	promptDelete            // asks y/n before deleting a note, or every note under a folder
 )
 
-// prompt is the question the footer asks, if any: path is the folder a name prompt creates in, or the note a
-// delete prompt deletes, and typed is the name typed so far.
+// prompt is the question the footer asks, if any: path is the folder a name prompt creates in, or the note or
+// folder a delete prompt deletes, notes are the notes a delete prompt deletes, and typed is the name typed so far.
 type prompt struct {
 	kind  promptKind
 	path  string
+	notes []string
 	typed string
 }
 
@@ -45,7 +46,10 @@ func (prompt prompt) line() string {
 	case promptName:
 		return fmt.Sprintf(namePrompt, prompt.path, prompt.typed)
 	case promptDelete:
-		return fmt.Sprintf(deletePrompt, prompt.path)
+		if len(prompt.notes) == 1 && prompt.notes[0] == prompt.path {
+			return fmt.Sprintf(deletePrompt, prompt.path)
+		}
+		return fmt.Sprintf(deleteFolderPrompt, count(len(prompt.notes), "note"), prompt.path)
 	}
 	return ""
 }
@@ -77,18 +81,41 @@ func (model *Model) answerName(message tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
-// answerDelete deletes the note on y, and cancels on any other key.
+// answerDelete deletes the prompt's notes on y, along with the folders that leaves empty, and cancels on any other
+// key.
 func (model *Model) answerDelete(message tea.KeyPressMsg) {
-	notePath := model.prompt.path
+	notes := model.prompt.notes
 	model.prompt = prompt{}
 	if message.String() != "y" {
 		return
 	}
-	if err := os.Remove(model.filePath(notePath)); err != nil {
-		model.status = err.Error()
-		return
+	var deleted int
+	var failed error
+	for _, notePath := range notes {
+		if err := os.Remove(model.filePath(notePath)); err != nil {
+			failed = err
+			continue
+		}
+		deleted++
+		model.removeEmptyFolders(path.Dir(notePath))
 	}
 	model.reload(model.selectedPath())
+	switch {
+	case failed != nil:
+		model.status = failed.Error()
+	case len(notes) > 1:
+		model.status = fmt.Sprintf(deletedNotes, count(deleted, "note"))
+	}
+}
+
+// removeEmptyFolders removes the folder at folder, under the repo root, when it's empty, and then each folder above
+// it that this leaves empty, up to the root. A folder holding anything stays, since os.Remove won't take it.
+func (model Model) removeEmptyFolders(folder string) {
+	for ; folder != rootFolder; folder = path.Dir(folder) {
+		if os.Remove(model.filePath(folder)) != nil {
+			return
+		}
+	}
 }
 
 // newTarget returns the slash-separated path from the repo root of the file typed names in folder, with a stray

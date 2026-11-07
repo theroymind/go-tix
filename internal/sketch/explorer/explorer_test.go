@@ -514,6 +514,70 @@ func TestDeleteWithoutNote(t *testing.T) {
 	}
 }
 
+func TestDeleteFolder(t *testing.T) {
+	tests := []struct {
+		name     string
+		keys     []string
+		kept     bool
+		status   string
+		selected string
+	}{
+		{"y deletes every note under the folder", []string{"j", "d", "y"}, false, "deleted 2 notes", "src"},
+		{"Any other key keeps them", []string{"j", "d", "n"}, true, "", "src"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model, _ := press(newModel(t), tt.keys...)
+
+			for _, notePath := range []string{"src/app.ts.sketch.md", "src/new/orbit.ts.sketch.md"} {
+				if _, err := os.Stat(model.filePath(notePath)); (err == nil) != tt.kept {
+					t.Errorf("%s kept = %v, want %v", notePath, err == nil, tt.kept)
+				}
+			}
+			for _, file := range []string{"src/app.ts", "src/util.ts"} {
+				if _, err := os.Stat(model.filePath(file)); err != nil {
+					t.Errorf("%s went too: %v", file, err)
+				}
+			}
+			if _, err := os.Stat(model.filePath("src/new")); (err == nil) != tt.kept {
+				t.Errorf("src/new kept = %v, want it gone with its only note", err == nil)
+			}
+			if model.status != tt.status || model.selected().Path != tt.selected {
+				t.Errorf("status %q, selected %q, want %q and %q", model.status, model.selected().Path, tt.status,
+					tt.selected)
+			}
+		})
+	}
+}
+
+func TestDeleteFolderAsks(t *testing.T) {
+	model, _ := press(newModel(t), "j", "d")
+
+	if view := ansi.Strip(model.View().Content); !strings.Contains(view, "delete 2 notes under src/? y/n") {
+		t.Errorf("View() lacks the question:\n%s", view)
+	}
+}
+
+func TestDeleteFolderWithoutNotes(t *testing.T) {
+	model, _ := press(newModel(t), "d")
+
+	if model.selected().Path != "docs" || model.status != noNotesToDelete || model.prompt.kind != promptNone {
+		t.Errorf("selected %q, status %q, prompt %+v, want only %q on docs", model.selected().Path, model.status,
+			model.prompt, noNotesToDelete)
+	}
+}
+
+func TestDeleteRemovesFolderLeftEmpty(t *testing.T) {
+	model, _ := press(newModel(t), "j", "j", "j", "d", "y")
+
+	if _, err := os.Stat(model.filePath("src/new")); !os.IsNotExist(err) {
+		t.Errorf("src/new stayed after its only note went: %v", err)
+	}
+	if _, err := os.Stat(model.filePath("src")); err != nil {
+		t.Errorf("src went too: %v", err)
+	}
+}
+
 // selectPath puts model's cursor on the row showing nodePath.
 func selectPath(t *testing.T, model Model, nodePath string) Model {
 	t.Helper()

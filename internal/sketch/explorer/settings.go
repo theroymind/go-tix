@@ -21,7 +21,7 @@ var keys = struct {
 	Add:              key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "add a note, or open the selected note")),
 	Edit:             key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit the note, adding one to a file without")),
 	External:         key.NewBinding(key.WithKeys("E"), key.WithHelp("E", "edit the note in $EDITOR")),
-	Delete:           key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete the note")),
+	Delete:           key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete the note, or a folder's notes")),
 	Ref:              key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "link the note to a file")),
 	Feature:          key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "filter to a feature")),
 	Link:             key.NewBinding(key.WithKeys("L"), key.WithHelp("L", "link the note to a feature")),
@@ -91,6 +91,10 @@ const (
 	savedNote      = "saved"
 	discardPrompt  = "close without saving? your changes will be lost. y/n"
 	noNoteToDelete = "no note to delete"
+
+	deleteFolderPrompt = "delete %s under %s? y/n"
+	deletedNotes       = "deleted %s"
+	noNotesToDelete    = "no notes under this folder to delete"
 
 	// r adds a -> line linking the note to the file picked, and the links line shows a note's links both ways.
 	linkMarker    = "-> "
