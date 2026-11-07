@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	cli "github.com/theroymind/railyard-cli"
@@ -108,6 +109,51 @@ func TestTasks(t *testing.T) {
 			}
 			if tt.root == tixRepo && fmt.Sprint(ran) != fmt.Sprint([]string{"tix", "ls", "--parent", "fight-camera", "--all", "--json"}) {
 				t.Errorf("ran %q, want tix ls --parent fight-camera --all --json", ran)
+			}
+		})
+	}
+}
+
+func TestRunQuiet(t *testing.T) {
+	tests := []struct {
+		name   string
+		script string
+		stdout string
+		fails  bool
+		cause  string
+	}{
+		{"Success returns stdout", "echo out", "out\n", false, ""},
+		{"Failure ends the error with the last stderr line", "echo out; echo first >&2; echo last >&2; exit 3", "out\n",
+			true, "last"},
+		{"Failure with no stderr still fails", "exit 3", "", true, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			terminal, err := os.CreateTemp(t.TempDir(), "stderr")
+			if err != nil {
+				t.Fatal(err)
+			}
+			saved := os.Stderr
+			os.Stderr = terminal
+			defer func() { os.Stderr = saved }()
+
+			output, err := RunQuiet(t.TempDir(), "sh", []string{"-c", tt.script}, nil)
+
+			if string(output) != tt.stdout {
+				t.Errorf("stdout = %q, want %q", output, tt.stdout)
+			}
+			if tt.fails != errors.Is(err, cli.ErrChildFailed) {
+				t.Errorf("error = %v, want ErrChildFailed: %v", err, tt.fails)
+			}
+			var exit *exec.ExitError
+			if tt.fails && !errors.As(err, &exit) {
+				t.Errorf("error = %v, want it to wrap the exit error", err)
+			}
+			if tt.cause != "" && !strings.HasSuffix(err.Error(), ": "+tt.cause) {
+				t.Errorf("error = %q, want it to end with %q", err, tt.cause)
+			}
+			if leaked, _ := os.ReadFile(terminal.Name()); len(leaked) > 0 {
+				t.Errorf("stderr reached the terminal: %q", leaked)
 			}
 		})
 	}

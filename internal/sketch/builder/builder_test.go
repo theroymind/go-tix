@@ -341,8 +341,13 @@ func TestComplete(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, file := range []string{"client/camera.odin", "client/cast.odin", "main.go"} {
-		if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(file)), nil, 0o644); err != nil {
+	files := map[string]string{
+		"client/camera.odin": "make_fight_camera :: proc() {}\nscore_strike :: proc() {}\nscore_kill := make_fight_camera()\n",
+		"client/cast.odin":   "",
+		"main.go":            "",
+	}
+	for file, text := range files {
+		if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(file)), []byte(text), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -364,8 +369,14 @@ func TestComplete(t *testing.T) {
 			[]string{"client/hud.odin"}, "file "},
 		{"Item names after an item verb", append(startLines, "..", "t Camera_Move", ".."), "f ",
 			[]string{"score_strike", "Camera_Move"}, "f "},
+		{"The file's identifiers by prefix, after its sketched items, without repeats", append(startLines, ".."),
+			"f s", []string{"score_strike", "score_kill"}, "f "},
+		{"The file's identifiers that aren't sketched", append(startLines, ".."), "fn make_f",
+			[]string{"make_fight_camera"}, "fn "},
+		{"No file identifiers before a prefix is typed", append(startLines, ".."), "f ", []string{"score_strike"}, "f "},
 		{"No item names for a rule line inside an item", startLines, "rule ", nil, "rule "},
-		{"Item names for a rule item at file level", append(startLines, ".."), "rule s", []string{"score_strike"}, "rule "},
+		{"Item names for a rule item at file level", append(startLines, ".."), "rule s",
+			[]string{"score_strike", "score_kill"}, "rule "},
 		{"Nothing after a line verb", startLines, "in ", nil, "in "},
 	}
 	for _, tt := range tests {

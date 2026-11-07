@@ -325,9 +325,43 @@ func TestVerbs(t *testing.T) {
 			}
 		})
 	}
-	expectedCount := 2 + len(sketch.ItemTypes) + len(sketch.LineTypes) - 1 + 3 + len(aliases)
+	expectedCount := 2 + len(sketch.ItemTypes) + len(sketch.LineTypes) - 1 + 5 + len(aliases)
 	if len(verbs) != expectedCount {
 		t.Errorf("Verbs() lists %d spellings, want %d", len(verbs), expectedCount)
+	}
+}
+
+func TestApplyMoves(t *testing.T) {
+	tests := []struct {
+		name        string
+		context     string
+		line        string
+		nextContext string
+		err         error
+	}{
+		{".. steps up from an item", atItem, "..", atFile, nil},
+		{".. steps up from a file", atFile, " .. ", atTask, nil},
+		{".. at the feature stays", feature, "..", feature, nil},
+		{"/ returns to the feature", atItem, "/", feature, nil},
+		{".. refuses an argument", atItem, ".. x", atItem, ErrExtraArgument},
+		{"/ refuses an argument", atItem, "/ x", atItem, ErrExtraArgument},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			value := base()
+
+			edited, next, err := Apply(value, mustContext(t, tt.context), tt.line)
+
+			if !errors.Is(err, tt.err) {
+				t.Fatalf("Apply() error = %v, want %v", err, tt.err)
+			}
+			if next.String() != tt.nextContext {
+				t.Errorf("Apply() context = %q, want %q", next, tt.nextContext)
+			}
+			if !reflect.DeepEqual(edited, value) {
+				t.Errorf("Apply() edited the sketch: %+v", edited)
+			}
+		})
 	}
 }
 

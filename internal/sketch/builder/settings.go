@@ -1,8 +1,8 @@
 package builder
 
+import "regexp"
+
 const (
-	commandUp    = ".."
-	commandTop   = "/"
 	commandUndo  = "undo"
 	commandEdit  = "edit"
 	commandExit  = "exit"
@@ -23,4 +23,7 @@ const (
 )
 
 // sessionCommands are the builder's own commands, which completion offers beside the grammar's verbs.
-var sessionCommands = []string{commandUp, commandTop, commandUndo, commandEdit, commandWhere, commandExit}
+var sessionCommands = []string{commandUndo, commandEdit, commandWhere, commandExit}
+
+// identifierPattern matches a name as most languages spell one, which completion offers from the context file.
+var identifierPattern = regexp.MustCompile(`[\p{L}_][\p{L}\p{N}_]*`)

@@ -8,6 +8,8 @@ const (
 	VerbRename = "mv"
 	VerbRemove = "rm"
 	VerbSet    = "set"
+	VerbUp     = ".."
+	VerbTop    = "/"
 )
 
 const (

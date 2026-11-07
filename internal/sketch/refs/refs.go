@@ -3,6 +3,7 @@
 package refs
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -46,7 +47,24 @@ type Resolver struct {
 
 // New returns a Resolver for root that runs the tix on PATH.
 func New(root string) Resolver {
-	return Resolver{Root: root, Run: cli.RunChildIn}
+	return Resolver{Root: root, Run: RunQuiet}
+}
+
+// RunQuiet is a Runner that runs a child command as cli.RunChildIn does, but keeps its stderr out of the
+// terminal: the error it returns ends with the child's last stderr line, so sketch's own error already says what
+// tix said.
+func RunQuiet(directory, name string, arguments []string, stdin io.Reader) ([]byte, error) {
+	var stdout, stderr bytes.Buffer
+	child := exec.Command(name, arguments...)
+	child.Dir, child.Stdin, child.Stdout, child.Stderr = directory, stdin, &stdout, &stderr
+	if err := child.Run(); err != nil {
+		lines := strings.Split(strings.TrimSpace(stderr.String()), "\n")
+		if cause := strings.TrimSpace(lines[len(lines)-1]); cause != "" {
+			return stdout.Bytes(), fmt.Errorf("%w: %s: %w: %s", cli.ErrChildFailed, name, err, cause)
+		}
+		return stdout.Bytes(), fmt.Errorf("%w: %s: %w", cli.ErrChildFailed, name, err)
+	}
+	return stdout.Bytes(), nil
 }
 
 // FeatureDir returns the directory a feature's sketch lives in. Inside a tix repo, one whose root holds .tix, the

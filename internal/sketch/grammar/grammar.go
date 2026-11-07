@@ -18,6 +18,7 @@ var (
 	ErrUnknownVerb     = errors.New("unknown verb")
 	ErrWrongContext    = errors.New("wrong context")
 	ErrMissingArgument = errors.New("missing argument")
+	ErrExtraArgument   = errors.New("takes no argument")
 	ErrNotFound        = errors.New("not in the sketch")
 	ErrTypeConflict    = errors.New("already an item of another type")
 	ErrBadLineNumber   = errors.New("bad line number")
@@ -27,8 +28,8 @@ var (
 )
 
 // Verbs returns every verb spelling Apply accepts, for completion and help: task and file, the item types, the
-// line types the item types don't already name, mv, rm and set, then the one-letter aliases in alphabetical
-// order.
+// line types the item types don't already name, mv, rm and set, .. and /, then the one-letter aliases in
+// alphabetical order.
 func Verbs() []string {
 	verbs := []string{VerbTask, VerbFile}
 	for _, itemType := range sketch.ItemTypes {
@@ -39,7 +40,7 @@ func Verbs() []string {
 			verbs = append(verbs, string(lineType))
 		}
 	}
-	verbs = append(verbs, VerbRename, VerbRemove, VerbSet)
+	verbs = append(verbs, VerbRename, VerbRemove, VerbSet, VerbUp, VerbTop)
 	return append(verbs, slices.Sorted(maps.Keys(aliases))...)
 }
 
@@ -51,13 +52,29 @@ func FullVerb(verb string) string {
 	return verb
 }
 
+// Move returns the context a navigation line leaves, .. one level up and / back to the feature, and false for any
+// other line. It edits nothing, so the builder can move without saving.
+func Move(at Context, line string) (Context, bool) {
+	switch strings.TrimSpace(line) {
+	case VerbUp:
+		return at.trimmed().Parent(), true
+	case VerbTop:
+		return Context{Feature: strings.TrimSpace(at.Feature)}, true
+	default:
+		return at, false
+	}
+}
+
 // Apply runs one command line on value at the context at, and returns the edited sketch and the context the
-// command leaves: task, file and item verbs open what they name, mv follows the rename, and rm steps up to the
-// parent. value is not changed. A task, file or item verb creates the task and file the context names when the
+// command leaves: task, file and item verbs open what they name, mv follows the rename, rm steps up to the
+// parent, and .. and / move as Move does. value is not changed. A task, file or item verb creates the task and file the context names when the
 // sketch doesn't hold them yet, so one call can add an item to an empty sketch.
 //
 // `rule` adds a rule line inside an item and a rule item at file level.
 func Apply(value sketch.Sketch, at Context, line string) (sketch.Sketch, Context, error) {
+	if next, moved := Move(at, line); moved {
+		return value, next, nil
+	}
 	verb, argument := splitVerb(line)
 	if verb == "" {
 		return value, at, ErrEmptyLine
@@ -92,6 +109,8 @@ func apply(value *sketch.Sketch, at Context, verb, argument string) (Context, er
 		return remove(value, at, argument)
 	case verb == VerbSet:
 		return setLine(value, at, argument)
+	case verb == VerbUp || verb == VerbTop:
+		return at, fmt.Errorf("%s %w, but got %q", verb, ErrExtraArgument, argument)
 	default:
 		return at, fmt.Errorf("%w %q", ErrUnknownVerb, verb)
 	}

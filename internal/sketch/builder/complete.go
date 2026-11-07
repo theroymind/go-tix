@@ -11,7 +11,8 @@ import (
 )
 
 // Completer offers completions for the word under the cursor: a verb or builder command as the first word, then
-// the feature's tasks after task, repo paths after file, and the context file's item names after an item verb.
+// the feature's tasks after task, repo paths after file, and after an item verb the context file's sketched items,
+// then the identifiers the file already holds.
 type Completer struct {
 	Root    string
 	Session *Session
@@ -36,7 +37,7 @@ func (completer Completer) Complete(line string, pos int) (string, []string, str
 	case fullVerb == grammar.VerbFile:
 		return before, completer.paths(argument), tail
 	case isOnlyItemVerb(fullVerb) || (sketch.ItemType(fullVerb).IsValid() && completer.Session.At.Item == ""):
-		return before, withPrefix(completer.itemNames(), argument), tail
+		return before, completer.itemNames(argument), tail
 	default:
 		return before, nil, tail
 	}
@@ -63,7 +64,38 @@ func (completer Completer) taskNames() []string {
 	return names
 }
 
-func (completer Completer) itemNames() []string {
+// itemNames are the sketch's items in the context file, then, once a prefix is typed, the identifiers the file on
+// disk holds, so an item for code that already exists completes to its name. Repeats are left out.
+func (completer Completer) itemNames(prefix string) []string {
+	names := withPrefix(completer.sketchedItems(), prefix)
+	if prefix == "" {
+		return names
+	}
+	for _, word := range completer.fileWords(prefix) {
+		if !slices.Contains(names, word) {
+			names = append(names, word)
+		}
+	}
+	return names
+}
+
+// fileWords are the identifiers in the context file that start with prefix, sorted, or none when it can't be read.
+func (completer Completer) fileWords(prefix string) []string {
+	text, err := os.ReadFile(filepath.Join(completer.Root, filepath.FromSlash(completer.Session.At.File)))
+	if err != nil {
+		return nil
+	}
+	var words []string
+	for _, word := range identifierPattern.FindAllString(string(text), -1) {
+		if strings.HasPrefix(word, prefix) {
+			words = append(words, word)
+		}
+	}
+	slices.Sort(words)
+	return slices.Compact(words)
+}
+
+func (completer Completer) sketchedItems() []string {
 	at := completer.Session.At
 	var names []string
 	for _, task := range completer.loaded().Tasks {

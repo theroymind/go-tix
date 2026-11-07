@@ -68,17 +68,15 @@ func (session *Session) Prompt() string {
 	return short.String() + promptMarker
 }
 
-// Run runs one line typed at the prompt and returns what to print, if anything. Besides the grammar's commands it
-// takes .. to step up a level, / to go back to the feature, undo, edit, and exit or quit, which return ErrQuit.
+// Run runs one line typed at the prompt and returns what to print, if anything. Besides the grammar's commands,
+// whose .. and / move without saving, it takes undo, edit, where, and exit or quit, which return ErrQuit.
 func (session *Session) Run(line string) (string, error) {
+	if next, moved := grammar.Move(session.At, line); moved {
+		session.At = next
+		return "", nil
+	}
 	switch strings.TrimSpace(line) {
 	case "":
-		return "", nil
-	case commandUp:
-		session.At = session.At.Parent()
-		return "", nil
-	case commandTop:
-		session.At = grammar.Context{Feature: session.At.Feature}
 		return "", nil
 	case commandUndo:
 		return session.undoLast()

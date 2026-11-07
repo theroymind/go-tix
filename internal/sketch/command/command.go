@@ -28,9 +28,8 @@ const usage = `usage: sketch <command> [arguments]
 
 commands:
   feature FEATURE        (opens the builder: a prompt at the feature that runs each line as a command and saves
-                         it, with .. to step up, / to return to the feature, where to print the full context,
-                         undo, edit to open the item in $EDITOR, tab completion and history; exit, quit or
-                         ctrl-D leaves)
+                         it, with where to print the full context, undo, edit to open the item in $EDITOR, tab
+                         completion and history; exit, quit or ctrl-D leaves)
   -C FEATURE[/TASK[/FILE[:ITEM]]] VERB [ARGS]
                          (runs one command at that context, saves, and prints the context it leaves)
   -C FEATURE[/TASK[/FILE[:ITEM]]] -
@@ -52,6 +51,7 @@ verbs:
   mv NAME                rename the item, else the file, else the task
   rm [N]                 remove line N of the item, else the item, file or task
   set N TEXT             replace line N's text
+  .., /                  step up a level, or back to the feature, in the builder or a stdin batch
 
 Lines are numbered from 1, as show --md prints them, and questions from 1 across the whole sketch, answered ones
 included, so answering one never renumbers the rest. The repo root is the nearest directory above holding .tix
@@ -70,7 +70,7 @@ const (
 var rootMarkers = []string{".tix", ".git"}
 
 // runChild runs tix for refs, a variable so tests can stand in for the tix on PATH.
-var runChild refs.Runner = cli.RunChildIn
+var runChild refs.Runner = refs.RunQuiet
 
 var (
 	ErrBothFormats  = errors.New("--json and --md can't both be given")

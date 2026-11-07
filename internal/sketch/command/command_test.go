@@ -193,13 +193,16 @@ func TestRepoRoot(t *testing.T) {
 	}
 }
 
-// TestUsageNamesEveryVerb keeps the help text in step with the parser: each full verb as a word, and each alias
-// in parentheses after its verb.
+// TestUsageNamesEveryVerb keeps the help text in step with the parser: each full verb as a word, each alias in
+// parentheses after its verb, and each punctuation verb, such as .., as a token of its own.
 func TestUsageNamesEveryVerb(t *testing.T) {
 	for _, verb := range grammar.Verbs() {
 		t.Run(verb, func(t *testing.T) {
 			pattern := `\b` + regexp.QuoteMeta(verb) + `\b`
-			if len(verb) == 1 {
+			switch {
+			case !regexp.MustCompile(`\w`).MatchString(verb):
+				pattern = `(^|[\s,])` + regexp.QuoteMeta(verb) + `([\s,]|$)`
+			case len(verb) == 1:
 				pattern = `\(` + regexp.QuoteMeta(verb) + `\)`
 			}
 			if !regexp.MustCompile(pattern).MatchString(usage) {
