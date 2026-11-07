@@ -3,7 +3,7 @@ type: feature
 status: todo
 summary: A terminal file explorer for sketching, with plain .sketch.md notes beside the files they plan, shown as + or ~ in the repo tree, and ls and questions as JSON for agents.
 created_at: 2026-11-07T03:20:52Z
-updated_at: 2026-11-07T03:21:03Z
+updated_at: 2026-11-07T03:48:40Z
 ---
 
 # Sketch explorer
@@ -24,5 +24,5 @@ Decided along the way: notes are committed on the feature branch and deleted as 
 - [ ] `r` on an attached note lists the names in its target file and adds the one you pick to the note.
 - [ ] `f` filters the tree to one tix feature's notes, and `?` jumps between notes with open questions.
 - [ ] `sketch ls --json` lists each note with its target, `+` or `~`, feature, task and items, and `sketch questions --json` lists the open ones.
-- [ ] `<leader>S` in LazyVim opens the explorer in a float, and `e` in it opens the note in that nvim.
+- [ ] `<leader>k` in LazyVim opens the explorer in a float, and `e` in it opens the note in that nvim.
 - [ ] In sketch-trial, you sketch a feature's files in the explorer, and Claude builds from the notes after answering their questions.
