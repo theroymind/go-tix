@@ -13,6 +13,7 @@ const (
 	pickNone    pickKind = iota
 	pickName             // picks a name from the selected note's target, to add to the note
 	pickFeature          // picks the feature to filter the tree to
+	pickLink             // picks the feature to link the selected note to
 )
 
 // picker is a list the preview pane shows in place of the preview, filtered as you type: choices is the whole
@@ -87,8 +88,8 @@ func (list picker) lines(height int) []string {
 	return lines
 }
 
-// answerPicker passes a key to the picker: esc closes it, and a pick adds the name to the note or filters the tree
-// to the feature.
+// answerPicker passes a key to the picker: esc closes it, and a pick adds the name to the note, filters the tree
+// to the feature, or links the note to it.
 func (model *Model) answerPicker(message tea.KeyPressMsg) tea.Cmd {
 	switch message.String() {
 	case "esc":
@@ -108,6 +109,8 @@ func (model *Model) answerPicker(message tea.KeyPressMsg) tea.Cmd {
 		model.addName(choice)
 	case pickFeature:
 		model.filterFeature(choice)
+	case pickLink:
+		model.link(choice)
 	}
 	return nil
 }

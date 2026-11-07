@@ -117,6 +117,8 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			model.expand()
 		case key.Matches(message, keys.Collapse):
 			model.collapse()
+		case key.Matches(message, keys.Toggle):
+			model.toggle()
 		case key.Matches(message, keys.NotesOnly):
 			model.toggleNotesOnly()
 		case key.Matches(message, keys.Add):
@@ -131,6 +133,8 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			model.askName()
 		case key.Matches(message, keys.Feature):
 			model.askFeature()
+		case key.Matches(message, keys.Link):
+			model.askLink()
 		case key.Matches(message, keys.Question):
 			model.nextQuestion()
 		case key.Matches(message, keys.Reload):
@@ -322,6 +326,19 @@ func (model *Model) collapse() {
 	}
 }
 
+// toggle opens the selected folder, or closes it when it's already open.
+func (model *Model) toggle() {
+	node := model.selected()
+	if node == nil || !node.IsDir {
+		return
+	}
+	if model.expanded[node.Path] {
+		model.collapse()
+		return
+	}
+	model.expand()
+}
+
 // toggleNotesOnly switches between the whole tree and notes only. The cursor stays on the selected node, or on the
 // nearest folder above it that still shows, and toggling back before moving returns to the node it started on.
 func (model *Model) toggleNotesOnly() {
@@ -448,7 +465,7 @@ func (model Model) footer() string {
 	}
 	var hints []string
 	for _, binding := range []key.Binding{keys.NotesOnly, keys.Add, keys.Attach, keys.Edit, keys.Delete, keys.Ref,
-		keys.Feature, keys.Question, keys.Reload, keys.Quit} {
+		keys.Feature, keys.Link, keys.Question, keys.Quit} {
 		hints = append(hints, binding.Help().Key+" "+binding.Help().Desc)
 	}
 	return model.styles.footer.Render(ansi.Truncate(strings.Join(hints, hintSeparator), model.width, ""))

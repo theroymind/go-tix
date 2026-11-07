@@ -8,14 +8,16 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// keys are the explorer's key bindings. The footer leaves out the ones that move, to fit in 100 columns.
+// keys are the explorer's key bindings. The footer leaves out the ones that move and reload, to fit in 100
+// columns.
 var keys = struct {
-	Down, Up, Expand, Collapse, NotesOnly, Add, Attach, Edit, Delete, Ref, Feature, Question, Reload, Quit key.Binding
+	Down, Up, Expand, Collapse, Toggle, NotesOnly, Add, Attach, Edit, Delete, Ref, Feature, Link, Question, Reload, Quit key.Binding
 }{
 	Down:      key.NewBinding(key.WithKeys("j", "down"), key.WithHelp("j", "down")),
 	Up:        key.NewBinding(key.WithKeys("k", "up"), key.WithHelp("k", "up")),
-	Expand:    key.NewBinding(key.WithKeys("l", "right", "enter"), key.WithHelp("l", "open")),
+	Expand:    key.NewBinding(key.WithKeys("l", "right"), key.WithHelp("l", "open")),
 	Collapse:  key.NewBinding(key.WithKeys("h", "left"), key.WithHelp("h", "close")),
+	Toggle:    key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "toggle")),
 	NotesOnly: key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "notes")),
 	Add:       key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "add")),
 	Attach:    key.NewBinding(key.WithKeys("A"), key.WithHelp("A", "attach")),
@@ -23,6 +25,7 @@ var keys = struct {
 	Delete:    key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete")),
 	Ref:       key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "ref")),
 	Feature:   key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "feature")),
+	Link:      key.NewBinding(key.WithKeys("L"), key.WithHelp("L", "link")),
 	Question:  key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "question")),
 	Reload:    key.NewBinding(key.WithKeys("R"), key.WithHelp("R", "reload")),
 	Quit:      key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
@@ -71,6 +74,9 @@ const (
 	refNeedsAttachedNote = "r adds a name from the file a note is attached to; A attaches one"
 
 	featureTitle    = "filter to feature"
+	linkTitle       = "link %s to feature"
+	linkNeedsNote   = "L links a note to a feature; a or A to add one"
+	linkedNote      = "linked %s to %s"
 	allFeatures     = "all features"
 	noOpenQuestions = "no open questions"
 

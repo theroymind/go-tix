@@ -1,20 +1,68 @@
 package explorer
 
 import (
+	"fmt"
 	"maps"
+	"os"
 	"slices"
 
 	"github.com/theroymind/go-tix/contracts/sketch"
+	"github.com/theroymind/go-tix/internal/sketch/note"
 	"github.com/theroymind/go-tix/internal/sketch/tree"
 )
 
-// askFeature opens the picker on the features to filter the tree to: an entry that clears the filter, then tix's
-// features and every feature a note names, sorted, each once.
+// askFeature opens the picker on the features to filter the tree to: an entry that clears the filter, then the
+// features.
 func (model *Model) askFeature() {
-	features, err := model.listFeatures()
+	features, err := model.features()
 	if err != nil {
 		model.status = err.Error()
 		return
+	}
+	model.picker = picker{kind: pickFeature, title: featureTitle, choices: append([]string{allFeatures}, features...)}
+}
+
+// askLink opens the picker on the features to link the selected node's note to.
+func (model *Model) askLink() {
+	node := model.selected()
+	if node == nil || node.Note == nil {
+		model.status = linkNeedsNote
+		return
+	}
+	features, err := model.features()
+	if err != nil {
+		model.status = err.Error()
+		return
+	}
+	model.picker = picker{kind: pickLink, title: fmt.Sprintf(linkTitle, node.Path), choices: features}
+}
+
+// link rewrites the selected node's note to name feature in its front matter, and shows the tree again.
+func (model *Model) link(feature string) {
+	node := model.selected()
+	filePath := model.filePath(node.Note.Path)
+	text, err := os.ReadFile(filePath)
+	if err == nil {
+		var linked string
+		if linked, err = note.SetFeature(string(text), feature); err == nil {
+			err = os.WriteFile(filePath, []byte(linked), fileMode)
+		}
+	}
+	if err != nil {
+		model.status = err.Error()
+		return
+	}
+	model.reload(node.Path)
+	if model.status == "" {
+		model.status = fmt.Sprintf(linkedNote, node.Path, feature)
+	}
+}
+
+// features returns tix's features and every feature a note names, sorted, each once.
+func (model Model) features() ([]string, error) {
+	features, err := model.listFeatures()
+	if err != nil {
+		return nil, err
 	}
 	for _, node := range nodes(model.loaded) {
 		if node.Note != nil && node.Note.Feature != "" {
@@ -22,8 +70,7 @@ func (model *Model) askFeature() {
 		}
 	}
 	slices.Sort(features)
-	features = slices.Compact(features)
-	model.picker = picker{kind: pickFeature, title: featureTitle, choices: append([]string{allFeatures}, features...)}
+	return slices.Compact(features), nil
 }
 
 // filterFeature shows only the notes of the feature picked, or every note for allFeatures, with the folders above

@@ -103,3 +103,38 @@ func TestTarget(t *testing.T) {
 		})
 	}
 }
+
+func TestSetFeature(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		expected string
+		err      error
+	}{
+		{"No front matter", "# app.ts\n", "---\nfeature: camera\n---\n# app.ts\n", nil},
+		{"An empty note", "", "---\nfeature: camera\n---\n", nil},
+		{"Front matter without a feature", "---\ntask: t\n---\nbody\n", "---\nfeature: camera\ntask: t\n---\nbody\n", nil},
+		{"Front matter with a feature", "---\ntask: t\nfeature: orbit\n---\n", "---\ntask: t\nfeature: camera\n---\n", nil},
+		{"Empty front matter", "---\n---\nbody\n", "---\nfeature: camera\n---\nbody\n", nil},
+		{"A feature line below the front matter stays", "---\n---\nfeature: orbit\n",
+			"---\nfeature: camera\n---\nfeature: orbit\n", nil},
+		{"Front matter with no closing line", "---\ntask: t\n", "", ErrFrontMatter},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual, err := SetFeature(tt.text, "camera")
+
+			if !errors.Is(err, tt.err) {
+				t.Fatalf("SetFeature() error = %v, want %v", err, tt.err)
+			}
+			if actual != tt.expected {
+				t.Errorf("SetFeature() = %q, want %q", actual, tt.expected)
+			}
+			if tt.err == nil {
+				if parsed, err := Parse("a.ts.sketch.md", actual); err != nil || parsed.Feature != "camera" {
+					t.Errorf("Parse(SetFeature()) = %+v, %v, want feature camera", parsed, err)
+				}
+			}
+		})
+	}
+}

@@ -106,7 +106,13 @@ func TestKeys(t *testing.T) {
 		{"l opens a closed folder", []string{"l"}, "docs",
 			[]string{"docs", "docs/guide.md", "src", "src/new", "src/new/orbit.ts", "src/app.ts", "src/util.ts",
 				"logo.png", "README.md"}},
-		{"enter and right step into an open folder", []string{"enter", "right"}, "docs/guide.md", nil},
+		{"l and right step into an open folder", []string{"l", "right"}, "docs/guide.md", nil},
+		{"enter opens a closed folder", []string{"enter"}, "docs",
+			[]string{"docs", "docs/guide.md", "src", "src/new", "src/new/orbit.ts", "src/app.ts", "src/util.ts",
+				"logo.png", "README.md"}},
+		{"enter closes an open folder", []string{"enter", "enter"}, "docs",
+			[]string{"docs", "src", "src/new", "src/new/orbit.ts", "src/app.ts", "src/util.ts", "logo.png", "README.md"}},
+		{"enter on a file does nothing", []string{"j", "j", "j", "enter"}, "src/new/orbit.ts", nil},
 		{"h closes an open folder", []string{"j", "h"}, "src",
 			[]string{"docs", "src", "logo.png", "README.md"}},
 		{"left on a file goes to its folder", []string{"j", "j", "j", "left"}, "src/new", nil},
@@ -180,7 +186,7 @@ func TestView(t *testing.T) {
 		excludes []string
 	}{
 		{"The header, footer and tree", nil,
-			[]string{"trial  2 notes · 1 open question", "q quit", "n notes ·", "R reload", "▸   docs/", "▾   src/", "+ orbit.ts",
+			[]string{"trial  2 notes · 1 open question", "q quit", "n notes ·", "L link", "▸   docs/", "▾   src/", "+ orbit.ts",
 				"~ app.ts ?1", "util.ts", "no notes below"},
 			[]string{"sketch.md"}},
 		{"A note's text", []string{"j", "j", "j"}, []string{"orbit note"}, nil},
@@ -748,6 +754,45 @@ func TestFeatureLinksNewNotes(t *testing.T) {
 	}
 	if model.selected().Path != "src/useOrbit.ts" {
 		t.Errorf("selected = %q, want the new note, which the filter shows", model.selected().Path)
+	}
+}
+
+func TestLink(t *testing.T) {
+	tests := []struct {
+		name     string
+		keys     []string
+		notePath string
+		text     string
+		status   string
+	}{
+		{"L adds front matter to a note with none", []string{"j", "j", "j", "L", "c", "a", "m", "enter"},
+			"src/new/orbit.ts.sketch.md", "---\nfeature: camera\n---\norbit note\n", "linked src/new/orbit.ts to camera"},
+		{"L replaces a note's feature", []string{"j", "j", "j", "j", "L", "o", "r", "enter"},
+			"src/app.ts.sketch.md", "---\nfeature: orbit\n---\napp note\n? why\n", "linked src/app.ts to orbit"},
+		{"esc leaves the note as it is", []string{"j", "j", "j", "L", "esc"},
+			"src/new/orbit.ts.sketch.md", "orbit note\n", ""},
+		{"L on a file with no note says so", []string{"j", "j", "j", "j", "j", "L"},
+			"src/new/orbit.ts.sketch.md", "orbit note\n", linkNeedsNote},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model, _ := press(featureModel(t), tt.keys...)
+
+			if text := readNote(t, model, tt.notePath); text != tt.text {
+				t.Errorf("note = %q, want %q", text, tt.text)
+			}
+			if model.status != tt.status {
+				t.Errorf("status = %q, want %q", model.status, tt.status)
+			}
+		})
+	}
+}
+
+func TestLinkShowsUnderTheFilter(t *testing.T) {
+	model, _ := press(featureModel(t), "j", "j", "j", "L", "c", "a", "m", "enter", "f", "c", "a", "m", "enter")
+
+	if !slices.Contains(visiblePaths(model), "src/new/orbit.ts") {
+		t.Errorf("visible = %q, want the linked ghost under the camera filter", visiblePaths(model))
 	}
 }
 

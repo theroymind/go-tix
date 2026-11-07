@@ -23,6 +23,7 @@ Decided along the way: notes are committed on the feature branch and deleted as 
 - [ ] `a` on a folder creates a placeholder note, `A` on a file attaches one, both open it in the editor, and `d` deletes a note after you confirm.
 - [ ] `r` on an attached note lists the names in its target file and adds the one you pick to the note.
 - [ ] `f` filters the tree to one tix feature's notes, and `?` jumps between notes with open questions.
+- [ ] `L` on a note picks a feature and links the note to it in its front matter.
 - [ ] `sketch ls --json` lists each note with its target, `+` or `~`, feature, task and items, and `sketch questions --json` lists the open ones.
 - [ ] `<leader>k` in LazyVim opens the explorer in a float, and `e` in it opens the note in that nvim.
 - [ ] In sketch-trial, you sketch a feature's files in the explorer, and Claude builds from the notes after answering their questions.

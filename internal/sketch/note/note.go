@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -105,6 +106,29 @@ func readFrontMatter(lines []string, value *sketch.Note) (int, error) {
 		return index + 1, nil
 	}
 	return 0, fmt.Errorf("%w: no closing %s line", ErrFrontMatter, frontMatterFence)
+}
+
+// SetFeature returns text with its front matter linking it to feature: the feature line replaced when there is
+// one, added to the front matter when there isn't, or new front matter put on top when the note has none. Front
+// matter with no closing --- line fails with ErrFrontMatter.
+func SetFeature(text, feature string) (string, error) {
+	featureLine := featureKey + " " + feature
+	lines := strings.Split(text, "\n")
+	if strings.TrimRightFunc(lines[0], unicode.IsSpace) != frontMatterFence {
+		return frontMatterFence + "\n" + featureLine + "\n" + frontMatterFence + "\n" + text, nil
+	}
+	for index := 1; index < len(lines); index++ {
+		line := strings.TrimRightFunc(lines[index], unicode.IsSpace)
+		if line == frontMatterFence {
+			lines = slices.Insert(lines, 1, featureLine)
+			return strings.Join(lines, "\n"), nil
+		}
+		if strings.HasPrefix(line, featureKey) {
+			lines[index] = featureLine
+			return strings.Join(lines, "\n"), nil
+		}
+	}
+	return "", fmt.Errorf("%w: no closing %s line", ErrFrontMatter, frontMatterFence)
 }
 
 // parseItem reads a line #TYPE NAME REST as an item. A #word that isn't an item type, such as an Obsidian tag,
