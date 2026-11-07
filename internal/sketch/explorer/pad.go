@@ -46,23 +46,31 @@ func (model *Model) startPad(message padMsg) tea.Cmd {
 	area.ShowLineNumbers = false
 	area.MaxHeight = 0 // no cap on the note's length
 	area.SetStyles(textarea.DefaultStyles(model.isDark))
+	area.SetWidth(max(1, model.previewWidth()))
+	area.SetHeight(model.paneHeight())
 	area.SetValue(string(text))
-	area.MoveToBegin()
-	for area.Line() < message.line-1 {
-		before := area.Line()
-		area.CursorDown()
-		if area.Line() == before {
-			break
-		}
-	}
-	if message.line > 0 {
-		area.CursorEnd()
-	}
+	goToLine(&area, message.line)
 	// saved is the text as the area holds it, which turns tabs into spaces, so closing an untouched note leaves
 	// the file as it was.
 	model.pad = pad{filePath: message.filePath, saved: area.Value(), area: area}
-	model.sizePad()
 	return model.pad.area.Focus()
+}
+
+// goToLine puts area's cursor at the end of line, counting from 1, or at the top for line 0. The cursor moves a
+// wrapped row at a time, so it steps until it reaches the line or stops moving.
+func goToLine(area *textarea.Model, line int) {
+	area.MoveToBegin()
+	if line <= 0 {
+		return
+	}
+	for area.Line() < line-1 {
+		row, wrapped := area.Line(), area.LineInfo().RowOffset
+		area.CursorDown()
+		if area.Line() == row && area.LineInfo().RowOffset == wrapped {
+			break
+		}
+	}
+	area.CursorEnd()
 }
 
 // sizePad fits the pad to the preview pane.

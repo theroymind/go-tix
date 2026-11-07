@@ -86,6 +86,21 @@ func TestPad(t *testing.T) {
 	}
 }
 
+func TestPadAnswerPastWrappedLines(t *testing.T) {
+	long := strings.Repeat("wraps across the pane ", 12)
+	model := padModel(t)
+	writeFile(t, model.root, "src/app.ts.sketch.md", "---\nstatus: draft\n---\n"+long+"\n"+long+"\n\n? why\n")
+	model.reload("src/app.ts")
+	model = openPad(t, selectPath(t, model, "src/app.ts"), ">")
+
+	model, _ = press(model, "b", "esc")
+
+	want := "---\nstatus: draft\n---\n" + long + "\n" + long + "\n\n? why\n> b\n"
+	if text := readNote(t, model, "src/app.ts.sketch.md"); text != want {
+		t.Errorf("note = %q, want the answer typed on the line under the question", text)
+	}
+}
+
 func TestPadShowsBesideTree(t *testing.T) {
 	model := openPad(t, padModel(t), "j", "j", "j", "e")
 
