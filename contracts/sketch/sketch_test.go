@@ -13,10 +13,12 @@ func validNote() Note {
 		SchemaVersion: SchemaVersion,
 		Path:          "src/useOrbit.ts.sketch.md",
 		Target:        "src/useOrbit.ts",
+		Mark:          MarkChanged,
 		Feature:       "sketch-explorer",
 		Task:          "read-notes",
-		Items:         []Item{{Type: ItemTypeFn, Name: "useOrbit", Text: "target Ref<Vec3>"}, {Type: ItemTypeType, Name: "Orbit"}},
-		Questions:     []Question{{Text: "who owns the camera?", Line: 7}, {Text: "how fast?", Answer: "1 rad/s", Line: 9}},
+		Items: []Item{{Type: ItemTypeFn, Name: "useOrbit", Text: "target Ref<Vec3>", Mark: MarkChanged},
+			{Type: ItemTypeType, Name: "Orbit", Mark: MarkNew}},
+		Questions: []Question{{Text: "who owns the camera?", Line: 7}, {Text: "how fast?", Answer: "1 rad/s", Line: 9}},
 	}
 }
 
@@ -28,8 +30,14 @@ func TestNoteValidate(t *testing.T) {
 	}{
 		{"A note with every part", func(*Note) {}, nil},
 		{"A bare note", func(value *Note) {
-			value.Feature, value.Task, value.Items, value.Questions = "", "", nil, nil
+			value.Mark, value.Feature, value.Task, value.Items, value.Questions = "", "", "", nil, nil
 		}, nil},
+		{"An unknown note mark", func(value *Note) { value.Mark = "+" }, []string{FieldMark}},
+		{"An unknown item mark", func(value *Note) { value.Items[0].Mark = "~" }, []string{"items.0.mark"}},
+		{"An unmarked item", func(value *Note) { value.Items[0].Mark = "" }, nil},
+		{"A feature tix doesn't know", func(value *Note) { value.UnknownFeature = true }, nil},
+		{"An unknown feature with no feature", func(value *Note) { value.UnknownFeature, value.Feature = true, "" },
+			[]string{FieldUnknownFeature}},
 		{"An unknown schema version", func(value *Note) { value.SchemaVersion = 2 }, []string{FieldSchemaVersion}},
 		{"A missing schema version", func(value *Note) { value.SchemaVersion = 0 }, []string{FieldSchemaVersion}},
 		{"A missing target", func(value *Note) { value.Target = "" }, []string{FieldTarget}},
@@ -91,6 +99,25 @@ func TestItemTypeIsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if actual := tt.itemType.IsValid(); actual != tt.expected {
 				t.Errorf("IsValid() = %v, want %v", actual, tt.expected)
+			}
+		})
+	}
+}
+
+func TestMarkSymbol(t *testing.T) {
+	tests := []struct {
+		name     string
+		mark     Mark
+		expected string
+	}{
+		{"New", MarkNew, "+"},
+		{"Changed", MarkChanged, "~"},
+		{"Unmarked", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if actual := tt.mark.Symbol(); actual != tt.expected {
+				t.Errorf("Symbol() = %q, want %q", actual, tt.expected)
 			}
 		})
 	}

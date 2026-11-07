@@ -1,5 +1,5 @@
-// Package refs looks a feature up in tix: whether the repo is a tix repo, and the feature's tasks, found by
-// running tix ls.
+// Package refs looks features up in tix: whether the repo is a tix repo, which tickets it holds, and a feature's
+// tasks, found by running tix ls.
 package refs
 
 import (
@@ -69,7 +69,27 @@ func (resolver Resolver) Tasks(feature string) ([]string, error) {
 	if !resolver.IsTixRepo() {
 		return nil, nil
 	}
-	arguments := []string{listCommand, parentOption, feature, allOption, jsonOption}
+	return resolver.list(parentOption, feature)
+}
+
+// Tickets returns the set of every ticket id in the repo, done ones included, from one run of tix ls. Call it
+// only in a tix repo.
+func (resolver Resolver) Tickets() (map[string]bool, error) {
+	ids, err := resolver.list()
+	if err != nil {
+		return nil, err
+	}
+	tickets := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		tickets[id] = true
+	}
+	return tickets, nil
+}
+
+// list runs tix ls --all --json with filters in front, and returns the ids of the tickets it prints, in order.
+func (resolver Resolver) list(filters ...string) ([]string, error) {
+	arguments := append([]string{listCommand}, filters...)
+	arguments = append(arguments, allOption, jsonOption)
 	output, err := resolver.Run(resolver.Root, tixCommand, arguments, nil)
 	if errors.Is(err, exec.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %w", ErrTixNotFound, err)
@@ -77,16 +97,16 @@ func (resolver Resolver) Tasks(feature string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var children []ticket.Ticket
-	if err := strictjson.Unmarshal(output, &children); err != nil {
+	var tickets []ticket.Ticket
+	if err := strictjson.Unmarshal(output, &tickets); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrTixOutput, err)
 	}
-	ids := make([]string, 0, len(children))
-	for index, child := range children {
-		if err := child.Validate(); err != nil {
+	ids := make([]string, 0, len(tickets))
+	for index, value := range tickets {
+		if err := value.Validate(); err != nil {
 			return nil, fmt.Errorf("%w: ticket %d: %w", ErrTixOutput, index, err)
 		}
-		ids = append(ids, child.ID)
+		ids = append(ids, value.ID)
 	}
 	return ids, nil
 }

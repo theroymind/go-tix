@@ -1,13 +1,13 @@
 ---
 type: task
-status: todo
+status: done
 feature: sketch-explorer
 scope: medium
 review: pending
 depends_on: [retire-the-builder-and-read-notes]
 summary: Mark notes and items + or ~ against their targets, list open questions, and resolve a note's feature through tix.
 created_at: 2026-11-07T03:20:52Z
-updated_at: 2026-11-07T03:21:03Z
+updated_at: 2026-11-07T03:31:43Z
 ---
 
 # Marks, questions and tix features
@@ -27,7 +27,7 @@ Add what makes `ls` useful to an agent: each note is `+` when its target is miss
 
 ## Acceptance criteria
 
-- [ ] `ls` shows `+` for a note whose target is missing and `~` for one whose target exists, and the same per item.
-- [ ] `sketch questions --json` lists each open question with its note, line number and text, and leaves out answered ones.
-- [ ] Inside a tix repo, a note whose `feature:` isn't a ticket is flagged in `ls`, and the other notes still list.
-- [ ] Outside a tix repo, any `feature:` value is accepted.
+- [x] `ls` shows `+` for a note whose target is missing and `~` for one whose target exists, and the same per item.
+- [x] `sketch questions --json` lists each open question with its note, line number and text, and leaves out answered ones.
+- [x] Inside a tix repo, a note whose `feature:` isn't a ticket is flagged in `ls`, and the other notes still list.
+- [x] Outside a tix repo, any `feature:` value is accepted.

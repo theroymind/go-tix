@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -58,6 +60,47 @@ func TestTasks(t *testing.T) {
 			}
 			if tt.root == tixRepo && fmt.Sprint(ran) != fmt.Sprint([]string{"tix", "ls", "--parent", "fight-camera", "--all", "--json"}) {
 				t.Errorf("ran %q, want tix ls --parent fight-camera --all --json", ran)
+			}
+		})
+	}
+}
+
+func TestTickets(t *testing.T) {
+	tickets := `[{"id":"sketch-explorer","title":"Sketch explorer","type":"epic","status":"open"},
+{"id":"read-notes","title":"Read notes","type":"task","status":"completed","parent":"sketch-explorer"}]`
+	tests := []struct {
+		name     string
+		output   string
+		runErr   error
+		expected map[string]bool
+		err      error
+	}{
+		{"Every ticket, done ones included", tickets, nil, map[string]bool{"sketch-explorer": true, "read-notes": true},
+			nil},
+		{"No tickets", "[]\n", nil, map[string]bool{}, nil},
+		{"Without tix on PATH", "", &exec.Error{Name: "tix", Err: exec.ErrNotFound}, nil, ErrTixNotFound},
+		{"tix fails", "", cli.ErrChildFailed, nil, cli.ErrChildFailed},
+		{"A ticket that doesn't validate", `[{"id":"A!","title":"A","type":"task","status":"open"}]`, nil, nil,
+			ErrTixOutput},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var ran []string
+			resolver := Resolver{Root: t.TempDir(), Run: func(dir, name string, arguments []string, _ io.Reader) ([]byte, error) {
+				ran = append([]string{name}, arguments...)
+				return []byte(tt.output), tt.runErr
+			}}
+
+			actual, err := resolver.Tickets()
+
+			if !errors.Is(err, tt.err) {
+				t.Fatalf("Tickets() = %v, want %v", err, tt.err)
+			}
+			if !maps.Equal(actual, tt.expected) {
+				t.Errorf("Tickets() = %v, want %v", actual, tt.expected)
+			}
+			if !slices.Equal(ran, []string{"tix", "ls", "--all", "--json"}) {
+				t.Errorf("ran %q, want tix ls --all --json", ran)
 			}
 		})
 	}

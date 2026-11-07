@@ -1,6 +1,7 @@
 package command
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -61,23 +62,32 @@ func TestList(t *testing.T) {
 			"src/useOrbit.ts.sketch.md": orbitNote,
 			"a.go.sketch.md":            "just thinking\n? why\n",
 		}, []string{"ls"}, cli.ExitCodeSuccess,
-			"NOTE                       TARGET           FEATURE          TASK        ITEMS  QUESTIONS\n" +
-				"a.go.sketch.md             a.go             -                -           0      1\n" +
-				"src/useOrbit.ts.sketch.md  src/useOrbit.ts  sketch-explorer  read-notes  1      1\n", ""},
+			"NOTE                       TARGET            FEATURE          TASK        ITEMS      QUESTIONS\n" +
+				"a.go.sketch.md             +a.go             -                -           -          1\n" +
+				"src/useOrbit.ts.sketch.md  +src/useOrbit.ts  sketch-explorer  read-notes  +useOrbit  1\n", ""},
+		{"Marks against targets that exist", map[string]string{
+			"src/useOrbit.ts":           "export function useOrbit() {}\nconst useOrbitSpeed = 1\n",
+			"src/useOrbit.ts.sketch.md": "#fn useOrbit\n#fn useOrbitSpeed\n#tune Speed\n#type Orbit\n",
+		}, []string{"ls"}, cli.ExitCodeSuccess,
+			"NOTE                       TARGET            FEATURE  TASK  ITEMS                                      QUESTIONS\n" +
+				"src/useOrbit.ts.sketch.md  ~src/useOrbit.ts  -        -     ~useOrbit, ~useOrbitSpeed, +Speed, +Orbit  0\n", ""},
 		{"No notes as JSON", map[string]string{}, []string{"ls", "--json"}, cli.ExitCodeSuccess, "[]\n", ""},
-		{"A note as JSON", map[string]string{"src/useOrbit.ts.sketch.md": orbitNote}, []string{"ls", "--json"},
+		{"A note as JSON", map[string]string{"src/useOrbit.ts.sketch.md": orbitNote, "src/useOrbit.ts": "useOrbitSpeed"},
+			[]string{"ls", "--json"},
 			cli.ExitCodeSuccess, `[
   {
     "schema_version": 1,
     "path": "src/useOrbit.ts.sketch.md",
     "target": "src/useOrbit.ts",
+    "mark": "changed",
     "feature": "sketch-explorer",
     "task": "read-notes",
     "items": [
       {
         "type": "fn",
         "name": "useOrbit",
-        "text": "target Ref<Vec3>"
+        "text": "target Ref<Vec3>",
+        "mark": "new"
       }
     ],
     "questions": [
@@ -95,7 +105,12 @@ func TestList(t *testing.T) {
 			"b.go.sketch.md": "#fn b\n",
 		}, []string{"ls"}, cli.ExitCodeFailure,
 			"NOTE            TARGET  FEATURE  TASK  ITEMS  QUESTIONS\n" +
-				"b.go.sketch.md  b.go    -        -     1      0\n", "a.go.sketch.md: bad front matter"},
+				"b.go.sketch.md  +b.go   -        -     +b     0\n", "a.go.sketch.md: bad front matter"},
+		{"A note whose target is a folder is named", map[string]string{
+			"web/.keep": "", "web.sketch.md": "#fn a\n", "b.go.sketch.md": "",
+		}, []string{"ls"}, cli.ExitCodeFailure,
+			"NOTE            TARGET  FEATURE  TASK  ITEMS  QUESTIONS\n" +
+				"b.go.sketch.md  +b.go   -        -     -      0\n", "web.sketch.md: "},
 		{"A note that doesn't validate is named", map[string]string{"c.go.sketch.md": "#fn c\x1bd\n"},
 			[]string{"ls", "--json"}, cli.ExitCodeFailure, "[]\n", "c.go.sketch.md: "},
 		{"An unknown option", map[string]string{}, []string{"ls", "--md"}, cli.ExitCodeUsage, "", "md"},
@@ -112,6 +127,151 @@ func TestList(t *testing.T) {
 			}
 			if !strings.Contains(stderr, tt.stderrHas) {
 				t.Errorf("sketch %q stderr = %q, want it to say %q", tt.arguments, stderr, tt.stderrHas)
+			}
+		})
+	}
+}
+
+func TestQuestions(t *testing.T) {
+	notes := map[string]string{
+		"web/app.tsx.sketch.md":     "? which router\n",
+		"src/useOrbit.ts.sketch.md": orbitNote + "? how fast\n\n? what eases it\n",
+		"a.go.sketch.md":            "? answered\n> yes\n",
+	}
+	tests := []struct {
+		name      string
+		files     map[string]string
+		arguments []string
+		exitCode  cli.ExitCode
+		stdout    string
+		stderrHas string
+	}{
+		{"No notes", map[string]string{}, []string{"questions"}, cli.ExitCodeSuccess, "", ""},
+		{"Open questions by note, then line", notes, []string{"questions"}, cli.ExitCodeSuccess,
+			"src/useOrbit.ts.sketch.md:10: how fast\n" +
+				"src/useOrbit.ts.sketch.md:12: what eases it\n" +
+				"web/app.tsx.sketch.md:1: which router\n", ""},
+		{"No open questions as JSON", map[string]string{"a.go.sketch.md": "? answered\n> yes\n"},
+			[]string{"questions", "--json"}, cli.ExitCodeSuccess, "[]\n", ""},
+		{"Open questions as JSON", map[string]string{"web/app.tsx.sketch.md": "# App\n? which router\n"},
+			[]string{"questions", "--json"}, cli.ExitCodeSuccess, `[
+  {
+    "path": "web/app.tsx.sketch.md",
+    "line": 2,
+    "text": "which router"
+  }
+]
+`, ""},
+		{"A bad note is named after the rest are listed", map[string]string{
+			"a.go.sketch.md": "---\nfeature: [x\n---\n? hidden\n",
+			"b.go.sketch.md": "? shown\n",
+		}, []string{"questions"}, cli.ExitCodeFailure, "b.go.sketch.md:1: shown\n", "a.go.sketch.md: bad front matter"},
+		{"An unknown option", map[string]string{}, []string{"questions", "--md"}, cli.ExitCodeUsage, "", "md"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			exitCode, stdout, stderr := inRepo(t, tt.files, tt.arguments...)
+
+			if exitCode != tt.exitCode {
+				t.Fatalf("sketch %q exit = %d, want %d (stderr %q)", tt.arguments, exitCode, tt.exitCode, stderr)
+			}
+			if stdout != tt.stdout {
+				t.Errorf("sketch %q stdout =\n%s\nwant\n%s", tt.arguments, stdout, tt.stdout)
+			}
+			if !strings.Contains(stderr, tt.stderrHas) {
+				t.Errorf("sketch %q stderr = %q, want it to say %q", tt.arguments, stderr, tt.stderrHas)
+			}
+		})
+	}
+}
+
+// fakeTix puts a tix on a fresh PATH that prints tickets and logs each run's arguments, one line per run, to the
+// file it returns. With tickets empty, PATH holds no tix at all.
+func fakeTix(t *testing.T, tickets string) string {
+	t.Helper()
+	bin := t.TempDir()
+	log := filepath.Join(bin, "runs.log")
+	t.Setenv("PATH", bin)
+	if tickets == "" {
+		return log
+	}
+	script := "#!/bin/sh\necho \"$@\" >> '" + log + "'\nprintf '%s\\n' '" + tickets + "'\n"
+	if err := os.WriteFile(filepath.Join(bin, "tix"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return log
+}
+
+func TestListResolvesFeatures(t *testing.T) {
+	tickets := `[{"id":"sketch-explorer","title":"Sketch explorer","type":"epic","status":"open"}]`
+	notes := map[string]string{
+		"a.go.sketch.md": "---\nfeature: sketch-explorer\n---\n",
+		"b.go.sketch.md": "---\nfeature: sketch-explorr\n---\n",
+		"c.go.sketch.md": "",
+	}
+	tests := []struct {
+		name      string
+		tixRepo   bool
+		tickets   string
+		files     map[string]string
+		arguments []string
+		exitCode  cli.ExitCode
+		stdout    string
+		stderrHas string
+		runs      string
+	}{
+		{"Inside a tix repo, an unknown feature is flagged and the rest list", true, tickets, notes, []string{"ls"},
+			cli.ExitCodeSuccess,
+			"NOTE            TARGET  FEATURE                      TASK  ITEMS  QUESTIONS\n" +
+				"a.go.sketch.md  +a.go   sketch-explorer              -     -      0\n" +
+				"b.go.sketch.md  +b.go   sketch-explorr (not in tix)  -     -      0\n" +
+				"c.go.sketch.md  +c.go   -                            -     -      0\n", "", "ls --all --json\n"},
+		{"Flagged as JSON", true, tickets, map[string]string{"b.go.sketch.md": "---\nfeature: sketch-explorr\n---\n"},
+			[]string{"ls", "--json"}, cli.ExitCodeSuccess, `[
+  {
+    "schema_version": 1,
+    "path": "b.go.sketch.md",
+    "target": "b.go",
+    "mark": "new",
+    "feature": "sketch-explorr",
+    "unknown_feature": true
+  }
+]
+`, "", "ls --all --json\n"},
+		{"Inside a tix repo with no note naming a feature, tix isn't run", true, tickets,
+			map[string]string{"c.go.sketch.md": ""}, []string{"ls"}, cli.ExitCodeSuccess,
+			"NOTE            TARGET  FEATURE  TASK  ITEMS  QUESTIONS\n" +
+				"c.go.sketch.md  +c.go   -        -     -      0\n", "", ""},
+		{"Outside a tix repo, any feature is accepted without running tix", false, tickets, notes, []string{"ls"},
+			cli.ExitCodeSuccess,
+			"NOTE            TARGET  FEATURE          TASK  ITEMS  QUESTIONS\n" +
+				"a.go.sketch.md  +a.go   sketch-explorer  -     -      0\n" +
+				"b.go.sketch.md  +b.go   sketch-explorr   -     -      0\n" +
+				"c.go.sketch.md  +c.go   -                -     -      0\n", "", ""},
+		{"Inside a tix repo without tix on PATH", true, "", notes, []string{"ls"}, cli.ExitCodeFailure, "",
+			"tix isn't on PATH", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			log := fakeTix(t, tt.tickets)
+			files := maps.Clone(tt.files)
+			if tt.tixRepo {
+				files[".tix/config.yml"] = ""
+			}
+
+			exitCode, stdout, stderr := inRepo(t, files, tt.arguments...)
+
+			if exitCode != tt.exitCode {
+				t.Fatalf("sketch %q exit = %d, want %d (stderr %q)", tt.arguments, exitCode, tt.exitCode, stderr)
+			}
+			if stdout != tt.stdout {
+				t.Errorf("sketch %q stdout =\n%s\nwant\n%s", tt.arguments, stdout, tt.stdout)
+			}
+			if !strings.Contains(stderr, tt.stderrHas) {
+				t.Errorf("sketch %q stderr = %q, want it to say %q", tt.arguments, stderr, tt.stderrHas)
+			}
+			if runs, _ := os.ReadFile(log); string(runs) != tt.runs {
+				t.Errorf("tix ran with %q, want %q", runs, tt.runs)
 			}
 		})
 	}

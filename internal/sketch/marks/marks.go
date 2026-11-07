@@ -1,5 +1,5 @@
-// Package marks says whether a sketched item is new or changes code that exists, by searching its target file
-// for the item's name as a whole word.
+// Package marks says whether a note's target is new or exists, and whether each item it names is new or changes
+// code that exists, by searching the target file for the item's name as a whole word.
 package marks
 
 import (
@@ -9,14 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode"
-)
 
-// Mark is how show flags an item: New when its target file doesn't name it yet, Changed when it does.
-type Mark string
-
-const (
-	New     Mark = "+"
-	Changed Mark = "~"
+	"github.com/theroymind/go-tix/contracts/sketch"
 )
 
 // Reader marks items against the files under Root, reading each file once.
@@ -30,17 +24,37 @@ func NewReader(root string) *Reader {
 	return &Reader{Root: root, files: map[string]*string{}}
 }
 
-// Mark returns Changed when the file at the slash-separated repo path holds name as a whole word, so that
-// score doesn't match score_strike, and New otherwise, including when the file doesn't exist yet.
-func (reader *Reader) Mark(path, name string) (Mark, error) {
+// MarkNote marks value MarkChanged when its target exists and MarkNew when it doesn't, and marks each of its
+// items as Mark does.
+func (reader *Reader) MarkNote(value *sketch.Note) error {
+	text, err := reader.read(value.Target)
+	if err != nil {
+		return err
+	}
+	value.Mark = sketch.MarkNew
+	if text != nil {
+		value.Mark = sketch.MarkChanged
+	}
+	for index := range value.Items {
+		item := &value.Items[index]
+		if item.Mark, err = reader.Mark(value.Target, item.Name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Mark returns MarkChanged when the file at the slash-separated repo path holds name as a whole word, so that
+// score doesn't match score_strike, and MarkNew otherwise, including when the file doesn't exist yet.
+func (reader *Reader) Mark(path, name string) (sketch.Mark, error) {
 	text, err := reader.read(path)
 	if err != nil {
 		return "", err
 	}
 	if text != nil && containsWord(*text, name) {
-		return Changed, nil
+		return sketch.MarkChanged, nil
 	}
-	return New, nil
+	return sketch.MarkNew, nil
 }
 
 // read returns the file's text, or nil for a file that doesn't exist.
