@@ -24,7 +24,7 @@ tix done "$id"
 
 ```bash
 go install github.com/theroymind/go-tix/cmd/sketch@latest
-sketch                    # the explorer; enter/e edit · a add · d delete · r link · y ready · > answer · ]/[ questions · f feature · ? help
+sketch                    # the explorer; enter/e edit · a add · d delete · r link · y ready · > answer · ]/[ questions · f feature · v plan · ? help
 sketch ls --json          # every note with its target, status, body, links and questions, for agents
 sketch questions --json   # the open questions; --all adds answered ones with their answers
 sketch plan --feature X   # X's brief as markdown: tix criteria, a Mermaid graph, notes in build order, decisions

@@ -1,7 +1,7 @@
 // Package explorer provides the sketch explorer, a Bubble Tea model that shows the repo tree with each note as a +
 // ghost node or a ~ on the file it plans and a preview of the selected node beside it, that adds, opens and deletes
 // notes, marks them ready or draft, links a note to a file and shows its links both ways, filters the tree to one feature, kept per
-// branch, jumps between open questions and answers them, and lists its keys.
+// branch, jumps between open questions and answers them, shows the notes joined in build order, and lists its keys.
 package explorer
 
 import (
@@ -35,29 +35,31 @@ type editedMsg struct{ err error }
 // Model is the explorer's state: the tree, which folders are open, whether only notes show, the cursor, the picker
 // or help in the preview pane, and the prompt or status line in the footer.
 type Model struct {
-	root         string
-	open         Open
-	listFeatures func() ([]string, error) // tix's features
-	feature      string                   // the feature filter; a new note links to it when set
-	featureFile  string                   // the file that keeps the feature filter for the branch, or "" outside git
-	loaded       *tree.Node               // the tree as repo.Load read it
-	problems     []error                  // the notes that didn't read then
-	tree         *tree.Node               // the tree that shows: loaded, with only the feature's notes
-	readiness    readiness                // of the notes in tree
-	expanded     map[string]bool
-	notesOnly    bool
-	rows         []tree.Row
-	cursor       int
-	offset       int    // the first row the tree pane shows
-	toggledAt    string // the path selected when n was last pressed, until the cursor moves
-	width        int
-	height       int
-	styles       styles
-	preview      []string
-	picker       picker
-	help         bool // the help overlay shows in the preview pane
-	prompt       prompt
-	status       string // a message for the footer, until the next key
+	root          string
+	open          Open
+	listFeatures  func() ([]string, error) // tix's features
+	lookUpFeature LookUpFeature            // the feature filter's ticket, for the plan view
+	feature       string                   // the feature filter; a new note links to it when set
+	featureFile   string                   // the file that keeps the feature filter for the branch, or "" outside git
+	loaded        *tree.Node               // the tree as repo.Load read it
+	problems      []error                  // the notes that didn't read then
+	tree          *tree.Node               // the tree that shows: loaded, with only the feature's notes
+	readiness     readiness                // of the notes in tree
+	expanded      map[string]bool
+	notesOnly     bool
+	rows          []tree.Row
+	cursor        int
+	offset        int    // the first row the tree pane shows
+	toggledAt     string // the path selected when n was last pressed, until the cursor moves
+	width         int
+	height        int
+	styles        styles
+	preview       []string
+	picker        picker
+	help          bool // the help overlay shows in the preview pane
+	plan          planView
+	prompt        prompt
+	status        string // a message for the footer, until the next key
 }
 
 // New returns the explorer for the repo at root, with the tree repo.Load reads, the feature filter the branch
@@ -68,7 +70,8 @@ func New(root string) (Model, error) {
 	if err != nil {
 		return Model{}, err
 	}
-	model := Model{root: root, open: editor.Open, listFeatures: refs.New(root).Features,
+	resolver := refs.New(root)
+	model := Model{root: root, open: editor.Open, listFeatures: resolver.Features, lookUpFeature: tixFeature(resolver),
 		expanded: tree.NoteFolders(loaded.Tree), styles: newStyles(true)}
 	model.featureFile = featureFile(root)
 	model.feature = readFeature(model.featureFile)
@@ -103,6 +106,9 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.FocusMsg:
 		// Coming back from an editor that returned at once, such as nvim --remote, the notes may have changed.
 		model.reload(model.selectedPath())
+		model.refreshPlan()
+	case planFeatureMsg:
+		model.showPlanFeature(message)
 	case tea.PasteMsg:
 		model.paste(message.Content)
 	case tea.KeyPressMsg:
@@ -116,6 +122,8 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return model, model.answerName(message)
 		case model.prompt.kind == promptDelete:
 			model.answerDelete(message)
+		case model.plan.active:
+			return model, model.updatePlan(message)
 		case key.Matches(message, keys.Quit):
 			return model, tea.Quit
 		case key.Matches(message, keys.Down):
@@ -150,6 +158,8 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			model.jumpToQuestion(1)
 		case key.Matches(message, keys.PreviousQuestion):
 			model.jumpToQuestion(-1)
+		case key.Matches(message, keys.Plan):
+			return model, model.enterPlan()
 		case key.Matches(message, keys.Reload):
 			model.reload(model.selectedPath())
 		case key.Matches(message, keys.Help):
@@ -420,6 +430,9 @@ func (model Model) View() tea.View {
 	for index := model.offset; index < len(model.rows) && index < model.offset+height; index++ {
 		treeLines = append(treeLines, model.renderRow(index, treeWidth))
 	}
+	if model.plan.active {
+		treeLines = model.planRows(height, treeWidth)
+	}
 	treePane := lipgloss.NewStyle().Width(treeWidth).Height(height).Render(strings.Join(treeLines, "\n"))
 
 	previewLines := model.preview
@@ -428,6 +441,8 @@ func (model Model) View() tea.View {
 		previewLines = helpLines()
 	case model.picker.kind != pickNone:
 		previewLines = model.picker.lines(height)
+	case model.plan.active:
+		previewLines = model.planLines(height)
 	}
 	var previewText []string
 	for _, line := range previewLines {
@@ -460,9 +475,13 @@ func (model Model) header() string {
 	return model.styles.header.Render(ansi.Truncate(text, model.width, ""))
 }
 
-// links shows the selected node's links, to and from it, or nothing when it has none.
+// links shows the selected node's links, to and from it, or nothing when it has none. In the plan view, the node
+// is the selected note's.
 func (model Model) links() string {
 	node := model.selected()
+	if model.plan.active {
+		node = model.plan.selected()
+	}
 	if node == nil {
 		return ""
 	}
@@ -475,7 +494,11 @@ func (model Model) footer() string {
 	if line != "" {
 		return ansi.Truncate(line, model.width, "")
 	}
-	return model.styles.footer.Render(ansi.Truncate(strings.Join(footerHints, hintSeparator), model.width, ""))
+	hints := footerHints
+	if model.plan.active {
+		hints = planFooterHints
+	}
+	return model.styles.footer.Render(ansi.Truncate(strings.Join(hints, hintSeparator), model.width, ""))
 }
 
 // helpLines lists every key with what it does, under a title.
@@ -518,6 +541,13 @@ func (model Model) renderRow(index, width int) string {
 		plain := ansi.Truncate(lead+mark+name+questions, width, "")
 		return model.styles.cursor.Render(plain + strings.Repeat(" ", max(0, width-ansi.StringWidth(plain))))
 	}
+	mark, name = model.styledMarkAndName(node, mark, name)
+	return ansi.Truncate(lead+mark+name+model.styles.question.Render(questions), width, "")
+}
+
+// styledMarkAndName colors node's mark as new, changed or unreadable, and styles its name as draft, planned, a
+// ghost or a folder.
+func (model Model) styledMarkAndName(node *tree.Node, mark, name string) (string, string) {
 	switch {
 	case node.Problem != nil:
 		mark = model.styles.question.Render(mark)
@@ -536,7 +566,7 @@ func (model Model) renderRow(index, width int) string {
 	case node.IsDir:
 		name = model.styles.folder.Render(name)
 	}
-	return ansi.Truncate(lead+mark+name+model.styles.question.Render(questions), width, "")
+	return mark, name
 }
 
 // previewLines returns up to limit lines describing node: its note's text when it has one, a count of the notes

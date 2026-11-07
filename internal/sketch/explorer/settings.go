@@ -10,7 +10,7 @@ import (
 // keys are the explorer's key bindings, in the order the help overlay lists them.
 var keys = struct {
 	Down, Up, Expand, Collapse, Enter, NotesOnly, Add, Edit, Delete, Ref, Feature, Link, Ready, Answer, NextQuestion,
-	PreviousQuestion, Reload, Help, Quit key.Binding
+	PreviousQuestion, Plan, Back, ScrollDown, ScrollUp, Reload, Help, Quit key.Binding
 }{
 	Down:             key.NewBinding(key.WithKeys("j", "down"), key.WithHelp("j ↓", "down")),
 	Up:               key.NewBinding(key.WithKeys("k", "up"), key.WithHelp("k ↑", "up")),
@@ -28,6 +28,10 @@ var keys = struct {
 	Answer:           key.NewBinding(key.WithKeys(">"), key.WithHelp(">", "answer the note's first open question")),
 	NextQuestion:     key.NewBinding(key.WithKeys("]"), key.WithHelp("]", "next note with an open question")),
 	PreviousQuestion: key.NewBinding(key.WithKeys("["), key.WithHelp("[", "previous note with an open question")),
+	Plan:             key.NewBinding(key.WithKeys("v"), key.WithHelp("v", "plan view: the notes joined in build order")),
+	Back:             key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "in the plan view, back to the tree")),
+	ScrollDown:       key.NewBinding(key.WithKeys("ctrl+d", "pgdown"), key.WithHelp("ctrl+d", "in the plan view, scroll down")),
+	ScrollUp:         key.NewBinding(key.WithKeys("ctrl+u", "pgup"), key.WithHelp("ctrl+u", "in the plan view, scroll up")),
 	Reload:           key.NewBinding(key.WithKeys("R"), key.WithHelp("R", "reload")),
 	Help:             key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 	Quit:             key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
@@ -36,10 +40,14 @@ var keys = struct {
 // helpKeys are the bindings the help overlay lists, every one of them.
 var helpKeys = []key.Binding{keys.Down, keys.Up, keys.Expand, keys.Collapse, keys.Enter, keys.NotesOnly, keys.Add,
 	keys.Edit, keys.Delete, keys.Ref, keys.Feature, keys.Link, keys.Ready, keys.Answer, keys.NextQuestion,
-	keys.PreviousQuestion, keys.Reload, keys.Help, keys.Quit}
+	keys.PreviousQuestion, keys.Plan, keys.Back, keys.ScrollDown, keys.ScrollUp, keys.Reload, keys.Help, keys.Quit}
 
 // footerHints are the few keys the footer names, each with a short name, ending with ? for the rest.
-var footerHints = []string{"n notes", "a add", "e edit", "f feature", "y ready", "> answer", "] question", "? help"}
+var footerHints = []string{"n notes", "a add", "e edit", "f feature", "y ready", "> answer", "] question", "v plan",
+	"? help"}
+
+// planFooterHints are the keys the footer names in the plan view.
+var planFooterHints = []string{"j/k note", "ctrl+d/ctrl+u scroll", "v/esc tree", "? help", "q quit"}
 
 const (
 	indent        = "  "
@@ -104,6 +112,11 @@ const (
 	sketchExt      = ".sketch" // a stray one, as in useOrbit.sketch.ts, comes out of a typed name
 	readyNeedsNote = "y marks a note ready; a or e to add one"
 	markedNote     = "%s is %s"
+
+	noNotesToPlan = "no notes to plan; a adds one"
+	criterionLine = "%d. [%s] %s"
+	planRule      = "────────────────────────────────────────"
+	linkCounts    = "  →%d ←%d"
 
 	headerCounts    = "%s  %s · %d draft · %d ready · %s · %d dangling"
 	unreadableNotes = "%s couldn't be read: %v"

@@ -1,13 +1,13 @@
 ---
 type: task
-status: todo
+status: done
 feature: sketch-blueprints
 scope: medium
 review: none
 depends_on: [sketch-plan-and-graph]
 summary: v shows the feature's files beside every note joined in build order.
 created_at: 2026-11-07T18:47:01Z
-updated_at: 2026-11-07T18:47:01Z
+updated_at: 2026-11-07T19:18:32Z
 ---
 
 # Plan view in the explorer
@@ -24,6 +24,6 @@ updated_at: 2026-11-07T18:47:01Z
 
 ## Acceptance criteria
 
-- [ ] `v` shows the files on the left and the notes joined in build order on the right.
-- [ ] Moving through the file list scrolls the right pane to that note.
-- [ ] `v` or `esc` returns to the tree on the same node.
+- [x] `v` shows the files on the left and the notes joined in build order on the right.
+- [x] Moving through the file list scrolls the right pane to that note.
+- [x] `v` or `esc` returns to the tree on the same node.

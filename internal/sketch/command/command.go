@@ -40,9 +40,12 @@ files and planned ones and adds the one you pick to the note as a "-> path" line
 feature's notes, picked from tix's features and the ones notes name, links new notes to it, and is kept for the
 branch until cleared; L links the note to a feature; y marks the selected note ready, or back to draft, and new
 notes start draft, shown dimmed; ] and [ jump to the next and previous note with an open question, and > adds a
-"> " line under the note's first open question and opens the editor on it. The header counts the notes, draft and
-ready, their open questions and their dangling links. The line above the footer shows the selected note's links,
-uses →, and the notes linking to it, used by ←, each + when planned, ~ when the file exists and ! when neither.
+"> " line under the note's first open question and opens the editor on it. v swaps the tree for the plan view:
+the notes that show, in build order, with their link counts, beside the notes joined under the feature filter's
+title and criteria from tix, scrolled to the selected note; j/k move, ctrl+d/ctrl+u scroll, and v or esc goes
+back to the tree on the node it was on. The header counts the notes, draft and ready, their open questions and
+their dangling links. The line above the footer shows the selected note's links, uses →, and the notes linking
+to it, used by ←, each + when planned, ~ when the file exists and ! when neither.
 A note that couldn't be read shows as ! with the reason in the status line and preview, so e can open it to fix
 it. In a list, type to filter, the arrows or ctrl+n/ctrl+p move, enter picks and esc cancels.
 
