@@ -1,5 +1,5 @@
-// Package refs looks features up in tix: whether the repo is a tix repo, which tickets and features it holds, and a
-// feature's tasks, found by running tix ls.
+// Package refs looks features up in tix: whether the repo is a tix repo, which tickets and features it holds, a
+// feature's tasks, and one ticket with its acceptance criteria, found by running tix ls and tix show.
 package refs
 
 import (
@@ -22,6 +22,7 @@ const (
 	tixDirectory = ".tix"
 	tixCommand   = "tix"
 	listCommand  = "ls"
+	showCommand  = "show"
 	parentOption = "--parent"
 	allOption    = "--all"
 	jsonOption   = "--json"
@@ -29,7 +30,7 @@ const (
 
 var (
 	ErrTixNotFound = errors.New("this is a tix repo, but tix isn't on PATH; install it with go install ./cmd/tix")
-	ErrTixOutput   = errors.New("tix ls printed tickets sketch can't read")
+	ErrTixOutput   = errors.New("tix printed tickets sketch can't read")
 )
 
 // Runner runs a child command in a directory and returns its stdout, as cli.RunChildIn does.
@@ -109,14 +110,28 @@ func (resolver Resolver) Tickets() (map[string]bool, error) {
 	return tickets, nil
 }
 
+// Ticket returns the ticket id names, with its acceptance criteria, from tix show --json. Call it only in a tix
+// repo.
+func (resolver Resolver) Ticket(id string) (ticket.Ticket, error) {
+	output, err := resolver.run(showCommand, id, jsonOption)
+	if err != nil {
+		return ticket.Ticket{}, err
+	}
+	var value ticket.Ticket
+	if err := strictjson.Unmarshal(output, &value); err != nil {
+		return ticket.Ticket{}, fmt.Errorf("%w: %w", ErrTixOutput, err)
+	}
+	if err := value.Validate(); err != nil {
+		return ticket.Ticket{}, fmt.Errorf("%w: %w", ErrTixOutput, err)
+	}
+	return value, nil
+}
+
 // list runs tix ls --all --json with filters in front, and returns the tickets it prints, in order.
 func (resolver Resolver) list(filters ...string) ([]ticket.Ticket, error) {
 	arguments := append([]string{listCommand}, filters...)
 	arguments = append(arguments, allOption, jsonOption)
-	output, err := resolver.Run(resolver.Root, tixCommand, arguments, nil)
-	if errors.Is(err, exec.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %w", ErrTixNotFound, err)
-	}
+	output, err := resolver.run(arguments...)
 	if err != nil {
 		return nil, err
 	}
@@ -130,6 +145,16 @@ func (resolver Resolver) list(filters ...string) ([]ticket.Ticket, error) {
 		}
 	}
 	return tickets, nil
+}
+
+// run runs tix with arguments in the root and returns its stdout, failing with ErrTixNotFound when tix isn't on
+// PATH.
+func (resolver Resolver) run(arguments ...string) ([]byte, error) {
+	output, err := resolver.Run(resolver.Root, tixCommand, arguments, nil)
+	if errors.Is(err, exec.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %w", ErrTixNotFound, err)
+	}
+	return output, err
 }
 
 // ids returns the tickets' ids, in order.

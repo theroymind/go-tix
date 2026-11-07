@@ -194,3 +194,44 @@ func TestRunQuiet(t *testing.T) {
 		})
 	}
 }
+
+func TestTicket(t *testing.T) {
+	tests := []struct {
+		name     string
+		output   string
+		runErr   error
+		expected string
+		err      error
+	}{
+		{"The ticket with its criteria",
+			`{"id":"camera","title":"Camera","type":"epic","status":"open","acceptance":[{"text":"It orbits.","done":true}]}`,
+			nil, "Camera [{It orbits. true}]", nil},
+		{"Without tix on PATH", "", &exec.Error{Name: "tix", Err: exec.ErrNotFound}, "", ErrTixNotFound},
+		{"tix fails, as for an unknown ticket", "", cli.ErrChildFailed, "", cli.ErrChildFailed},
+		{"A field tix doesn't write", `{"id":"camera","title":"Camera","type":"epic","status":"open","owner":"x"}`,
+			nil, "", ErrTixOutput},
+		{"A ticket that doesn't validate", `{"id":"A!","title":"A","type":"epic","status":"open"}`, nil, "",
+			ErrTixOutput},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var ran []string
+			resolver := Resolver{Root: t.TempDir(), Run: func(dir, name string, arguments []string, _ io.Reader) ([]byte, error) {
+				ran = append([]string{name}, arguments...)
+				return []byte(tt.output), tt.runErr
+			}}
+
+			actual, err := resolver.Ticket("camera")
+
+			if !errors.Is(err, tt.err) {
+				t.Fatalf("Ticket() = %v, want %v", err, tt.err)
+			}
+			if tt.err == nil && fmt.Sprint(actual.Title, " ", actual.Acceptance) != tt.expected {
+				t.Errorf("Ticket() = %v %v, want %s", actual.Title, actual.Acceptance, tt.expected)
+			}
+			if !slices.Equal(ran, []string{"tix", "show", "camera", "--json"}) {
+				t.Errorf("ran %q, want tix show camera --json", ran)
+			}
+		})
+	}
+}

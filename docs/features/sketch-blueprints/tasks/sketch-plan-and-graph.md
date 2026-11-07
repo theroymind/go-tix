@@ -1,13 +1,13 @@
 ---
 type: task
-status: todo
+status: done
 feature: sketch-blueprints
 scope: medium
 review: pending
 depends_on: [blueprint-notes]
 summary: sketch plan prints a feature's brief as markdown with a Mermaid graph and notes in build order, and sketch graph prints the graph alone.
 created_at: 2026-11-07T18:47:01Z
-updated_at: 2026-11-07T18:47:01Z
+updated_at: 2026-11-07T19:13:42Z
 ---
 
 # sketch plan and graph
@@ -25,7 +25,7 @@ updated_at: 2026-11-07T18:47:01Z
 
 ## Acceptance criteria
 
-- [ ] `sketch graph --mermaid` prints a flowchart that renders on GitHub, with a subgraph per folder.
-- [ ] `sketch plan --feature X` lists a note after every note it links to.
-- [ ] A cycle of links still prints every note once, in path order.
-- [ ] Answered questions appear under a decisions heading.
+- [x] `sketch graph --mermaid` prints a flowchart that renders on GitHub, with a subgraph per folder.
+- [x] `sketch plan --feature X` lists a note after every note it links to.
+- [x] A cycle of links still prints every note once, in path order.
+- [x] Answered questions appear under a decisions heading.

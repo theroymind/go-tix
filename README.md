@@ -27,6 +27,8 @@ go install github.com/theroymind/go-tix/cmd/sketch@latest
 sketch                    # the explorer; enter/e edit · a add · d delete · r link · y ready · > answer · ]/[ questions · f feature · ? help
 sketch ls --json          # every note with its target, status, body, links and questions, for agents
 sketch questions --json   # the open questions; --all adds answered ones with their answers
+sketch plan --feature X   # X's brief as markdown: tix criteria, a Mermaid graph, notes in build order, decisions
+sketch graph --mermaid    # only the Mermaid flowchart, a subgraph per folder; takes --feature X too
 ```
 
 A note is a blueprint for whoever builds the file, person or agent, and its whole body is read as written. sketch reads only a few lines, and `sketch help` has the details:
@@ -47,7 +49,7 @@ status: draft
 > it owns the limits
 ```
 
-`feature:` links the note to a tix feature, and `status:` is `draft` or `ready`. A `-> path : label` line links to another file, from the repo root or, starting with `./` or `../`, from the note's folder. In the explorer, `r` picks the file and adds the line, and the line above the footer shows the note's `uses →` and `used by ←` links, `!` marking a path that is neither a file nor planned. A `?` line is an open question until `>` lines right under it, or under one blank line, answer it. `#fn`, `#type`, `#component`, `#flow` and `#test` are a suggested convention for describing what the file holds; sketch doesn't parse them. tix is optional: without it, `sketch ls` warns and skips checking features.
+`feature:` links the note to a tix feature, and `status:` is `draft` or `ready`. A `-> path : label` line links to another file, from the repo root or, starting with `./` or `../`, from the note's folder. In the explorer, `r` picks the file and adds the line, and the line above the footer shows the note's `uses →` and `used by ←` links, `!` marking a path that is neither a file nor planned. A `?` line is an open question until `>` lines right under it, or under one blank line, answer it. `#fn`, `#type`, `#component`, `#flow` and `#test` are a suggested convention for describing what the file holds; sketch doesn't parse them. tix is optional: without it, `sketch ls` warns and skips checking features, and `sketch plan` leaves out the feature's criteria. `sketch plan` puts each note after every note it links to, and the notes of a cycle together in path order.
 
 In LazyVim, this spec in `~/.config/nvim/lua/plugins/sketch.lua` opens it in a float on `<leader>k`, as LazyVim opens lazygit. `e` in the float hides it and opens the note in that nvim, and the next `<leader>k` brings the explorer back. The explorer reloads when its terminal regains focus, and `R` reloads it by hand.
 

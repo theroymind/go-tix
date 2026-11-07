@@ -1,7 +1,7 @@
 // Package command provides the sketch commands: the explorer, which bare sketch opens on the repo tree; ls, which
 // lists the repo's .sketch.md notes as a table or JSON; questions, which lists their questions; check, which says
-// whether notes are ready to build from; done, which deletes a feature's notes; and help, which documents the note
-// format.
+// whether notes are ready to build from; plan, which prints a build brief; graph, which prints how the notes' files
+// link as a Mermaid flowchart; done, which deletes a feature's notes; and help, which documents the note format.
 package command
 
 import (
@@ -61,6 +61,18 @@ commands:
                              status: ready, an open question, a dangling link (to a file that neither exists nor
                              is planned by a note), a feature tix has no ticket for, a note that couldn't be read,
                              or a FEATURE with no notes
+  plan [--feature FEATURE]   prints the build brief for the notes, or only FEATURE's, as markdown: FEATURE's title,
+                             description and acceptance criteria when tix has them, the graph as a mermaid block,
+                             each note in build order under its target, marked + or ~, with its body as written,
+                             answered questions under Decisions and any open ones under Open questions; build
+                             order puts each note after every note it links to, and the notes of a cycle
+                             together in path order; a FEATURE with no notes fails
+  graph [--mermaid] [--feature FEATURE]
+                             prints the notes, or only FEATURE's, as a Mermaid flowchart GitHub renders: a
+                             subgraph per folder, a node per note styled new or changed, an arrow per link with
+                             its label, and a plain node for each linked file no note in the set plans, marked
+                             (dangling) when it neither exists nor is planned; Mermaid is the only format, and
+                             a FEATURE with no notes fails
   done FEATURE               deletes FEATURE's notes and prints each path, failing when it has none; committing
                              is left to you
   help                       prints this
@@ -111,6 +123,7 @@ const (
 	optionJSON    = "json"
 	optionAll     = "all"
 	optionFeature = "feature"
+	optionMermaid = "mermaid"
 	tableHeader   = "NOTE\tTARGET\tFEATURE\tSTATUS\tLINKS\tQUESTIONS"
 	tablePad      = 2
 	noValue       = "-"
@@ -118,6 +131,7 @@ const (
 	unknownFeatureMarker = " (not in tix)"
 	answerPrefix         = "  > "
 	warningFormat        = "%s: warning: not checking features: %v\n"
+	planWarningFormat    = "%s: warning: leaving the feature's criteria out of the plan: %v\n"
 
 	// check prints one problem per line, as PATH:LINE: problem when the line is known.
 	noStatusProblem       = "%s: not ready: no status"
@@ -152,7 +166,11 @@ func newProgram(stderr io.Writer) cli.Program {
 			"check": func(arguments []string, _ io.Reader, stdout io.Writer) error {
 				return runCheck(arguments, stdout, stderr)
 			},
-			"done": runDone,
+			"plan": func(arguments []string, _ io.Reader, stdout io.Writer) error {
+				return runPlan(arguments, stdout, stderr)
+			},
+			"graph": runGraph,
+			"done":  runDone,
 		},
 	}
 }

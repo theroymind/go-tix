@@ -312,7 +312,7 @@ func TestListResolvesFeatures(t *testing.T) {
 				"a.go.sketch.md  +a.go   sketch-explorer  -       0      0\n" +
 				"b.go.sketch.md  +b.go   sketch-explorr   -       0      0\n" +
 				"c.go.sketch.md  +c.go   -                -       0      0\n",
-			"sketch: warning: not checking features: tix ls printed tickets sketch can't read", "ls --all --json\n"},
+			"sketch: warning: not checking features: tix printed tickets sketch can't read", "ls --all --json\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -400,7 +400,7 @@ func TestUsageNamesEverything(t *testing.T) {
 	for name := range newProgram(nil).Commands {
 		words = append(words, name)
 	}
-	words = append(words, "help", "--json", "--all", "--feature", sketch.NoteSuffix, "feature:", "status:", "-> PATH", "? QUESTION",
+	words = append(words, "help", "--json", "--all", "--feature", "--mermaid", sketch.NoteSuffix, "feature:", "status:", "-> PATH", "? QUESTION",
 		"> ANSWER", "#fn", "#type", "#component", "#flow", "#test")
 	for _, status := range sketch.Statuses {
 		words = append(words, string(status))
