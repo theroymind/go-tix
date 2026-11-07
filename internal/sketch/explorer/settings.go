@@ -2,7 +2,6 @@ package explorer
 
 import (
 	"image/color"
-	"regexp"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/lipgloss/v2"
@@ -22,7 +21,7 @@ var keys = struct {
 	Add:              key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "add a note planning a new file")),
 	Edit:             key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit the note, adding one to a file without")),
 	Delete:           key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete the note")),
-	Ref:              key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "add a name from the note's file")),
+	Ref:              key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "link the note to a file")),
 	Feature:          key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "filter to a feature")),
 	Link:             key.NewBinding(key.WithKeys("L"), key.WithHelp("L", "link the note to a feature")),
 	Ready:            key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "mark the note ready, or draft")),
@@ -55,7 +54,7 @@ const (
 
 	treeShare     = 3 // the tree pane takes a third of the width
 	minTreeWidth  = 24
-	chromeHeight  = 2 // the header and footer lines
+	chromeHeight  = 3 // the header, links and footer lines
 	previewGap    = 1 // columns between the preview's border and its text
 	previewMaxLen = 64 * 1024
 
@@ -79,11 +78,16 @@ const (
 	noNoteToEdit   = "no note; a adds one in a folder"
 	noNoteToDelete = "no note to delete"
 
-	// r adds a line naming the identifier picked from the note's target.
-	usesLine             = "- uses `%s`"
-	namesTitle           = "names in %s"
-	noNames              = "no names in %s"
-	refNeedsAttachedNote = "r adds a name from the file a note is attached to; e adds one to a file"
+	// r adds a -> line linking the note to the file picked, and the links line shows a note's links both ways.
+	linkMarker    = "-> "
+	fileTitle     = "link %s to file"
+	alreadyLinked = "%s already links to %s"
+	refNeedsNote  = "r links a note to a file; a or e to add one"
+	usesLabel     = "uses → "
+	usedByLabel   = "used by ← "
+	danglingMark  = "!"
+	linkSeparator = ", "
+	linksGap      = "   "
 
 	featureTitle    = "filter to feature"
 	linkTitle       = "link %s to feature"
@@ -110,9 +114,6 @@ const (
 	noPick       = "  "
 	noMatches    = "no matches"
 )
-
-// identifierPattern matches the names r offers from a note's target: a letter or _, then letters, digits and _.
-var identifierPattern = regexp.MustCompile(`[\p{L}_][\p{L}\p{N}_]*`)
 
 // styles are the colors and text styles the explorer draws with, picked for a light or dark background.
 type styles struct {

@@ -12,6 +12,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/theroymind/go-tix/contracts/sketch"
+	"github.com/theroymind/go-tix/internal/sketch/tree"
 )
 
 // files are the repo the tests explore; the notes below plan src/app.ts, which exists, and src/new/orbit.ts, which
@@ -549,7 +552,7 @@ func TestPicker(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			list := picker{kind: pickName, choices: choices}
+			list := picker{kind: pickFile, choices: choices}
 			var picked string
 			var isPicked bool
 			for _, name := range tt.keys {
@@ -594,63 +597,53 @@ func TestPickerLines(t *testing.T) {
 	}
 }
 
-// cameraModel is newModel with an attached note on src/useCamera.ts, whose text is note.
-func cameraModel(t *testing.T, note string) Model {
-	t.Helper()
-	model := newModel(t)
-	writeFile(t, model.root, "src/useCamera.ts", "export function make_camera() {\n\treturn new Camera(make_camera)\n}\n")
-	writeFile(t, model.root, "src/useCamera.ts.sketch.md", note)
-	model.reload("src/useCamera.ts")
-	return model
+func TestRefChoices(t *testing.T) {
+	model, _ := press(selectPath(t, newModel(t), "src/app.ts"), "r")
+
+	want := []string{"docs/guide.md", "src/new/orbit.ts", "src/util.ts", "logo.png", "README.md"}
+	if !slices.Equal(model.picker.choices, want) {
+		t.Errorf("choices = %q, want %q", model.picker.choices, want)
+	}
 }
 
 func TestRef(t *testing.T) {
 	tests := []struct {
-		name string
-		note string
-		text string
+		name     string
+		selected string
+		note     string // the selected note's text, or "" to leave it as files has it
+		keys     []string
+		text     string
+		status   string
 	}{
-		{"enter adds the pick on a line of its own", "camera note\n", "camera note\n- uses `make_camera`\n"},
-		{"A note without a last newline gets one first", "camera note", "camera note\n- uses `make_camera`\n"},
-		{"An empty note gets just the line", "", "- uses `make_camera`\n"},
+		{"enter adds the pick on a line of its own", "src/app.ts", "app note\n", []string{"u", "t", "i", "l", "enter"},
+			"app note\n-> src/util.ts\n", ""},
+		{"A note without a last newline gets one first", "src/app.ts", "app note", []string{"u", "t", "i", "l", "enter"},
+			"app note\n-> src/util.ts\n", ""},
+		{"A ghost note links to a planned file", "src/new/orbit.ts", "", []string{"a", "p", "p", "enter"},
+			"orbit note\n-> src/app.ts\n", ""},
+		{"A link already there isn't added again", "src/app.ts", "-> src/util.ts\n",
+			[]string{"u", "t", "i", "l", "enter"}, "-> src/util.ts\n", "src/app.ts already links to src/util.ts"},
+		{"esc cancels", "src/app.ts", "app note\n", []string{"u", "esc"}, "app note\n", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			model := cameraModel(t, tt.note)
-
-			model, _ = press(model, "r")
-			if want := []string{"Camera", "export", "function", "make_camera", "new", "return"}; !slices.Equal(
-				model.picker.choices, want) {
-				t.Fatalf("choices = %q, want %q", model.picker.choices, want)
+			model := newModel(t)
+			notePath := tt.selected + ".sketch.md"
+			if tt.note != "" {
+				writeFile(t, model.root, notePath, tt.note)
+				model.reload(tt.selected)
 			}
-			model, _ = press(model, "m", "a", "k", "e", "_")
-			if view := ansi.Strip(model.View().Content); !strings.Contains(view, "> make_camera") ||
-				strings.Contains(view, "export") {
-				t.Errorf("View() lacks the filtered picker:\n%s", view)
-			}
-			model, _ = press(model, "enter")
+			model, _ = press(selectPath(t, model, tt.selected), "r")
+			model, _ = press(model, tt.keys...)
 
-			if text := readNote(t, model, "src/useCamera.ts.sketch.md"); text != tt.text {
+			if text := readNote(t, model, notePath); text != tt.text {
 				t.Errorf("note = %q, want %q", text, tt.text)
 			}
-			if model.picker.kind != pickNone || model.selected().Path != "src/useCamera.ts" {
-				t.Errorf("picker %+v, selected %q, want the picker closed on the note", model.picker,
-					model.selected().Path)
-			}
-			if view := ansi.Strip(model.View().Content); !strings.Contains(view, "- uses `make_camera`") {
-				t.Errorf("the preview lacks the new line:\n%s", view)
+			if model.picker.kind != pickNone || model.selected().Path != tt.selected || model.status != tt.status {
+				t.Errorf("picker %+v, selected %q, status %q, want the picker closed on the note, status %q",
+					model.picker, model.selected().Path, model.status, tt.status)
 			}
 		})
-	}
-}
-
-func TestRefEscCancels(t *testing.T) {
-	model := cameraModel(t, "camera note\n")
-
-	model, _ = press(model, "r", "m", "esc")
-
-	if model.picker.kind != pickNone || readNote(t, model, "src/useCamera.ts.sketch.md") != "camera note\n" {
-		t.Errorf("picker %+v, want it closed and the note untouched", model.picker)
 	}
 }
 
@@ -659,7 +652,6 @@ func TestRefRejects(t *testing.T) {
 		name     string
 		selected string
 	}{
-		{"A ghost note", "src/new/orbit.ts"},
 		{"A file without a note", "src/util.ts"},
 		{"A folder", "src"},
 	}
@@ -669,8 +661,86 @@ func TestRefRejects(t *testing.T) {
 
 			model, _ = press(model, "r")
 
-			if model.picker.kind != pickNone || model.status != refNeedsAttachedNote {
-				t.Errorf("picker %+v, status %q, want only %q", model.picker, model.status, refNeedsAttachedNote)
+			if model.picker.kind != pickNone || model.status != refNeedsNote {
+				t.Errorf("picker %+v, status %q, want only %q", model.picker, model.status, refNeedsNote)
+			}
+		})
+	}
+}
+
+func TestLinksLine(t *testing.T) {
+	files := []string{"src/a.ts", "src/b.ts", "lib/b.ts", "src/d.ts"}
+	tests := []struct {
+		name     string
+		notes    []sketch.Note
+		selected string
+		expected string
+	}{
+		{"None either way", []sketch.Note{{Path: "src/a.ts.sketch.md", Target: "src/a.ts"}}, "src/a.ts", ""},
+		{"Uses, each marked, the dangling one !",
+			[]sketch.Note{{Path: "src/a.ts.sketch.md", Target: "src/a.ts", Edges: []sketch.Edge{
+				{To: "src/d.ts", Mark: sketch.MarkChanged}, {To: "src/new.ts", Mark: sketch.MarkNew}, {To: "src/c.ts"}}},
+				{Path: "src/new.ts.sketch.md", Target: "src/new.ts"}},
+			"src/a.ts", "uses → ~ d.ts, + new.ts, ! c.ts"},
+		{"A shared base name shows in full",
+			[]sketch.Note{{Path: "src/a.ts.sketch.md", Target: "src/a.ts", Edges: []sketch.Edge{
+				{To: "src/b.ts", Mark: sketch.MarkChanged}}}},
+			"src/a.ts", "uses → ~ src/b.ts"},
+		{"A dangling path sharing a base name shows in full",
+			[]sketch.Note{{Path: "src/a.ts.sketch.md", Target: "src/a.ts", Edges: []sketch.Edge{{To: "lib/d.ts"}}}},
+			"src/a.ts", "uses → ! lib/d.ts"},
+		{"Used by, marked as the linking note's target",
+			[]sketch.Note{{Path: "src/a.ts.sketch.md", Target: "src/a.ts", Mark: sketch.MarkChanged,
+				Edges: []sketch.Edge{{To: "src/d.ts", Mark: sketch.MarkChanged}}},
+				{Path: "src/e.ts.sketch.md", Target: "src/e.ts", Mark: sketch.MarkNew,
+					Edges: []sketch.Edge{{To: "src/d.ts", Mark: sketch.MarkChanged}}}},
+			"src/d.ts", "used by ← ~ a.ts, + e.ts"},
+		{"Both ways",
+			[]sketch.Note{{Path: "src/a.ts.sketch.md", Target: "src/a.ts", Mark: sketch.MarkChanged,
+				Edges: []sketch.Edge{{To: "src/d.ts", Mark: sketch.MarkChanged}}},
+				{Path: "src/d.ts.sketch.md", Target: "src/d.ts", Mark: sketch.MarkChanged,
+					Edges: []sketch.Edge{{To: "src/a.ts", Mark: sketch.MarkChanged}}}},
+			"src/a.ts", "uses → ~ d.ts   used by ← ~ d.ts"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			top := tree.Build(files, tt.notes, nil)
+			var selected *tree.Node
+			for _, node := range nodes(top) {
+				if node.Path == tt.selected {
+					selected = node
+				}
+			}
+
+			if actual := linksLine(top, selected); actual != tt.expected {
+				t.Errorf("linksLine() = %q, want %q", actual, tt.expected)
+			}
+		})
+	}
+}
+
+func TestViewShowsLinks(t *testing.T) {
+	model := newModel(t)
+	writeFile(t, model.root, "src/app.ts.sketch.md", "app note\n-> src/util.ts\n-> src/gone.ts\n")
+	model.reload("src/app.ts")
+
+	tests := []struct {
+		name     string
+		selected string
+		line     string
+	}{
+		{"A note's uses", "src/app.ts", "uses → ~ util.ts, ! gone.ts"},
+		{"A file's users", "src/util.ts", "used by ← ~ app.ts"},
+		{"Neither, no line", "README.md", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := selectPath(t, model, tt.selected)
+
+			lines := strings.Split(ansi.Strip(model.View().Content), "\n")
+
+			if linksRow := lines[len(lines)-2]; linksRow != tt.line {
+				t.Errorf("links row = %q, want %q", linksRow, tt.line)
 			}
 		})
 	}
@@ -884,12 +954,12 @@ func TestPaste(t *testing.T) {
 		}
 	})
 	t.Run("Into the picker's filter", func(t *testing.T) {
-		model, _ := press(cameraModel(t, ""), "r", "down")
+		model, _ := press(selectPath(t, newModel(t), "src/app.ts"), "r", "down")
 
-		model = paste(model, "make\n")
+		model = paste(model, "util\n")
 
-		if model.picker.typed != "make" || model.picker.cursor != 0 {
-			t.Errorf("typed %q, cursor %d, want make at the first match", model.picker.typed, model.picker.cursor)
+		if model.picker.typed != "util" || model.picker.cursor != 0 {
+			t.Errorf("typed %q, cursor %d, want util at the first match", model.picker.typed, model.picker.cursor)
 		}
 	})
 	t.Run("Anywhere else, nothing", func(t *testing.T) {

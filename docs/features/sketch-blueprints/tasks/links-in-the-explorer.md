@@ -1,13 +1,13 @@
 ---
 type: task
-status: todo
+status: done
 feature: sketch-blueprints
 scope: medium
 review: none
 depends_on: [blueprint-notes]
 summary: r picks a file and adds -> path to the note, and the footer shows uses and used-by.
 created_at: 2026-11-07T18:47:01Z
-updated_at: 2026-11-07T18:47:01Z
+updated_at: 2026-11-07T19:13:37Z
 ---
 
 # Links in the explorer
@@ -25,6 +25,6 @@ updated_at: 2026-11-07T18:47:01Z
 
 ## Acceptance criteria
 
-- [ ] `r` on a note lists repo files and planned targets, and picking one appends `-> path`.
-- [ ] The footer shows `uses →` for the note's links and `used by ←` for notes linking to it.
-- [ ] A link to a path with no file and no note shows `!`.
+- [x] `r` on a note lists repo files and planned targets, and picking one appends `-> path`.
+- [x] The footer shows `uses →` for the note's links and `used by ←` for notes linking to it.
+- [x] A link to a path with no file and no note shows `!`.

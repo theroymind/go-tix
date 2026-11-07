@@ -1,6 +1,6 @@
 // Package explorer provides the sketch explorer, a Bubble Tea model that shows the repo tree with each note as a +
 // ghost node or a ~ on the file it plans and a preview of the selected node beside it, that adds, opens and deletes
-// notes, marks them ready or draft, adds names from a note's target to it, filters the tree to one feature, kept per
+// notes, marks them ready or draft, links a note to a file and shows its links both ways, filters the tree to one feature, kept per
 // branch, jumps between open questions and answers them, and lists its keys.
 package explorer
 
@@ -137,7 +137,7 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(message, keys.Delete):
 			model.askDelete()
 		case key.Matches(message, keys.Ref):
-			model.askName()
+			model.askLinkTarget()
 		case key.Matches(message, keys.Feature):
 			model.askFeature()
 		case key.Matches(message, keys.Link):
@@ -436,7 +436,7 @@ func (model Model) View() tea.View {
 	previewPane := model.styles.preview.Height(height).Render(strings.Join(previewText, "\n"))
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, treePane, previewPane)
-	view := tea.NewView(strings.Join([]string{model.header(), body, model.footer()}, "\n"))
+	view := tea.NewView(strings.Join([]string{model.header(), body, model.links(), model.footer()}, "\n"))
 	view.AltScreen = true
 	view.ReportFocus = true
 	return view
@@ -458,6 +458,15 @@ func (model Model) header() string {
 		text += fmt.Sprintf(unreadableBadge, len(model.problems))
 	}
 	return model.styles.header.Render(ansi.Truncate(text, model.width, ""))
+}
+
+// links shows the selected node's links, to and from it, or nothing when it has none.
+func (model Model) links() string {
+	node := model.selected()
+	if node == nil {
+		return ""
+	}
+	return ansi.Truncate(linksLine(model.loaded, node), model.width, "")
 }
 
 // footer shows the prompt and the status message when there is one, and otherwise names the most used keys.

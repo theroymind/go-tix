@@ -11,7 +11,7 @@ type pickKind int
 
 const (
 	pickNone    pickKind = iota
-	pickName             // picks a name from the selected note's target, to add to the note
+	pickFile             // picks a file to link the selected note to
 	pickFeature          // picks the feature to filter the tree to
 	pickLink             // picks the feature to link the selected note to
 )
@@ -88,7 +88,7 @@ func (list picker) lines(height int) []string {
 	return lines
 }
 
-// answerPicker passes a key to the picker: esc closes it, and a pick adds the name to the note, filters the tree
+// answerPicker passes a key to the picker: esc closes it, and a pick links the note to the file, filters the tree
 // to the feature, or links the note to it.
 func (model *Model) answerPicker(message tea.KeyPressMsg) tea.Cmd {
 	switch message.String() {
@@ -105,8 +105,8 @@ func (model *Model) answerPicker(message tea.KeyPressMsg) tea.Cmd {
 	kind := model.picker.kind
 	model.picker = picker{}
 	switch kind {
-	case pickName:
-		model.addName(choice)
+	case pickFile:
+		model.addLink(choice)
 	case pickFeature:
 		model.filterFeature(choice)
 	case pickLink:

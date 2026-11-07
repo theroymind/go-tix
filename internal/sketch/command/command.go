@@ -35,15 +35,16 @@ notes only and the whole tree, R reloads the tree, which also happens when the t
 quits. a asks for a file name, tab completing folders, and adds a note planning that file in the selected folder,
 or beside the selected file; a typed .sketch.md or .sketch comes out, so useOrbit.sketch.ts plans useOrbit.ts,
 and a name with no extension is fine. enter or e on a file opens its note, adding one when it has none, in
-$EDITOR, or in the parent nvim when $NVIM is set, and d deletes it after asking. r on a note attached to a file
-lists the names in that file and adds the one you pick to the note as a "- uses" line; f filters the tree to one
+$EDITOR, or in the parent nvim when $NVIM is set, and d deletes it after asking. r on a note lists the repo's
+files and planned ones and adds the one you pick to the note as a "-> path" line; f filters the tree to one
 feature's notes, picked from tix's features and the ones notes name, links new notes to it, and is kept for the
 branch until cleared; L links the note to a feature; y marks the selected note ready, or back to draft, and new
 notes start draft, shown dimmed; ] and [ jump to the next and previous note with an open question, and > adds a
 "> " line under the note's first open question and opens the editor on it. The header counts the notes, draft and
-ready, their open questions and their dangling links. A note that couldn't be read shows as ! with the reason in
-the status line and preview, so e can open it to fix it. In a list, type to filter, the arrows or ctrl+n/ctrl+p
-move, enter picks and esc cancels.
+ready, their open questions and their dangling links. The line above the footer shows the selected note's links,
+uses →, and the notes linking to it, used by ←, each + when planned, ~ when the file exists and ! when neither.
+A note that couldn't be read shows as ! with the reason in the status line and preview, so e can open it to fix
+it. In a list, type to filter, the arrows or ctrl+n/ctrl+p move, enter picks and esc cancels.
 
 commands:
   ls [--json]                lists every note under the repo root with the file it plans, + when that file is
