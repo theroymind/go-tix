@@ -24,7 +24,7 @@ tix done "$id"
 
 ```bash
 go install github.com/theroymind/go-tix/cmd/sketch@latest
-sketch                    # the explorer; enter/e edit · a add · d delete · r link · y ready · > answer · ]/[ questions · f feature · v plan · ? help
+sketch                    # the explorer; enter/e edit beside the tree · E $EDITOR · a add · d delete · r link · y ready · > answer · ]/[ questions · f feature · v plan · ? help
 sketch ls --json          # every note with its target, status, body, links and questions, for agents
 sketch questions --json   # the open questions; --all adds answered ones with their answers
 sketch plan --feature X   # X's brief as markdown: tix criteria, a Mermaid graph, notes in build order, decisions
@@ -51,7 +51,7 @@ status: draft
 
 `feature:` links the note to a tix feature, and `status:` is `draft` or `ready`. A `-> path : label` line links to another file, from the repo root or, starting with `./` or `../`, from the note's folder. A path holding a space, or a URL such as `-> https://example.com`, leaves the line free text, so an arrow starting a sentence is never a link. In the explorer, `r` picks the file and adds the line, and the line above the footer shows the note's `uses →` and `used by ←` links, `!` marking a path that is neither a file nor planned. A `?` line is an open question until `>` lines right under it, or under one blank line, answer it. `#fn`, `#type`, `#component`, `#flow` and `#test` are a suggested convention for describing what the file holds; sketch doesn't parse them. tix is optional: without it, `sketch ls` warns and skips checking features, and `sketch plan` leaves out the feature's criteria. `sketch plan` puts each note after every note it links to, and the notes of a cycle together in path order, and moves a note's own headings three levels down, so its `#` sits under the note's `###`.
 
-In LazyVim, this spec in `~/.config/nvim/lua/plugins/sketch.lua` opens it as a left split on `<leader>k`, and `<leader>k` again hides it. Inside an nvim with the spec loaded, the explorer hides its preview pane: moving onto a note, in the tree or the plan view's list, shows it in the main window while focus stays in sketch, and `enter`, `e`, `a` or `>` move focus to it there, `>` on the answer line. sketch calls the spec's `sketch_show` over `nvim --remote-expr`; in an nvim without the spec, it keeps its preview pane and opens notes with `nvim --remote`. The explorer reloads when its terminal regains focus, and `R` reloads it by hand.
+In LazyVim, this spec in `~/.config/nvim/lua/plugins/sketch.lua` opens it as a left split on `<leader>k`, and `<leader>k` again hides it. Inside an nvim with the spec loaded, the explorer hides its preview pane: moving onto a note, in the tree or the plan view's list, shows it in the main window while focus stays in sketch, and `enter`, `e`, `a` or `>` move focus to it there, `>` on the answer line. sketch calls the spec's `sketch_show` over `nvim --remote-expr`; in an nvim without the spec, it keeps its preview pane, edits notes there, and opens them with `nvim --remote` on `E`. The explorer reloads when its terminal regains focus, and `R` reloads it by hand.
 
 ```lua
 local width = 38

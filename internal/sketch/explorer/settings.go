@@ -9,7 +9,7 @@ import (
 
 // keys are the explorer's key bindings, in the order the help overlay lists them.
 var keys = struct {
-	Down, Up, Expand, Collapse, Enter, NotesOnly, Add, Edit, Delete, Ref, Feature, Link, Ready, Answer, NextQuestion,
+	Down, Up, Expand, Collapse, Enter, NotesOnly, Add, Edit, External, Delete, Ref, Feature, Link, Ready, Answer, NextQuestion,
 	PreviousQuestion, Plan, Back, ScrollDown, ScrollUp, Reload, Help, Quit key.Binding
 }{
 	Down:             key.NewBinding(key.WithKeys("j", "down"), key.WithHelp("j ↓", "down")),
@@ -20,6 +20,7 @@ var keys = struct {
 	NotesOnly:        key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "notes only, or the whole tree")),
 	Add:              key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "add a note, or open the selected note")),
 	Edit:             key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit the note, adding one to a file without")),
+	External:         key.NewBinding(key.WithKeys("E"), key.WithHelp("E", "edit the note in $EDITOR")),
 	Delete:           key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete the note")),
 	Ref:              key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "link the note to a file")),
 	Feature:          key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "filter to a feature")),
@@ -39,12 +40,15 @@ var keys = struct {
 
 // helpKeys are the bindings the help overlay lists, every one of them.
 var helpKeys = []key.Binding{keys.Down, keys.Up, keys.Expand, keys.Collapse, keys.Enter, keys.NotesOnly, keys.Add,
-	keys.Edit, keys.Delete, keys.Ref, keys.Feature, keys.Link, keys.Ready, keys.Answer, keys.NextQuestion,
+	keys.Edit, keys.External, keys.Delete, keys.Ref, keys.Feature, keys.Link, keys.Ready, keys.Answer, keys.NextQuestion,
 	keys.PreviousQuestion, keys.Plan, keys.Back, keys.ScrollDown, keys.ScrollUp, keys.Reload, keys.Help, keys.Quit}
 
 // footerHints are the few keys the footer names, each with a short name, ending with ? for the rest.
 var footerHints = []string{"n notes", "a add", "e edit", "f feature", "y ready", "> answer", "] question", "v plan",
 	"? help"}
+
+// padFooterHints are the keys the footer names while a note is edited in the preview pane.
+var padFooterHints = []string{"esc save and close", "ctrl+s save", "ctrl+c save and quit"}
 
 // planFooterHints are the keys the footer names in the plan view.
 var planFooterHints = []string{"j/k note", "ctrl+d/ctrl+u scroll", "v/esc tree", "? help", "q quit"}
@@ -82,6 +86,8 @@ const (
 	deletePrompt   = "delete %s? y/n"
 	editorFailed   = "editor: %v"
 	noNoteToEdit   = "no note; a adds one in a folder"
+	createdNote    = "created %s, the note planning %s"
+	savedNote      = "saved"
 	noNoteToDelete = "no note to delete"
 
 	// r adds a -> line linking the note to the file picked, and the links line shows a note's links both ways.

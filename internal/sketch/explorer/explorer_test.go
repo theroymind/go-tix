@@ -86,6 +86,8 @@ func press(model Model, keys ...string) (Model, tea.Cmd) {
 			message = tea.KeyPressMsg{Code: tea.KeyTab}
 		case "ctrl+c":
 			message = tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
+		case "ctrl+s":
+			message = tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl}
 		default:
 			message = tea.KeyPressMsg{Code: rune(name[0]), Text: name}
 		}

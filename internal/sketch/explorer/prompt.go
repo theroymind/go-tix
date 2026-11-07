@@ -190,19 +190,19 @@ func noteText(feature string) string {
 	return frontMatter + noteDraft + noteFence
 }
 
-// writeNew writes text to a new file at filePath, making the folders above it. A file already there is left as it
-// is.
-func writeNew(filePath, text string) error {
+// writeNew writes text to a new file at filePath, making the folders above it, and reports whether it made the
+// file. A file already there is left as it is.
+func writeNew(filePath, text string) (bool, error) {
 	if err := os.MkdirAll(filepath.Dir(filePath), folderMode); err != nil {
-		return err
+		return false, err
 	}
 	file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, fileMode)
 	if errors.Is(err, fs.ErrExist) {
-		return nil
+		return false, nil
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
 	_, err = file.WriteString(text)
-	return errors.Join(err, file.Close())
+	return true, errors.Join(err, file.Close())
 }

@@ -1,8 +1,9 @@
 // Package explorer provides the sketch explorer, a Bubble Tea model that shows the repo tree with each note as a +
-// ghost node or a ~ on the file it plans and a preview of the selected node beside it, or inside nvim the selected
-// note in nvim's main window, that adds, opens and deletes notes, marks them ready or draft, links a note to a
-// file and shows its links both ways, filters the tree to one feature, kept per branch, jumps between open
-// questions and answers them, shows the notes joined in build order, and lists its keys.
+// ghost node or a ~ on the file it plans and a preview of the selected node beside it, which edits the note when
+// it opens, or inside nvim the selected note in nvim's main window, that adds, opens and deletes notes, marks them
+// ready or draft, links a note to a file and shows its links both ways, filters the tree to one feature, kept per
+// branch, jumps between open questions and answers them, shows the notes joined in build order, and lists its
+// keys.
 package explorer
 
 import (
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -49,7 +51,9 @@ const followDelay = 100 * time.Millisecond
 // shows there instead of in the preview pane.
 type Model struct {
 	root          string
-	open          Open
+	open          Open                     // edits a note: in the preview pane, or inside nvim in nvim
+	external      Open                     // edits a note in $EDITOR, or inside nvim in nvim
+	pad           pad                      // the note being edited in the preview pane
 	paired        bool                     // inside an nvim, which shows the selected note
 	follow        Follow                   // shows a note in the paired nvim
 	followed      string                   // the note the paired nvim was last asked to show
@@ -71,6 +75,7 @@ type Model struct {
 	width         int
 	height        int
 	styles        styles
+	isDark        bool // the terminal's background is dark
 	preview       []string
 	picker        picker
 	help          bool // the help overlay shows in the preview pane
@@ -81,16 +86,20 @@ type Model struct {
 
 // New returns the explorer for the repo at root, with the tree repo.Load reads, the feature filter the branch
 // last had, every folder above a note open so that every note shows, and only notes showing when there are any.
-// Notes open in the editor editor.Open picks, and inside nvim the explorer pairs with it.
+// Notes open in the preview pane, or in $EDITOR on E; inside nvim the explorer pairs with it, and notes open
+// there.
 func New(root string) (Model, error) {
 	loaded, err := repo.Load(root)
 	if err != nil {
 		return Model{}, err
 	}
 	resolver := refs.New(root)
-	model := Model{root: root, open: editor.Open, paired: editor.Paired(), follow: editor.Follow,
+	model := Model{root: root, open: paneOpen, external: editor.Open, paired: editor.Paired(), follow: editor.Follow,
 		listFeatures: resolver.Features, lookUpFeature: tixFeature(resolver),
-		expanded: tree.NoteFolders(loaded.Tree), styles: newStyles(true)}
+		expanded: tree.NoteFolders(loaded.Tree), styles: newStyles(true), isDark: true}
+	if model.paired {
+		model.open = editor.Open
+	}
 	model.featureFile = featureFile(root)
 	model.feature = readFeature(model.featureFile)
 	model.show(loaded)
@@ -123,7 +132,9 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 func (model Model) update(message tea.Msg) (Model, tea.Cmd) {
 	switch message := message.(type) {
 	case tea.BackgroundColorMsg:
-		model.styles = newStyles(message.IsDark())
+		model.isDark = message.IsDark()
+		model.styles = newStyles(model.isDark)
+		model.pad.area.SetStyles(textarea.DefaultStyles(model.isDark))
 	case tea.WindowSizeMsg:
 		model.width, model.height = message.Width, message.Height
 		model.settle()
@@ -140,11 +151,18 @@ func (model Model) update(message tea.Msg) (Model, tea.Cmd) {
 		model.refreshPlan()
 	case planFeatureMsg:
 		model.showPlanFeature(message)
+	case padMsg:
+		return model, model.startPad(message)
 	case tea.PasteMsg:
+		if model.pad.active() {
+			return model, model.updatePad(message)
+		}
 		model.paste(message.Content)
 	case tea.KeyPressMsg:
 		model.status = ""
 		switch {
+		case model.pad.active():
+			return model, model.updatePad(message)
 		case model.help:
 			model.help = false
 		case model.picker.kind != pickNone:
@@ -173,6 +191,8 @@ func (model Model) update(message tea.Msg) (Model, tea.Cmd) {
 			return model, model.add()
 		case key.Matches(message, keys.Edit):
 			return model, model.edit()
+		case key.Matches(message, keys.External):
+			return model, model.editExternally()
 		case key.Matches(message, keys.Delete):
 			model.askDelete()
 		case key.Matches(message, keys.Ref):
@@ -195,6 +215,11 @@ func (model Model) update(message tea.Msg) (Model, tea.Cmd) {
 			model.reload(model.selectedPath())
 		case key.Matches(message, keys.Help):
 			model.help = true
+		}
+	default:
+		// The pad's cursor blinks on messages of its own.
+		if model.pad.active() {
+			return model, model.updatePad(message)
 		}
 	}
 	return model, nil
@@ -251,6 +276,22 @@ func (model *Model) edit() tea.Cmd {
 	return model.createNote(node.Path)
 }
 
+// editExternally opens the selected node's note in $EDITOR, or creates one for the selected file when it has
+// none, and opens that.
+func (model *Model) editExternally() tea.Cmd {
+	node := model.selected()
+	switch {
+	case node == nil || node.IsDir:
+		model.status = noNoteToEdit
+		return nil
+	case node.Note == nil && !model.addNote(node.Path):
+		return nil
+	}
+	notePath := node.Path + sketch.NoteSuffix
+	model.followed = notePath
+	return model.external(model.filePath(notePath), 0, func(err error) tea.Msg { return editedMsg{err: err} })
+}
+
 // askDelete asks before deleting the selected node's note.
 func (model *Model) askDelete() {
 	node := model.selected()
@@ -264,14 +305,28 @@ func (model *Model) askDelete() {
 // createNote writes a new note planning target, unless one is already there, then shows it in the tree and opens
 // it.
 func (model *Model) createNote(target string) tea.Cmd {
-	notePath := target + sketch.NoteSuffix
-	if err := writeNew(model.filePath(notePath), noteText(model.feature)); err != nil {
-		model.status = err.Error()
+	if !model.addNote(target) {
 		return nil
+	}
+	return model.openNote(target+sketch.NoteSuffix, 0)
+}
+
+// addNote writes a new note planning target, unless one is already there, shows it in the tree with the cursor on
+// it, and says in the status line which file the new note is and which it plans. It reports whether the note is
+// there, putting the error in the status line when it isn't.
+func (model *Model) addNote(target string) bool {
+	notePath := target + sketch.NoteSuffix
+	created, err := writeNew(model.filePath(notePath), noteText(model.feature))
+	if err != nil {
+		model.status = err.Error()
+		return false
 	}
 	model.openFoldersAbove(target)
 	model.reload(target)
-	return model.openNote(notePath, 0)
+	if created && model.status == "" {
+		model.status = fmt.Sprintf(createdNote, path.Base(notePath), path.Base(target))
+	}
+	return true
 }
 
 func (model *Model) openFoldersAbove(nodePath string) {
@@ -438,6 +493,7 @@ func (model *Model) settle() {
 		model.offset = model.cursor - height + 1
 	}
 	model.preview = previewLines(model.root, model.selected(), height)
+	model.sizePad()
 }
 
 func (model Model) selected() *tree.Node {
@@ -498,9 +554,12 @@ func (model Model) View() tea.View {
 	var body string
 	switch {
 	case !model.paired:
-		treeWidth := min(model.width, max(minTreeWidth, model.width/treeShare))
-		body = lipgloss.JoinHorizontal(lipgloss.Top, model.treePane(treeWidth),
-			model.styles.preview.Render(model.previewPane(model.width-treeWidth-1-previewGap)))
+		pane := model.previewPane(model.previewWidth())
+		if model.pad.active() {
+			pane = lipgloss.NewStyle().Height(model.paneHeight()).Render(model.pad.area.View())
+		}
+		body = lipgloss.JoinHorizontal(lipgloss.Top, model.treePane(model.treeWidth()),
+			model.styles.preview.Render(pane))
 	case model.help || model.picker.kind != pickNone:
 		body = model.previewPane(model.width)
 	default:
@@ -510,6 +569,16 @@ func (model Model) View() tea.View {
 	view.AltScreen = true
 	view.ReportFocus = true
 	return view
+}
+
+// treeWidth is how many columns the tree pane takes beside the preview pane.
+func (model Model) treeWidth() int {
+	return min(model.width, max(minTreeWidth, model.width/treeShare))
+}
+
+// previewWidth is how many columns of text the preview pane holds, inside its border and gap.
+func (model Model) previewWidth() int {
+	return model.width - model.treeWidth() - 1 - previewGap
 }
 
 // treePane draws the rows in view, or the plan view's file list, width columns wide.
@@ -583,7 +652,10 @@ func (model Model) footer() string {
 		return ansi.Truncate(line, model.width, "")
 	}
 	hints := footerHints
-	if model.plan.active {
+	switch {
+	case model.pad.active():
+		hints = padFooterHints
+	case model.plan.active:
 		hints = planFooterHints
 	}
 	return model.styles.footer.Render(ansi.Truncate(strings.Join(hints, hintSeparator), model.width, ""))

@@ -34,16 +34,18 @@ j/k or the arrows move, l opens a folder, h closes one, enter opens or closes a 
 only and the whole tree, R reloads the tree, which also happens when the terminal regains focus, and q quits. a
 asks for a file name, tab completing folders, and adds a note planning that file in the selected folder, or beside
 the selected file; on a note, a opens it. A typed .sketch.md or .sketch comes out, so useOrbit.sketch.ts plans
-useOrbit.ts, and a name with no extension is fine. enter or e on a file opens its note, adding one when it has
-none, in $EDITOR, and d deletes it after asking. Inside an nvim that has the sketch_show function the README's
-LazyVim spec defines, the preview hides, moving onto a note, in the tree or the plan view, shows it in nvim's main
-window, and enter, e, a and > open it there with focus; in an nvim without it, the preview stays and notes open
-with nvim --remote. r on a note lists the repo's files and planned ones and adds the one you pick to the note as a
+useOrbit.ts, and a name with no extension is fine; a new note's name shows in the status line. enter or e on a
+file opens its note, adding one when it has none, for editing in the preview pane beside the tree: esc saves it and
+goes back to the tree, ctrl+s saves, and ctrl+c saves and quits. E opens the note in $EDITOR instead, and d
+deletes it after asking. Inside an nvim that has the sketch_show function the README's LazyVim spec defines, the
+preview hides, moving onto a note, in the tree or the plan view, shows it in nvim's main window, and enter, e, a
+and > open it there with focus; in an nvim without it, the preview pane edits notes and E opens them with nvim
+--remote. r on a note lists the repo's files and planned ones and adds the one you pick to the note as a
 "-> path" line; f filters the tree to one feature's notes, picked from tix's features and the ones notes name,
 links new notes to it, and is kept for the branch until cleared; L links the note to a feature; y marks the
 selected note ready, or back to draft, and new notes start draft, shown dimmed; ] and [ jump to the next and
 previous note with an open question, and > adds a "> " line under the note's first open question and opens the
-editor on it. v swaps the tree for the plan view: the notes that show, in build order, with their link counts,
+note on it. v swaps the tree for the plan view: the notes that show, in build order, with their link counts,
 beside the notes joined under the feature filter's title and criteria from tix and above their decisions and open
 questions, scrolled to the selected note; j/k move, ctrl+d/ctrl+u scroll, and v or esc goes back to the tree on the
 node it was on. The header counts the notes, draft and ready, their open questions and their dangling links. The
