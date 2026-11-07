@@ -55,6 +55,8 @@ func TestPairedLayout(t *testing.T) {
 			[]string{helpTitle}, []string{"README.md"}},
 		{"Paired, a picker takes the tree's place", true, []string{"f"},
 			[]string{featureTitle}, []string{"README.md"}},
+		{"Paired, the plan view shows its list alone", true, []string{"v"},
+			[]string{"~ src/app.ts  →0 ←0", "+ src/new/orbit.ts  →0 ←0"}, []string{"app note", "│"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -81,32 +83,43 @@ func TestPairedLayout(t *testing.T) {
 
 func TestFollow(t *testing.T) {
 	tests := []struct {
-		name string
-		keys []string
-		want []string
+		name  string
+		keys  []string
+		rests bool // the cursor rests after each key, so its tick fires before the next; otherwise j is held down
+		want  []string
 	}{
-		{"A note the cursor rests on", []string{"j", "j", "j"}, []string{"src/new/orbit.ts.sketch.md"}},
-		{"Only the note the cursor ends on", []string{"j", "j", "j", "j"}, []string{"src/app.ts.sketch.md"}},
-		{"Back on the note shown, nothing more", []string{"j", "j", "j", "j", "k"}, []string{"src/new/orbit.ts.sketch.md"}},
-		{"Not a folder", []string{"j"}, nil},
-		{"Not a file without a note", []string{"j", "j", "j", "j", "j"}, nil},
+		{"A note the cursor rests on", []string{"j", "j", "j"}, false, []string{"src/new/orbit.ts.sketch.md"}},
+		{"Only the note the cursor ends on", []string{"j", "j", "j", "j"}, false, []string{"src/app.ts.sketch.md"}},
+		{"Back on the note shown, nothing more", []string{"j", "j", "j", "j", "k"}, false,
+			[]string{"src/new/orbit.ts.sketch.md"}},
+		{"Back on a note from a folder, it shows again", []string{"j", "j", "j", "k", "j"}, true,
+			[]string{"src/new/orbit.ts.sketch.md", "src/new/orbit.ts.sketch.md"}},
+		{"The plan view's selected note, as it moves", []string{"v", "j"}, true,
+			[]string{"src/app.ts.sketch.md", "src/new/orbit.ts.sketch.md"}},
+		{"Not a folder", []string{"j"}, false, nil},
+		{"Not a file without a note", []string{"j", "j", "j", "j", "j"}, false, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			model, followed := pairedModel(t)
-			var commands []tea.Cmd
-			for _, name := range tt.keys {
-				var command tea.Cmd
-				model, command = press(model, name)
-				commands = append(commands, command)
-			}
-
-			// The ticks fire after every key has landed, as when j is held down.
-			for _, command := range commands {
+			fire := func(command tea.Cmd) {
 				for _, message := range run(command) {
 					updated, _ := model.Update(message)
 					model = updated.(Model)
 				}
+			}
+			var commands []tea.Cmd
+			for _, name := range tt.keys {
+				var command tea.Cmd
+				model, command = press(model, name)
+				if tt.rests {
+					fire(command)
+				} else {
+					commands = append(commands, command)
+				}
+			}
+			for _, command := range commands {
+				fire(command)
 			}
 
 			var want []string

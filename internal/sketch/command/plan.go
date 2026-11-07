@@ -23,11 +23,14 @@ func runPlan(arguments []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	root, loaded, err := loadFeature(parsed)
+	feature, _ := parsed.String(optionFeature)
+	root, loaded, err := loadNotes(feature)
 	if err != nil {
 		return err
 	}
-	feature, _ := parsed.String(optionFeature)
+	if feature != "" && len(loaded.Notes) == 0 {
+		return fmt.Errorf("%w: %s", ErrNoNotes, feature)
+	}
 	tixFeature := lookUpFeature(refs.New(root), feature, stderr)
 	if _, err := fmt.Fprint(stdout, plan.Markdown(feature, tixFeature, loaded.Notes)); err != nil {
 		return err
@@ -47,9 +50,13 @@ func runGraph(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	_, loaded, err := loadFeature(parsed)
+	feature, _ := parsed.String(optionFeature)
+	_, loaded, err := loadNotes(feature)
 	if err != nil {
 		return err
+	}
+	if feature != "" && len(loaded.Notes) == 0 {
+		return fmt.Errorf("%w: %s", ErrNoNotes, feature)
 	}
 	if _, err := fmt.Fprint(stdout, plan.Mermaid(loaded.Notes)); err != nil {
 		return err
@@ -57,9 +64,9 @@ func runGraph(arguments []string, _ io.Reader, stdout io.Writer) error {
 	return unreadable(loaded.Problems)
 }
 
-// loadFeature finds the repo root and loads its notes, keeping only the --feature's when parsed names one, and
-// fails with ErrNoNotes when that feature has none.
-func loadFeature(parsed cli.Arguments) (string, repo.Repo, error) {
+// loadNotes finds the repo root and loads its notes, keeping only feature's when feature isn't empty. What an
+// empty result means is left to the caller.
+func loadNotes(feature string) (string, repo.Repo, error) {
 	root, err := repoRootFromWorkingDir()
 	if err != nil {
 		return "", repo.Repo{}, err
@@ -68,13 +75,8 @@ func loadFeature(parsed cli.Arguments) (string, repo.Repo, error) {
 	if err != nil {
 		return "", repo.Repo{}, err
 	}
-	feature, hasFeature := parsed.String(optionFeature)
-	if !hasFeature {
-		return root, loaded, nil
-	}
-	loaded.Notes = notesOf(loaded.Notes, feature)
-	if len(loaded.Notes) == 0 {
-		return "", repo.Repo{}, fmt.Errorf("%w: %s", ErrNoNotes, feature)
+	if feature != "" {
+		loaded.Notes = notesOf(loaded.Notes, feature)
 	}
 	return root, loaded, nil
 }

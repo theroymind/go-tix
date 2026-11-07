@@ -1,6 +1,8 @@
 package editor
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -24,6 +26,10 @@ func TestCommands(t *testing.T) {
 		{"EDITOR with a line", map[string]string{"EDITOR": "vim"}, 3, [][]string{{"vim", "+3", file}}, false},
 		{"VISUAL when EDITOR is blank", map[string]string{"EDITOR": "  ", "VISUAL": "hx"}, 0,
 			[][]string{{"hx", file}}, false},
+		{"An editor that doesn't take +line gets the file alone", map[string]string{"EDITOR": "code --wait"}, 12,
+			[][]string{{"code", "--wait", file}}, false},
+		{"An editor named by its path takes +line", map[string]string{"EDITOR": "/usr/local/bin/nvim"}, 4,
+			[][]string{{"/usr/local/bin/nvim", "+4", file}}, false},
 		{"vi when neither is set", nil, 0, [][]string{{"vi", file}}, false},
 		{"vi with a line", nil, 2, [][]string{{"vi", "+2", file}}, false},
 	}
@@ -60,6 +66,35 @@ func TestShowCommand(t *testing.T) {
 			want := []string{"nvim", "--server", "/tmp/nvim.sock", "--remote-expr", tt.wantExpr}
 			if !reflect.DeepEqual(argv, want) {
 				t.Errorf("ShowCommand() = %q, want %q", argv, want)
+			}
+		})
+	}
+}
+
+func TestPaired(t *testing.T) {
+	tests := []struct {
+		name   string
+		server string
+		script string // the fake nvim on PATH
+		want   bool
+	}{
+		{"Outside nvim", "", "echo 1", false},
+		{"An nvim with sketch_show", "/tmp/nvim.sock", "echo 1", true},
+		{"An nvim without sketch_show", "/tmp/nvim.sock", "echo 0", false},
+		{"An nvim that can't be reached", "/tmp/nvim.sock", "exit 1", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bin := t.TempDir()
+			script := "#!/bin/sh\n" + tt.script + "\n"
+			if err := os.WriteFile(filepath.Join(bin, "nvim"), []byte(script), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("PATH", bin)
+			t.Setenv("NVIM", tt.server)
+
+			if paired := Paired(); paired != tt.want {
+				t.Errorf("Paired() = %v, want %v", paired, tt.want)
 			}
 		})
 	}

@@ -23,23 +23,16 @@ func runCheck(arguments []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	root, err := repoRootFromWorkingDir()
-	if err != nil {
-		return err
-	}
-	loaded, err := repo.Load(root)
+	feature, _ := parsed.String(optionFeature)
+	root, loaded, err := loadNotes(feature)
 	if err != nil {
 		return err
 	}
 	notes := loaded.Notes
-	feature, hasFeature := parsed.String(optionFeature)
-	if hasFeature {
-		notes = notesOf(loaded.Notes, feature)
-	}
 	unknown := unknownFeatures(refs.New(root), notes, stderr)
 
 	var problems []string
-	if hasFeature && len(notes) == 0 {
+	if feature != "" && len(notes) == 0 {
 		problems = append(problems, fmt.Sprintf(noNotesProblem, feature))
 	}
 	for _, value := range notes {
@@ -75,7 +68,7 @@ func noteProblems(value sketch.Note, unknown map[string]bool) []string {
 		problems = append(problems, fmt.Sprintf(openQuestionProblem, question.Path, question.Line, question.Text))
 	}
 	for _, edge := range value.Edges {
-		if edge.Mark == "" {
+		if repo.Dangling(edge) {
 			problems = append(problems, fmt.Sprintf(danglingLinkProblem, value.Path, edge.To))
 		}
 	}

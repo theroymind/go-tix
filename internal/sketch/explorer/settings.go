@@ -18,7 +18,7 @@ var keys = struct {
 	Collapse:         key.NewBinding(key.WithKeys("h", "left"), key.WithHelp("h ←", "close a folder, or go up to it")),
 	Enter:            key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "toggle a folder; on a file, edit its note")),
 	NotesOnly:        key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "notes only, or the whole tree")),
-	Add:              key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "add a note planning a new file")),
+	Add:              key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "add a note, or open the selected note")),
 	Edit:             key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit the note, adding one to a file without")),
 	Delete:           key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete the note")),
 	Ref:              key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "link the note to a file")),
@@ -73,12 +73,10 @@ const (
 	folderMode = 0o755
 	fileMode   = 0o644
 
-	// A new note starts with front matter naming the feature filter, when one is set, and marking it draft, and
-	// then a heading naming the file it plans.
+	// A new note is front matter naming the feature filter, when one is set, and marking it draft.
 	noteFence   = "---\n"
 	noteFeature = "feature: %s\n"
 	noteDraft   = "status: draft\n"
-	noteHeading = "# %s\n\n"
 
 	namePrompt     = "plan file: %s/%s█"
 	deletePrompt   = "delete %s? y/n"
@@ -99,6 +97,7 @@ const (
 
 	featureTitle    = "filter to feature"
 	linkTitle       = "link %s to feature"
+	noteGone        = "%s has no note any more"
 	linkNeedsNote   = "L links a note to a feature; a or e to add one"
 	linkedNote      = "linked %s to %s"
 	allFeatures     = "all features"
@@ -106,6 +105,7 @@ const (
 	noOpenQuestions = "no open questions"
 	noneToAnswer    = "> answers a note's open question; this has none"
 	answerLine      = "> "
+	answerMarker    = ">"
 
 	helpTitle      = "keys (any key closes this)"
 	helpLine       = "%-6s %s"
@@ -114,7 +114,6 @@ const (
 	markedNote     = "%s is %s"
 
 	noNotesToPlan = "no notes to plan; a adds one"
-	criterionLine = "%d. [%s] %s"
 	planRule      = "────────────────────────────────────────"
 	linkCounts    = "  →%d ←%d"
 

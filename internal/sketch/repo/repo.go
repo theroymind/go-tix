@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 
 	"github.com/theroymind/go-tix/contracts/sketch"
 	"github.com/theroymind/go-tix/internal/sketch/note"
@@ -106,10 +107,17 @@ func mark(root string, value *sketch.Note, planned map[string]bool) error {
 	return nil
 }
 
-// stat returns the file info at the slash-separated repo path, or nil when nothing is there.
+// Dangling reports whether edge leads nowhere: its file neither exists nor is planned by a note. It holds only for
+// an edge of a note Load marked, since an edge read straight from its note has no mark either way.
+func Dangling(edge sketch.Edge) bool {
+	return edge.Mark == ""
+}
+
+// stat returns the file info at the slash-separated repo path, or nil when nothing is there, including when the
+// path runs through a file.
 func stat(root, repoPath string) (fs.FileInfo, error) {
 	info, err := os.Stat(filepath.Join(root, filepath.FromSlash(repoPath)))
-	if errors.Is(err, fs.ErrNotExist) {
+	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
 		return nil, nil
 	}
 	return info, err

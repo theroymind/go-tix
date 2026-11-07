@@ -3,11 +3,11 @@ type: task
 status: done
 feature: sketch-blueprints
 scope: medium
-review: pending
+review: done
 depends_on: [explorer-keys-and-naming]
 summary: Inside nvim, sketch shows the selected note in nvim's main window instead of its own preview pane, and LazyVim opens it as a left split.
 created_at: 2026-11-07T18:47:01Z
-updated_at: 2026-11-07T19:16:40Z
+updated_at: 2026-11-07T19:33:44Z
 ---
 
 # Paired nvim editor

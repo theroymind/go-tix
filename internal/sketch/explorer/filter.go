@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"maps"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -39,12 +40,16 @@ func (model *Model) askLink() {
 		model.status = err.Error()
 		return
 	}
-	model.picker = picker{kind: pickLink, title: fmt.Sprintf(linkTitle, node.Path), choices: features}
+	model.picker = picker{kind: pickLink, title: fmt.Sprintf(linkTitle, node.Path), subject: node.Path,
+		choices: features}
 }
 
-// link rewrites the selected node's note to name feature in its front matter, and shows the tree again.
-func (model *Model) link(feature string) {
-	node := model.selected()
+// link rewrites the note of the node at nodePath to name feature in its front matter, and shows the tree again.
+func (model *Model) link(nodePath, feature string) {
+	node := model.subjectNode(nodePath)
+	if node == nil {
+		return
+	}
 	err := model.setField(node.Note.Path, note.FeatureKey, feature)
 	if err != nil {
 		model.status = err.Error()
@@ -88,7 +93,8 @@ func (model *Model) filterFeature(choice string) {
 }
 
 // featureFile returns the file that keeps the feature filter for the branch checked out in the repo at root,
-// under its git folder, or "" outside git or with no branch checked out.
+// under its git folder, or "" outside git or with no branch checked out. The branch is escaped into one file name,
+// so feature and feature/x each get a file rather than one needing the other as a folder.
 func featureFile(root string) string {
 	gitFolder, err := gitOutput(root, "rev-parse", "--absolute-git-dir")
 	if err != nil {
@@ -98,7 +104,7 @@ func featureFile(root string) string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(gitFolder, featureFolder, filepath.FromSlash(branch))
+	return filepath.Join(gitFolder, featureFolder, url.PathEscape(branch))
 }
 
 // gitOutput runs git with arguments in root and returns what it prints, trimmed.

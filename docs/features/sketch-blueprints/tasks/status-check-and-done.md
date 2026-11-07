@@ -3,11 +3,11 @@ type: task
 status: done
 feature: sketch-blueprints
 scope: medium
-review: pending
+review: done
 depends_on: [blueprint-notes]
 summary: Notes are draft until y marks them ready, sketch check gates a build, and sketch done deletes a feature's notes.
 created_at: 2026-11-07T18:47:01Z
-updated_at: 2026-11-07T19:03:19Z
+updated_at: 2026-11-07T19:33:44Z
 ---
 
 # Status, check and done

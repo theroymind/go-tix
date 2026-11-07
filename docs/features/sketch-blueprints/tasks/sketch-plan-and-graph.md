@@ -3,11 +3,11 @@ type: task
 status: done
 feature: sketch-blueprints
 scope: medium
-review: pending
+review: done
 depends_on: [blueprint-notes]
 summary: sketch plan prints a feature's brief as markdown with a Mermaid graph and notes in build order, and sketch graph prints the graph alone.
 created_at: 2026-11-07T18:47:01Z
-updated_at: 2026-11-07T19:13:42Z
+updated_at: 2026-11-07T19:33:44Z
 ---
 
 # sketch plan and graph

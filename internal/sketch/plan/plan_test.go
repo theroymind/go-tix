@@ -125,12 +125,12 @@ func TestMarkdown(t *testing.T) {
 		{Text: "who", Line: 11}}
 	camera := note("src/camera.ts")
 	camera.Mark = sketch.MarkChanged
-	camera.Body = "Add a target.\n"
+	camera.Body = "# Camera\n\nAdd a target.\n"
 	feature := &ticket.Ticket{ID: "camera", Title: "Fight camera", Description: "Frames the fight.",
 		Acceptance: []ticket.Criterion{{Text: "It orbits.", Done: true}, {Text: "It eases."}}}
 	notes := []sketch.Note{orbit, camera}
 	graph := "\n## Graph\n\n```mermaid\n" + Mermaid(notes) + "```\n"
-	buildOrder := "\n## Build order\n\n### ~src/camera.ts\n\nAdd a target.\n\n### +src/useOrbit.ts\n\n" +
+	buildOrder := "\n## Build order\n\n### ~src/camera.ts\n\n#### Camera\n\nAdd a target.\n\n### +src/useOrbit.ts\n\n" +
 		"Orbit the camera.\n\n#fn useOrbit()\n-> src/camera.ts\n? how fast\n> 1 rad/s\n> slower zoomed\n? who\n"
 	decisions := "\n## Decisions\n\n- src/useOrbit.ts.sketch.md: how fast\n  > 1 rad/s\n  > slower zoomed\n"
 	open := "\n## Open questions\n\n- src/useOrbit.ts.sketch.md:11: who\n"
@@ -149,7 +149,7 @@ func TestMarkdown(t *testing.T) {
 			decisions + open},
 		{"Without a feature, a plain title", "", nil, notes, "# Plan\n" + graph + buildOrder + decisions + open},
 		{"No questions, no question sections", "", nil, []sketch.Note{camera}, "# Plan\n\n## Graph\n\n```mermaid\n" +
-			Mermaid([]sketch.Note{camera}) + "```\n\n## Build order\n\n### ~src/camera.ts\n\nAdd a target.\n"},
+			Mermaid([]sketch.Note{camera}) + "```\n\n## Build order\n\n### ~src/camera.ts\n\n#### Camera\n\nAdd a target.\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -160,6 +160,30 @@ func TestMarkdown(t *testing.T) {
 			}
 			if strings.Contains(actual, "\n\n\n") {
 				t.Errorf("Markdown() has a run of blank lines:\n%s", actual)
+			}
+		})
+	}
+}
+
+func TestDemoteHeadings(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		expected string
+	}{
+		{"Each level goes three deeper", "# A\n## B\n### C", "#### A\n##### B\n###### C"},
+		{"Deep headings stop at six", "#### D\n###### F", "###### D\n###### F"},
+		{"An empty heading", "#", "####"},
+		{"Up to three spaces of indent", "   # A\n    # code", "#### A\n    # code"},
+		{"Not headings", "#fn useOrbit\n####### seven\ntext # not", "#fn useOrbit\n####### seven\ntext # not"},
+		{"Fenced code is left alone", "```sh\n# comment\n```\n# A\n~~~\n# x\n```\n# y\n~~~",
+			"```sh\n# comment\n```\n#### A\n~~~\n# x\n```\n# y\n~~~"},
+		{"An unclosed fence runs to the end", "```\n# x", "```\n# x"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if actual := demoteHeadings(tt.text); actual != tt.expected {
+				t.Errorf("demoteHeadings(%q) = %q, want %q", tt.text, actual, tt.expected)
 			}
 		})
 	}

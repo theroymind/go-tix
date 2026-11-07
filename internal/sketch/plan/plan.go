@@ -13,6 +13,7 @@ import (
 	"github.com/theroymind/go-tix/contracts/sketch"
 	"github.com/theroymind/go-tix/contracts/ticket"
 	"github.com/theroymind/go-tix/internal/sketch/questions"
+	"github.com/theroymind/go-tix/internal/sketch/repo"
 )
 
 // Order returns the notes in build order: each note after every note it links to. A link counts only when it
@@ -133,7 +134,7 @@ func Mermaid(notes []sketch.Note) string {
 			}
 			ids[edge.To] = ""
 			others = append(others, edge.To)
-			dangling[edge.To] = edge.Mark == ""
+			dangling[edge.To] = repo.Dangling(edge)
 		}
 	}
 	slices.Sort(others)
@@ -193,11 +194,93 @@ func escape(text string) string {
 	return labelEscapes.Replace(text)
 }
 
+// Brief is a build brief's parts, which Markdown and the explorer's plan view both render.
+type Brief struct {
+	Criteria  []string      // the feature's acceptance criteria, as N. [x] TEXT lines
+	Notes     []sketch.Note // the notes in build order
+	Decisions []string      // each answered question as - PATH: TEXT, then each line of its answer after   >
+	Open      []string      // each open question as - PATH:LINE: TEXT
+}
+
+// Parts returns the brief's parts for the notes and, when tix has it, their feature's ticket.
+func Parts(tixFeature *ticket.Ticket, notes []sketch.Note) Brief {
+	brief := Brief{Notes: Order(notes)}
+	if tixFeature != nil {
+		for index, criterion := range tixFeature.Acceptance {
+			box := " "
+			if criterion.Done {
+				box = "x"
+			}
+			brief.Criteria = append(brief.Criteria, fmt.Sprintf(criterionLine, index+1, box, criterion.Text))
+		}
+	}
+	for _, question := range questions.All(notes) {
+		if question.Answer == "" {
+			brief.Open = append(brief.Open, fmt.Sprintf(openLine, question.Path, question.Line, question.Text))
+			continue
+		}
+		brief.Decisions = append(brief.Decisions, fmt.Sprintf(decisionLine, question.Path, question.Text))
+		for _, line := range strings.Split(question.Answer, "\n") {
+			brief.Decisions = append(brief.Decisions, answerPrefix+line)
+		}
+	}
+	return brief
+}
+
+// NoteBody returns the note's body without its leading and trailing blank lines, and with its headings moved
+// down under the brief's heading for the note: see demoteHeadings.
+func NoteBody(value sketch.Note) string {
+	return demoteHeadings(strings.Trim(value.Body, "\n"))
+}
+
+// demoteHeadings returns text with each ATX heading outside a fenced code block three levels deeper, so # becomes
+// ####, capped at ######.
+func demoteHeadings(text string) string {
+	lines := strings.Split(text, "\n")
+	fence := ""
+	for index, line := range lines {
+		trimmed := strings.TrimLeft(line, " ")
+		if len(line)-len(trimmed) > maxHeadingIndent {
+			continue
+		}
+		if marker := fenceMarker(trimmed); marker != "" {
+			switch fence {
+			case "":
+				fence = marker
+			case marker:
+				fence = ""
+			}
+			continue
+		}
+		if fence != "" {
+			continue
+		}
+		level := len(trimmed) - len(strings.TrimLeft(trimmed, "#"))
+		rest := trimmed[level:]
+		if level == 0 || level > maxHeadingLevel || (rest != "" && rest[0] != ' ' && rest[0] != '\t') {
+			continue
+		}
+		lines[index] = strings.Repeat("#", min(level+headingDemotion, maxHeadingLevel)) + rest
+	}
+	return strings.Join(lines, "\n")
+}
+
+// fenceMarker returns ``` or ~~~ when line opens or closes a fenced code block, and "" otherwise.
+func fenceMarker(line string) string {
+	for _, marker := range fenceMarkers {
+		if strings.HasPrefix(line, marker) {
+			return marker
+		}
+	}
+	return ""
+}
+
 // Markdown returns the build brief for the notes, which belong to feature, or to no one feature when it's empty: a
 // title; the feature's title, description and acceptance criteria when tix has them; the Mermaid chart; each note
-// in build order under its marked target, with its body as written; the answered questions as decisions; and the
-// open questions, if any.
+// in build order under its marked target, with its body as NoteBody gives it; the answered questions as
+// decisions; and the open questions, if any.
 func Markdown(feature string, tixFeature *ticket.Ticket, notes []sketch.Note) string {
+	parts := Parts(tixFeature, notes)
 	var brief strings.Builder
 	if feature == "" {
 		fmt.Fprintf(&brief, "# %s\n", planTitle)
@@ -205,58 +288,29 @@ func Markdown(feature string, tixFeature *ticket.Ticket, notes []sketch.Note) st
 		fmt.Fprintf(&brief, "# %s: %s\n", planTitle, feature)
 	}
 	if tixFeature != nil {
-		writeFeature(&brief, *tixFeature)
+		fmt.Fprintf(&brief, "\n## %s\n", tixFeature.Title)
+		if description := strings.Trim(tixFeature.Description, "\n"); description != "" {
+			fmt.Fprintf(&brief, "\n%s\n", description)
+		}
+		writeSection(&brief, "### "+criteriaTitle, parts.Criteria)
 	}
 	fmt.Fprintf(&brief, "\n## Graph\n\n```mermaid\n%s```\n", Mermaid(notes))
 	brief.WriteString("\n## Build order\n")
-	for _, value := range Order(notes) {
+	for _, value := range parts.Notes {
 		fmt.Fprintf(&brief, "\n### %s%s\n", value.Mark.Symbol(), value.Target)
-		if body := strings.Trim(value.Body, "\n"); body != "" {
+		if body := NoteBody(value); body != "" {
 			fmt.Fprintf(&brief, "\n%s\n", body)
 		}
 	}
-	var decisions, open []questions.Question
-	for _, question := range questions.All(notes) {
-		if question.Answer == "" {
-			open = append(open, question)
-		} else {
-			decisions = append(decisions, question)
-		}
-	}
-	if len(decisions) > 0 {
-		brief.WriteString("\n## Decisions\n\n")
-		for _, question := range decisions {
-			fmt.Fprintf(&brief, "- %s: %s\n", question.Path, question.Text)
-			for _, line := range strings.Split(question.Answer, "\n") {
-				fmt.Fprintf(&brief, "  > %s\n", line)
-			}
-		}
-	}
-	if len(open) > 0 {
-		brief.WriteString("\n## Open questions\n\n")
-		for _, question := range open {
-			fmt.Fprintf(&brief, "- %s:%d: %s\n", question.Path, question.Line, question.Text)
-		}
-	}
+	writeSection(&brief, "## "+DecisionsTitle, parts.Decisions)
+	writeSection(&brief, "## "+OpenTitle, parts.Open)
 	return brief.String()
 }
 
-// writeFeature writes the feature's title as a heading, then its description and acceptance criteria when it has
-// them.
-func writeFeature(brief *strings.Builder, value ticket.Ticket) {
-	fmt.Fprintf(brief, "\n## %s\n", value.Title)
-	if description := strings.Trim(value.Description, "\n"); description != "" {
-		fmt.Fprintf(brief, "\n%s\n", description)
-	}
-	if len(value.Acceptance) == 0 {
+// writeSection writes lines under the heading, or nothing when there are none.
+func writeSection(brief *strings.Builder, heading string, lines []string) {
+	if len(lines) == 0 {
 		return
 	}
-	brief.WriteString("\n### Acceptance criteria\n\n")
-	for index, criterion := range value.Acceptance {
-		box := " "
-		if criterion.Done {
-			box = "x"
-		}
-		fmt.Fprintf(brief, "%d. [%s] %s\n", index+1, box, criterion.Text)
-	}
+	fmt.Fprintf(brief, "\n%s\n\n%s\n", heading, strings.Join(lines, "\n"))
 }

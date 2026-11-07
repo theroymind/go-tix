@@ -6,6 +6,7 @@ import (
 
 	"github.com/theroymind/go-tix/contracts/sketch"
 	"github.com/theroymind/go-tix/internal/sketch/note"
+	"github.com/theroymind/go-tix/internal/sketch/repo"
 	"github.com/theroymind/go-tix/internal/sketch/tree"
 )
 
@@ -28,7 +29,7 @@ func countReadiness(top *tree.Node) readiness {
 			counts.draft++
 		}
 		for _, edge := range node.Note.Edges {
-			if edge.Mark == "" {
+			if repo.Dangling(edge) {
 				counts.dangling++
 			}
 		}

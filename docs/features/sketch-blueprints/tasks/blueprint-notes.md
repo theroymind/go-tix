@@ -3,11 +3,11 @@ type: task
 status: done
 feature: sketch-blueprints
 scope: large
-review: pending
+review: done
 depends_on: []
 summary: Notes carry their whole body, status, links and multi-line answers, with item parsing and marks removed.
 created_at: 2026-11-07T18:47:01Z
-updated_at: 2026-11-07T18:56:01Z
+updated_at: 2026-11-07T19:33:44Z
 ---
 
 # Blueprint notes

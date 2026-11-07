@@ -51,7 +51,7 @@ func Load(root, notePath string) (sketch.Note, error) {
 // Parse reads text as the note at notePath. Optional YAML front matter between --- lines at the very top gives
 // the feature and status, and everything below it is the body, kept as written. In the body, a line -> PATH or
 // -> PATH : LABEL links to another file, and a line starting ? asks a question, answered by the lines starting >
-// right under it, or under one blank line below it. Every other line is free text. Only front matter with no
+// right under it, or under one blank line below it. Every other line, including -> followed by words or a URL, is free text. Only front matter with no
 // closing --- line, or that isn't YAML, fails, with ErrFrontMatter.
 func Parse(notePath, text string) (sketch.Note, error) {
 	target, err := Target(notePath)
@@ -110,8 +110,8 @@ func readFrontMatter(lines []string, value *sketch.Note) (int, error) {
 }
 
 // parseEdge reads a line -> PATH or -> PATH : LABEL as an edge. PATH is from the repo root, or from noteFolder when
-// it starts with ./ or ../, and is stored clean and from the repo root. A line with no path, or whose path leaves
-// the repo, is free text.
+// it starts with ./ or ../, and is stored clean and from the repo root. A line with no path, a path holding a space,
+// a URL (cut at its scheme's colon, so its label starts //), or a path that leaves the repo is free text.
 func parseEdge(line, noteFolder string) (sketch.Edge, bool) {
 	link, isLink := strings.CutPrefix(line, edgeMarker)
 	if !isLink {
@@ -119,6 +119,10 @@ func parseEdge(line, noteFolder string) (sketch.Edge, bool) {
 	}
 	linkPath, label, _ := strings.Cut(link, labelSeparator)
 	linkPath = strings.TrimSpace(linkPath)
+	isURL := strings.HasPrefix(label, urlSchemeSlashes)
+	if isURL || strings.ContainsFunc(linkPath, unicode.IsSpace) {
+		return sketch.Edge{}, false
+	}
 	if strings.HasPrefix(linkPath, currentFolderPrefix) || strings.HasPrefix(linkPath, parentFolderPrefix) {
 		linkPath = path.Join(noteFolder, linkPath)
 	}

@@ -1,5 +1,5 @@
-// Package refs looks features up in tix: whether the repo is a tix repo, which tickets and features it holds, a
-// feature's tasks, and one ticket with its acceptance criteria, found by running tix ls and tix show.
+// Package refs looks features up in tix: whether the repo is a tix repo, which tickets and features it holds, and
+// one ticket with its acceptance criteria, found by running tix ls and tix show.
 package refs
 
 import (
@@ -23,7 +23,6 @@ const (
 	tixCommand   = "tix"
 	listCommand  = "ls"
 	showCommand  = "show"
-	parentOption = "--parent"
 	allOption    = "--all"
 	jsonOption   = "--json"
 )
@@ -62,19 +61,6 @@ func RunQuiet(directory, name string, arguments []string, stdin io.Reader) ([]by
 		return stdout.Bytes(), fmt.Errorf("%w: %s: %w", cli.ErrChildFailed, name, err)
 	}
 	return stdout.Bytes(), nil
-}
-
-// Tasks returns the ids of the feature's child tickets, done ones included, in tix's order.
-// Outside a tix repo, a feature has no tasks to offer, and Tasks returns none.
-func (resolver Resolver) Tasks(feature string) ([]string, error) {
-	if !resolver.IsTixRepo() {
-		return nil, nil
-	}
-	tickets, err := resolver.list(parentOption, feature)
-	if err != nil {
-		return nil, err
-	}
-	return ids(tickets), nil
 }
 
 // Features returns the ids of the repo's features, the tickets tix lists as epics, done ones included, in tix's

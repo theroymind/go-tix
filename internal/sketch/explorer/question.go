@@ -32,8 +32,8 @@ func (model *Model) jumpToQuestion(direction int) {
 	model.status = noOpenQuestions
 }
 
-// answer adds a "> " line right under the first open question in the selected node's note and opens the note in
-// the editor on that line.
+// answer adds a "> " line right under the first open question in the selected node's note, unless the line there
+// starts with > already, as an empty answer does, and opens the note in the editor on that line.
 func (model *Model) answer() tea.Cmd {
 	node := model.selected()
 	if node == nil || node.Note == nil {
@@ -46,7 +46,7 @@ func (model *Model) answer() tea.Cmd {
 		return nil
 	}
 	questionLine := node.Note.Questions[open].Line
-	if err := insertLine(model.filePath(node.Note.Path), questionLine, answerLine); err != nil {
+	if err := addAnswerLine(model.filePath(node.Note.Path), questionLine); err != nil {
 		model.status = err.Error()
 		return nil
 	}
@@ -54,13 +54,17 @@ func (model *Model) answer() tea.Cmd {
 	return model.openNote(node.Note.Path, questionLine+1)
 }
 
-// insertLine puts line into the file at filePath right after its line number after, counting from 1.
-func insertLine(filePath string, after int, line string) error {
+// addAnswerLine puts an answerLine into the file at filePath right after the question on line questionLine,
+// counting from 1, unless the line after it starts with > already.
+func addAnswerLine(filePath string, questionLine int) error {
 	text, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
 	lines := strings.Split(string(text), "\n")
-	lines = slices.Insert(lines, after, line)
+	if questionLine < len(lines) && strings.HasPrefix(lines[questionLine], answerMarker) {
+		return nil
+	}
+	lines = slices.Insert(lines, questionLine, answerLine)
 	return os.WriteFile(filePath, []byte(strings.Join(lines, "\n")), fileMode)
 }

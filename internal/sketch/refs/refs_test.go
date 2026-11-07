@@ -16,55 +16,6 @@ import (
 	"github.com/theroymind/railyard-cli/strictjson"
 )
 
-func TestTasks(t *testing.T) {
-	plain := t.TempDir()
-	tixRepo := t.TempDir()
-	if err := os.Mkdir(filepath.Join(tixRepo, ".tix"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	children := `[{"id":"score-strikes","title":"Score strikes","type":"task","status":"open","parent":"fight-camera"},
-{"id":"frame-kills","title":"Frame kills","type":"task","status":"completed","parent":"fight-camera"}]`
-	tests := []struct {
-		name     string
-		root     string
-		output   string
-		runErr   error
-		expected []string
-		err      error
-	}{
-		{"Inside a tix repo, every child in tix's order", tixRepo, children, nil, []string{"score-strikes", "frame-kills"}, nil},
-		{"No children", tixRepo, "[]\n", nil, []string{}, nil},
-		{"Outside one, none", plain, "", nil, nil, nil},
-		{"Without tix on PATH", tixRepo, "", &exec.Error{Name: "tix", Err: exec.ErrNotFound}, nil, ErrTixNotFound},
-		{"A field tix doesn't write", tixRepo, `[{"id":"a","title":"A","type":"task","status":"open","owner":"x"}]`, nil, nil,
-			ErrTixOutput},
-		{"A ticket that doesn't validate", tixRepo, `[{"id":"A!","title":"A","type":"task","status":"open"}]`, nil, nil,
-			ErrTixOutput},
-		{"Trailing output", tixRepo, "[]\n[]", nil, nil, strictjson.ErrTrailingData},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var ran []string
-			resolver := Resolver{Root: tt.root, Run: func(dir, name string, arguments []string, _ io.Reader) ([]byte, error) {
-				ran = append([]string{name}, arguments...)
-				return []byte(tt.output), tt.runErr
-			}}
-
-			actual, err := resolver.Tasks("fight-camera")
-
-			if !errors.Is(err, tt.err) {
-				t.Fatalf("Tasks() = %v, want %v", err, tt.err)
-			}
-			if fmt.Sprint(actual) != fmt.Sprint(tt.expected) {
-				t.Errorf("Tasks() = %q, want %q", actual, tt.expected)
-			}
-			if tt.root == tixRepo && fmt.Sprint(ran) != fmt.Sprint([]string{"tix", "ls", "--parent", "fight-camera", "--all", "--json"}) {
-				t.Errorf("ran %q, want tix ls --parent fight-camera --all --json", ran)
-			}
-		})
-	}
-}
-
 func TestTickets(t *testing.T) {
 	tickets := `[{"id":"sketch-explorer","title":"Sketch explorer","type":"epic","status":"open"},
 {"id":"read-notes","title":"Read notes","type":"task","status":"completed","parent":"sketch-explorer"}]`
@@ -82,6 +33,9 @@ func TestTickets(t *testing.T) {
 		{"tix fails", "", cli.ErrChildFailed, nil, cli.ErrChildFailed},
 		{"A ticket that doesn't validate", `[{"id":"A!","title":"A","type":"task","status":"open"}]`, nil, nil,
 			ErrTixOutput},
+		{"A field tix doesn't write", `[{"id":"a","title":"A","type":"task","status":"open","owner":"x"}]`, nil, nil,
+			ErrTixOutput},
+		{"Trailing output", "[]\n[]", nil, nil, strictjson.ErrTrailingData},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

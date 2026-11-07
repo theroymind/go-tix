@@ -180,15 +180,14 @@ func find(top *tree.Node, nodePath string) *tree.Node {
 	return node
 }
 
-// noteText is a new note planning target: front matter linking it to feature when there is one and marking it
-// draft, then a heading naming the file.
-func noteText(feature, target string) string {
+// noteText is a new note: front matter linking it to feature when there is one and marking it draft. It has no
+// heading, since sketch plan heads each note with the file it plans.
+func noteText(feature string) string {
 	frontMatter := noteFence
 	if feature != "" {
 		frontMatter += fmt.Sprintf(noteFeature, feature)
 	}
-	frontMatter += noteDraft + noteFence
-	return frontMatter + fmt.Sprintf(noteHeading, path.Base(target))
+	return frontMatter + noteDraft + noteFence
 }
 
 // writeNew writes text to a new file at filePath, making the folders above it. A file already there is left as it

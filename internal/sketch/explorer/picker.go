@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/theroymind/go-tix/internal/sketch/tree"
 )
 
 type pickKind int
@@ -17,10 +19,12 @@ const (
 )
 
 // picker is a list the preview pane shows in place of the preview, filtered as you type: choices is the whole
-// list, typed is the filter, and cursor indexes the choices that match it.
+// list, typed is the filter, and cursor indexes the choices that match it. subject is the path of the node whose
+// note the pick links, since a reload while the picker is open may move the cursor.
 type picker struct {
 	kind    pickKind
 	title   string
+	subject string
 	choices []string
 	typed   string
 	cursor  int
@@ -102,15 +106,26 @@ func (model *Model) answerPicker(message tea.KeyPressMsg) tea.Cmd {
 	if !picked {
 		return nil
 	}
-	kind := model.picker.kind
+	kind, subject := model.picker.kind, model.picker.subject
 	model.picker = picker{}
 	switch kind {
 	case pickFile:
-		model.addLink(choice)
+		model.addLink(subject, choice)
 	case pickFeature:
 		model.filterFeature(choice)
 	case pickLink:
-		model.link(choice)
+		model.link(subject, choice)
 	}
 	return nil
+}
+
+// subjectNode returns the node at nodePath when it still has a note, and otherwise says so in the status line
+// and returns nil.
+func (model *Model) subjectNode(nodePath string) *tree.Node {
+	node := find(model.loaded, nodePath)
+	if node == nil || node.Note == nil {
+		model.status = fmt.Sprintf(noteGone, nodePath)
+		return nil
+	}
+	return node
 }

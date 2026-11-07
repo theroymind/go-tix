@@ -58,6 +58,7 @@ type Model struct {
 	feature       string                   // the feature filter; a new note links to it when set
 	featureFile   string                   // the file that keeps the feature filter for the branch, or "" outside git
 	loaded        *tree.Node               // the tree as repo.Load read it
+	linkIndex     linkIndex                // of loaded, for the links line
 	problems      []error                  // the notes that didn't read then
 	tree          *tree.Node               // the tree that shows: loaded, with only the feature's notes
 	readiness     readiness                // of the notes in tree
@@ -109,9 +110,13 @@ func (model Model) Init() tea.Cmd {
 }
 
 // Update handles message and, when paired and the cursor has moved onto a note the nvim isn't showing, asks for a
-// followMsg once the cursor has rested there.
+// followMsg once the cursor has rested there. Off a note, it forgets the note the nvim was showing, since the user
+// may open another file there before coming back.
 func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	updated, command := model.update(message)
+	if updated.followTarget() == "" {
+		updated.followed = ""
+	}
 	return updated, tea.Batch(command, updated.followLater())
 }
 
@@ -260,7 +265,7 @@ func (model *Model) askDelete() {
 // it.
 func (model *Model) createNote(target string) tea.Cmd {
 	notePath := target + sketch.NoteSuffix
-	if err := writeNew(model.filePath(notePath), noteText(model.feature, target)); err != nil {
+	if err := writeNew(model.filePath(notePath), noteText(model.feature)); err != nil {
 		model.status = err.Error()
 		return nil
 	}
@@ -282,10 +287,19 @@ func (model *Model) openNote(notePath string, line int) tea.Cmd {
 	return model.open(model.filePath(notePath), line, func(err error) tea.Msg { return editedMsg{err: err} })
 }
 
-// followLater returns a command that sends followMsg for the selected note after followDelay, when paired and the
+// followTarget returns the path of the note the paired nvim should show: the plan view's selected note while it
+// shows, otherwise the selected node's note, or "" when there's none.
+func (model Model) followTarget() string {
+	if model.plan.active {
+		return model.plan.selected().Note.Path
+	}
+	return model.selectedNotePath()
+}
+
+// followLater returns a command that sends followMsg for the note to follow after followDelay, when paired and the
 // nvim isn't already showing it, and otherwise nil.
 func (model Model) followLater() tea.Cmd {
-	notePath := model.selectedNotePath()
+	notePath := model.followTarget()
 	if !model.paired || notePath == "" || notePath == model.followed {
 		return nil
 	}
@@ -295,7 +309,7 @@ func (model Model) followLater() tea.Cmd {
 // followNow shows the note at notePath in the paired nvim, unless the cursor has moved off it since or the nvim
 // shows it already.
 func (model *Model) followNow(notePath string) tea.Cmd {
-	if notePath != model.selectedNotePath() || notePath == model.followed {
+	if notePath != model.followTarget() || notePath == model.followed {
 		return nil
 	}
 	model.followed = notePath
@@ -318,6 +332,7 @@ func (model *Model) reload(keep string) {
 // status line.
 func (model *Model) show(loaded repo.Repo) {
 	model.loaded = loaded.Tree
+	model.linkIndex = indexLinks(loaded.Tree)
 	model.problems = loaded.Problems
 	model.applyFeature()
 	if len(loaded.Problems) > 0 {
@@ -473,15 +488,16 @@ func (model Model) paneHeight() int {
 	return max(1, model.height-chromeHeight)
 }
 
-// View draws the header, the tree with the preview pane beside it, and the footer. Paired, the tree takes the
-// whole width, and help or a picker takes the tree's place while it shows; the plan view always shows both panes.
+// View draws the header, the tree with the preview pane beside it, and the footer. Paired, the tree, or the plan
+// view's list, takes the whole width, since nvim shows the note, and help or a picker takes its place while it
+// shows.
 func (model Model) View() tea.View {
 	if model.width == 0 {
 		return tea.NewView("")
 	}
 	var body string
 	switch {
-	case !model.paired || model.plan.active:
+	case !model.paired:
 		treeWidth := min(model.width, max(minTreeWidth, model.width/treeShare))
 		body = lipgloss.JoinHorizontal(lipgloss.Top, model.treePane(treeWidth),
 			model.styles.preview.Render(model.previewPane(model.width-treeWidth-1-previewGap)))
@@ -557,7 +573,7 @@ func (model Model) links() string {
 	if node == nil {
 		return ""
 	}
-	return ansi.Truncate(linksLine(model.loaded, node), model.width, "")
+	return ansi.Truncate(linksLine(model.linkIndex, node), model.width, "")
 }
 
 // footer shows the prompt and the status message when there is one, and otherwise names the most used keys.

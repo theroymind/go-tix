@@ -168,30 +168,44 @@ func (view *planView) scrollTo(line int) {
 	view.scroll = max(0, min(line, len(view.lines)-1))
 }
 
-// layOut writes the right pane's text: the feature's title and criteria when tix gave them, then each note's
-// heading, its mark and path, and its body as written, with a rule between each part.
+// layOut writes the right pane's text from plan.Parts, as sketch plan writes its brief: the feature's title and
+// criteria when tix gave them, then each note's heading, its mark and path, and its body, then the decisions and
+// open questions, with a rule between each part.
 func (view *planView) layOut() {
 	view.lines, view.headings = nil, nil
+	var notes []sketch.Note
+	for _, node := range view.notes {
+		notes = append(notes, *node.Note)
+	}
+	brief := plan.Parts(view.feature, notes)
 	if view.feature != nil {
 		view.lines = append(view.lines, view.feature.Title, "")
-		for index, criterion := range view.feature.Acceptance {
-			box := " "
-			if criterion.Done {
-				box = "x"
-			}
-			view.lines = append(view.lines, fmt.Sprintf(criterionLine, index+1, box, criterion.Text))
-		}
+		view.lines = append(view.lines, brief.Criteria...)
 		view.lines = append(view.lines, "", planRule)
 	}
+	// view.notes is in plan.Order's build order already, as brief.Notes is.
 	for index, node := range view.notes {
 		if index > 0 {
 			view.lines = append(view.lines, "", planRule)
 		}
 		view.headings = append(view.headings, len(view.lines))
 		view.lines = append(view.lines, node.Note.Mark.Symbol()+" "+node.Note.Target, "")
-		for _, line := range strings.Split(strings.Trim(node.Note.Body, "\n"), "\n") {
+		for _, line := range strings.Split(plan.NoteBody(*node.Note), "\n") {
 			view.lines = append(view.lines, ansi.Strip(strings.ReplaceAll(line, "\t", indent+indent)))
 		}
+	}
+	view.addSection(plan.DecisionsTitle, brief.Decisions)
+	view.addSection(plan.OpenTitle, brief.Open)
+}
+
+// addSection adds lines under a rule and the title, or nothing when there are none.
+func (view *planView) addSection(title string, lines []string) {
+	if len(lines) == 0 {
+		return
+	}
+	view.lines = append(view.lines, "", planRule, title, "")
+	for _, line := range lines {
+		view.lines = append(view.lines, ansi.Strip(line))
 	}
 }
 
@@ -211,7 +225,7 @@ func (model Model) planRows(height, width int) []string {
 func (model Model) planRow(index, width int) string {
 	node := model.plan.notes[index]
 	mark := node.Note.Mark.Symbol() + " "
-	counts := fmt.Sprintf(linkCounts, len(node.Note.Edges), len(usedBy(model.loaded, node)))
+	counts := fmt.Sprintf(linkCounts, len(node.Note.Edges), len(model.linkIndex.usedBy[node.Path]))
 	if index == model.plan.cursor {
 		plain := ansi.Truncate(mark+node.Path+counts, width, "")
 		return model.styles.cursor.Render(plain + strings.Repeat(" ", max(0, width-ansi.StringWidth(plain))))

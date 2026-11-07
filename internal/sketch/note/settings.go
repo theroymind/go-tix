@@ -12,6 +12,7 @@ const (
 	answerMarker        = ">"
 	edgeMarker          = "->"
 	labelSeparator      = ":"
+	urlSchemeSlashes    = "//"
 	currentFolderPrefix = "./"
 	parentFolder        = ".."
 	parentFolderPrefix  = "../"

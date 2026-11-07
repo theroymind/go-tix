@@ -7,7 +7,24 @@ const (
 	danglingSuffix  = " (dangling)"
 	planTitle       = "Plan"
 	danglingClass   = "dangling"
+	criteriaTitle   = "Acceptance criteria"
+	criterionLine   = "%d. [%s] %s"
+	decisionLine    = "- %s: %s"
+	answerPrefix    = "  > "
+	openLine        = "- %s:%d: %s"
+
+	maxHeadingIndent = 3 // more indent makes a line code, not a heading or a fence
+	maxHeadingLevel  = 6
+	headingDemotion  = 3 // a note's # goes under its ### in the brief
 )
+
+// The titles of the brief's question sections.
+const (
+	DecisionsTitle = "Decisions"
+	OpenTitle      = "Open questions"
+)
+
+var fenceMarkers = []string{"```", "~~~"}
 
 // classDefs style new and changed notes and dangling links apart, in colours that read on light and dark themes.
 const classDefs = `  classDef new fill:#d4f7dc,stroke:#2da44e,color:#000

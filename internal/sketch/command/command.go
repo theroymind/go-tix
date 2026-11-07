@@ -29,25 +29,26 @@ const usage = `usage: sketch [<command> [arguments]]
 
 With no command, in a terminal, sketch opens the explorer: the repo tree with each note shown as a + ghost node
 when the file it plans doesn't exist yet or as ~ on that file when it does, and the selected node's note or first
-lines beside it. It opens showing only notes and the folders above them when there are any, and ? lists every
-key. j/k or the arrows move, l opens a folder, h closes one, enter opens or closes a folder, n switches between
-notes only and the whole tree, R reloads the tree, which also happens when the terminal regains focus, and q
-quits. a asks for a file name, tab completing folders, and adds a note planning that file in the selected folder,
-or beside the selected file; a typed .sketch.md or .sketch comes out, so useOrbit.sketch.ts plans useOrbit.ts,
-and a name with no extension is fine. enter or e on a file opens its note, adding one when it has none, in
-$EDITOR, and d deletes it after asking. Inside nvim, with $NVIM set, the preview hides, moving onto a note shows
-it in nvim's main window, and enter, e, a and > open it there with focus, through the sketch_show function the
-README's LazyVim spec defines; without it they fall back to nvim --remote. r on a note lists the repo's
-files and planned ones and adds the one you pick to the note as a "-> path" line; f filters the tree to one
-feature's notes, picked from tix's features and the ones notes name, links new notes to it, and is kept for the
-branch until cleared; L links the note to a feature; y marks the selected note ready, or back to draft, and new
-notes start draft, shown dimmed; ] and [ jump to the next and previous note with an open question, and > adds a
-"> " line under the note's first open question and opens the editor on it. v swaps the tree for the plan view:
-the notes that show, in build order, with their link counts, beside the notes joined under the feature filter's
-title and criteria from tix, scrolled to the selected note; j/k move, ctrl+d/ctrl+u scroll, and v or esc goes
-back to the tree on the node it was on. The header counts the notes, draft and ready, their open questions and
-their dangling links. The line above the footer shows the selected note's links, uses →, and the notes linking
-to it, used by ←, each + when planned, ~ when the file exists and ! when neither.
+lines beside it. It opens showing only notes and the folders above them when there are any, and ? lists every key.
+j/k or the arrows move, l opens a folder, h closes one, enter opens or closes a folder, n switches between notes
+only and the whole tree, R reloads the tree, which also happens when the terminal regains focus, and q quits. a
+asks for a file name, tab completing folders, and adds a note planning that file in the selected folder, or beside
+the selected file; on a note, a opens it. A typed .sketch.md or .sketch comes out, so useOrbit.sketch.ts plans
+useOrbit.ts, and a name with no extension is fine. enter or e on a file opens its note, adding one when it has
+none, in $EDITOR, and d deletes it after asking. Inside an nvim that has the sketch_show function the README's
+LazyVim spec defines, the preview hides, moving onto a note, in the tree or the plan view, shows it in nvim's main
+window, and enter, e, a and > open it there with focus; in an nvim without it, the preview stays and notes open
+with nvim --remote. r on a note lists the repo's files and planned ones and adds the one you pick to the note as a
+"-> path" line; f filters the tree to one feature's notes, picked from tix's features and the ones notes name,
+links new notes to it, and is kept for the branch until cleared; L links the note to a feature; y marks the
+selected note ready, or back to draft, and new notes start draft, shown dimmed; ] and [ jump to the next and
+previous note with an open question, and > adds a "> " line under the note's first open question and opens the
+editor on it. v swaps the tree for the plan view: the notes that show, in build order, with their link counts,
+beside the notes joined under the feature filter's title and criteria from tix and above their decisions and open
+questions, scrolled to the selected note; j/k move, ctrl+d/ctrl+u scroll, and v or esc goes back to the tree on the
+node it was on. The header counts the notes, draft and ready, their open questions and their dangling links. The
+line above the footer shows the selected note's links, uses →, and the notes linking to it, used by ←, each + when
+planned, ~ when the file exists and ! when neither.
 A note that couldn't be read shows as ! with the reason in the status line and preview, so e can open it to fix
 it. In a list, type to filter, the arrows or ctrl+n/ctrl+p move, enter picks and esc cancels.
 
@@ -68,7 +69,8 @@ commands:
                              or a FEATURE with no notes
   plan [--feature FEATURE]   prints the build brief for the notes, or only FEATURE's, as markdown: FEATURE's title,
                              description and acceptance criteria when tix has them, the graph as a mermaid block,
-                             each note in build order under its target, marked + or ~, with its body as written,
+                             each note in build order under its target, marked + or ~, with its body as written
+                             but its headings three levels down, so # sits under the note's ###,
                              answered questions under Decisions and any open ones under Open questions; build
                              order puts each note after every note it links to, and the notes of a cycle
                              together in path order; a FEATURE with no notes fails
@@ -92,7 +94,8 @@ every other line is free text, never an error:
   status: draft|ready         whether the note is still being written or is ready to build from
   ---
   -> PATH [: LABEL]           a link to another file, from the repo root, or from the note's folder when PATH
-                              starts with ./ or ../, such as -> ./camera.ts : reads the target
+                              starts with ./ or ../, such as -> ./camera.ts : reads the target; a PATH holding
+                              a space, or a URL such as -> https://example.com, leaves the line free text
   ? QUESTION                  an open question
   > ANSWER                    answers the question above it, on the line right under it or under one blank
                               line, and runs on over the > lines that follow
@@ -232,11 +235,10 @@ func runList(arguments []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	unknown := unknownFeatures(refs.New(root), loaded.Notes, stderr)
 	if parsed.IsEnabled(optionJSON) {
 		err = cli.WriteJSON(stdout, loaded.Notes)
 	} else {
-		err = writeTable(stdout, loaded.Notes, unknown)
+		err = writeTable(stdout, loaded.Notes, unknownFeatures(refs.New(root), loaded.Notes, stderr))
 	}
 	if err != nil {
 		return err

@@ -258,28 +258,28 @@ func TestAdd(t *testing.T) {
 		mark     string
 	}{
 		{"a on a folder plans a file in it", "", []string{"j", "a", "useOrbit.ts", "enter"},
-			"src/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n# useOrbit.ts\n\n", "src/useOrbit.ts", "+"},
+			"src/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n", "src/useOrbit.ts", "+"},
 		{"A name with folders makes them and opens them in the tree", "",
 			[]string{"j", "a", "composables/useOrbit.ts", "enter"},
-			"src/composables/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n# useOrbit.ts\n\n", "src/composables/useOrbit.ts", "+"},
+			"src/composables/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n", "src/composables/useOrbit.ts", "+"},
 		{"a on a file plans one in its folder", "", []string{"j", "j", "j", "j", "j", "a", "x.ts", "enter"},
-			"src/x.ts.sketch.md", "---\nstatus: draft\n---\n# x.ts\n\n", "src/x.ts", "+"},
+			"src/x.ts.sketch.md", "---\nstatus: draft\n---\n", "src/x.ts", "+"},
 		{"a on a top-level file plans one at the root", "", []string{"j", "j", "j", "j", "j", "j", "j", "a", "x.ts", "enter"},
-			"x.ts.sketch.md", "---\nstatus: draft\n---\n# x.ts\n\n", "x.ts", "+"},
+			"x.ts.sketch.md", "---\nstatus: draft\n---\n", "x.ts", "+"},
 		{"backspace takes back a letter", "", []string{"j", "a", "useOrbix", "backspace", "t.ts", "enter"},
-			"src/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n# useOrbit.ts\n\n", "src/useOrbit.ts", "+"},
+			"src/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n", "src/useOrbit.ts", "+"},
 		{"A feature filter goes in front matter", "orbit", []string{"j", "a", "useOrbit.ts", "enter"},
-			"src/useOrbit.ts.sketch.md", "---\nfeature: orbit\nstatus: draft\n---\n# useOrbit.ts\n\n", "src/useOrbit.ts", "+"},
+			"src/useOrbit.ts.sketch.md", "---\nfeature: orbit\nstatus: draft\n---\n", "src/useOrbit.ts", "+"},
 		{"e on a file without a note adds one", "", []string{"j", "j", "j", "j", "j", "e"},
-			"src/util.ts.sketch.md", "---\nstatus: draft\n---\n# util.ts\n\n", "src/util.ts", "~"},
+			"src/util.ts.sketch.md", "---\nstatus: draft\n---\n", "src/util.ts", "~"},
 		{"enter on a file without a note adds one", "", []string{"j", "j", "j", "j", "j", "enter"},
-			"src/util.ts.sketch.md", "---\nstatus: draft\n---\n# util.ts\n\n", "src/util.ts", "~"},
+			"src/util.ts.sketch.md", "---\nstatus: draft\n---\n", "src/util.ts", "~"},
 		{"A typed .sketch.md comes off", "", []string{"j", "a", "useOrbit.ts.sketch.md", "enter"},
-			"src/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n# useOrbit.ts\n\n", "src/useOrbit.ts", "+"},
+			"src/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n", "src/useOrbit.ts", "+"},
 		{"A typed .sketch before the extension comes out", "", []string{"j", "a", "useOrbit.sketch.ts", "enter"},
-			"src/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n# useOrbit.ts\n\n", "src/useOrbit.ts", "+"},
+			"src/useOrbit.ts.sketch.md", "---\nstatus: draft\n---\n", "src/useOrbit.ts", "+"},
 		{"A name with no extension", "", []string{"j", "a", "useOrbit", "enter"},
-			"src/useOrbit.sketch.md", "---\nstatus: draft\n---\n# useOrbit\n\n", "src/useOrbit", "+"},
+			"src/useOrbit.sketch.md", "---\nstatus: draft\n---\n", "src/useOrbit", "+"},
 		{"a on a node with a note opens it", "", []string{"j", "j", "j", "a"},
 			"src/new/orbit.ts.sketch.md", "orbit note\n", "src/new/orbit.ts", "+"},
 		{"e on a node with a note opens it", "", []string{"j", "j", "j", "j", "e"},
@@ -649,6 +649,54 @@ func TestRef(t *testing.T) {
 	}
 }
 
+func TestPickAfterReload(t *testing.T) {
+	tests := []struct {
+		name    string
+		keys    []string // opening the picker on src/app.ts's note
+		pick    []string
+		deleted bool   // the note is deleted while the picker is open, rather than the cursor moving
+		text    string // src/app.ts's note afterwards, when it's still there
+		status  string
+	}{
+		{"r links the note it opened for, though the cursor moved", []string{"r"}, []string{"u", "t", "i", "l", "enter"},
+			false, "---\nfeature: camera\n---\napp note\n? why\n-> src/util.ts\n", ""},
+		{"L links the note it opened for, though the cursor moved", []string{"L"}, []string{"o", "r", "b", "enter"},
+			false, "---\nfeature: orbit\n---\napp note\n? why\n", "linked src/app.ts to orbit"},
+		{"r on a note gone since says so", []string{"r"}, []string{"u", "t", "i", "l", "enter"}, true, "",
+			"src/app.ts has no note any more"},
+		{"L on a note gone since says so", []string{"L"}, []string{"o", "r", "b", "enter"}, true, "",
+			"src/app.ts has no note any more"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model, _ := press(selectPath(t, featureModel(t), "src/app.ts"), tt.keys...)
+			if tt.deleted {
+				if err := os.Remove(model.filePath("src/app.ts.sketch.md")); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				model.moveTo(model.rowOf("src/new/orbit.ts"))
+			}
+			updated, _ := model.Update(tea.FocusMsg{})
+			model = updated.(Model)
+
+			model, _ = press(model, tt.pick...)
+
+			if model.status != tt.status {
+				t.Errorf("status = %q, want %q", model.status, tt.status)
+			}
+			if !tt.deleted {
+				if text := readNote(t, model, "src/app.ts.sketch.md"); text != tt.text {
+					t.Errorf("note = %q, want %q", text, tt.text)
+				}
+			}
+			if text := readNote(t, model, "src/new/orbit.ts.sketch.md"); text != "orbit note\n" {
+				t.Errorf("orbit note = %q, want it untouched", text)
+			}
+		})
+	}
+}
+
 func TestRefRejects(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -714,7 +762,7 @@ func TestLinksLine(t *testing.T) {
 				}
 			}
 
-			if actual := linksLine(top, selected); actual != tt.expected {
+			if actual := linksLine(indexLinks(top), selected); actual != tt.expected {
 				t.Errorf("linksLine() = %q, want %q", actual, tt.expected)
 			}
 		})
@@ -841,7 +889,7 @@ func TestFeatureLinksNewNotes(t *testing.T) {
 
 	model, _ = press(model, "f", "c", "a", "m", "enter", "j", "a", "useOrbit.ts", "enter")
 
-	if text := readNote(t, model, "src/useOrbit.ts.sketch.md"); text != "---\nfeature: camera\nstatus: draft\n---\n# useOrbit.ts\n\n" {
+	if text := readNote(t, model, "src/useOrbit.ts.sketch.md"); text != "---\nfeature: camera\nstatus: draft\n---\n" {
 		t.Errorf("note = %q, want it linked to camera", text)
 	}
 	if model.selected().Path != "src/useOrbit.ts" {
@@ -1251,6 +1299,7 @@ func TestAnswer(t *testing.T) {
 		{"Under the first open one, past answered ones", "---\nstatus: draft\n---\n? what\n> this\n? why\n? who\n",
 			"---\nstatus: draft\n---\n? what\n> this\n? why\n> \n? who\n", 7},
 		{"With no last newline", "? why", "? why\n> ", 2},
+		{"On an empty answer already there, adding none", "? why\n> \nlater\n", "? why\n> \nlater\n", 2},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1372,6 +1421,43 @@ func TestFeatureDoesNotStickOnOtherBranches(t *testing.T) {
 
 	if feature := openRepo(t, root).feature; feature != "" {
 		t.Errorf("feature on another branch = %q, want none", feature)
+	}
+}
+
+// checkout switches the repo at root to a new branch.
+func checkout(t *testing.T, root, branch string) {
+	t.Helper()
+	command := exec.Command("git", "checkout", "--quiet", "-b", branch)
+	command.Dir = root
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("git checkout: %v\n%s", err, output)
+	}
+}
+
+func TestFeatureSticksOnBranchesWithSlashes(t *testing.T) {
+	tests := []struct {
+		name     string
+		branches []string // each checked out in turn, with the filter picked on each
+	}{
+		{"A branch with a slash", []string{"feature/x"}},
+		{"A branch named like the folder of a later one", []string{"feature", "feature/x"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := gitRepo(t)
+			for _, branch := range tt.branches {
+				checkout(t, root, branch)
+
+				model, _ := press(openRepo(t, root), "f", "c", "a", "m", "enter")
+
+				if model.status != "" {
+					t.Errorf("status on %s = %q, want none", branch, model.status)
+				}
+				if feature := openRepo(t, root).feature; feature != "camera" {
+					t.Errorf("feature on reopening %s = %q, want camera", branch, feature)
+				}
+			}
+		})
 	}
 }
 

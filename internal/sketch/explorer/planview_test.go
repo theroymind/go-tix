@@ -142,6 +142,22 @@ func TestPlanViewShows(t *testing.T) {
 	}
 }
 
+func TestPlanViewQuestions(t *testing.T) {
+	model := planModel(t)
+	writeFile(t, model.root, "src/new/orbit.ts.sketch.md", "orbit note\n? how fast\n> 1 rad/s\n? who\n")
+	model.reload("docs")
+
+	model, _ = press(model, "v")
+
+	text := strings.Join(model.plan.lines, "\n")
+	want := "orbit note\n? how fast\n> 1 rad/s\n? who\n\n" + planRule + "\n~ src/app.ts\n\napp note\n-> src/new/orbit.ts\n\n" +
+		planRule + "\nDecisions\n\n- src/new/orbit.ts.sketch.md: how fast\n  > 1 rad/s\n\n" +
+		planRule + "\nOpen questions\n\n- src/new/orbit.ts.sketch.md:4: who"
+	if !strings.HasSuffix(text, want) {
+		t.Errorf("plan view text =\n%s\nwant it to end\n%s", text, want)
+	}
+}
+
 func TestPlanViewFeatureFilter(t *testing.T) {
 	model, _ := press(featureModel(t), "f", "c", "a", "m", "enter", "v")
 

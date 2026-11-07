@@ -294,6 +294,12 @@ func TestListResolvesFeatures(t *testing.T) {
 				"b.go.sketch.md  +b.go   sketch-explorr   -       0      0\n" +
 				"c.go.sketch.md  +c.go   -                -       0      0\n", "", ""},
 		{"Inside a tix repo without tix on PATH, the notes list with a warning", true, "",
+			map[string]string{"b.go.sketch.md": "---\nfeature: sketch-explorr\n---\n"}, []string{"ls"},
+			cli.ExitCodeSuccess,
+			"NOTE            TARGET  FEATURE         STATUS  LINKS  QUESTIONS\n" +
+				"b.go.sketch.md  +b.go   sketch-explorr  -       0      0\n",
+			"sketch: warning: not checking features: this is a tix repo, but tix isn't on PATH", ""},
+		{"ls --json doesn't run tix", true, tickets,
 			map[string]string{"b.go.sketch.md": "---\nfeature: sketch-explorr\n---\n"}, []string{"ls", "--json"},
 			cli.ExitCodeSuccess, `[
   {
@@ -305,7 +311,7 @@ func TestListResolvesFeatures(t *testing.T) {
     "body": ""
   }
 ]
-`, "sketch: warning: not checking features: this is a tix repo, but tix isn't on PATH", ""},
+`, "", ""},
 		{"Inside a tix repo where tix fails, the notes list with a warning", true, "not json", notes, []string{"ls"},
 			cli.ExitCodeSuccess,
 			"NOTE            TARGET  FEATURE          STATUS  LINKS  QUESTIONS\n" +

@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 
 	cli "github.com/theroymind/railyard-cli"
-
-	"github.com/theroymind/go-tix/internal/sketch/repo"
 )
 
 // runDone deletes the notes that belong to the feature its one argument names, printing each path as it goes,
@@ -23,19 +21,14 @@ func runDone(arguments []string, _ io.Reader, stdout io.Writer) error {
 		return cli.NewUsageError(ErrExpectedOneFeature)
 	}
 	feature := parsed.Positionals[0]
-	root, err := repoRootFromWorkingDir()
+	root, loaded, err := loadNotes(feature)
 	if err != nil {
 		return err
 	}
-	loaded, err := repo.Load(root)
-	if err != nil {
-		return err
-	}
-	notes := notesOf(loaded.Notes, feature)
-	if len(notes) == 0 {
+	if len(loaded.Notes) == 0 {
 		return fmt.Errorf("%w: %s", ErrNoNotes, feature)
 	}
-	for _, value := range notes {
+	for _, value := range loaded.Notes {
 		if err := os.Remove(filepath.Join(root, filepath.FromSlash(value.Path))); err != nil {
 			return err
 		}

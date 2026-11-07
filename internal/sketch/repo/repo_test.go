@@ -68,6 +68,9 @@ func TestLoad(t *testing.T) {
 		{"A note that doesn't read is a problem, not a failure, and still shows",
 			map[string]string{"src/a.ts": "a\n", "src/a.ts.sketch.md": "---\nfeature: [\n", "src/b.ts.sketch.md": "b\n"},
 			"", []string{"src/b.ts.sketch.md"}, 1, "src/a.ts", false, true},
+		{"A link to a path under a file is dangling, not a problem",
+			map[string]string{"src/app.ts": "a\n", "src/b.ts.sketch.md": "-> src/app.ts/helper.ts\n"},
+			"", []string{"src/b.ts.sketch.md"}, 0, "src/b.ts", true, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
