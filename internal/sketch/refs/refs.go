@@ -1,5 +1,5 @@
-// Package refs looks features up in tix: whether the repo is a tix repo, which tickets it holds, and a feature's
-// tasks, found by running tix ls.
+// Package refs looks features up in tix: whether the repo is a tix repo, which tickets and features it holds, and a
+// feature's tasks, found by running tix ls.
 package refs
 
 import (
@@ -69,25 +69,48 @@ func (resolver Resolver) Tasks(feature string) ([]string, error) {
 	if !resolver.IsTixRepo() {
 		return nil, nil
 	}
-	return resolver.list(parentOption, feature)
+	tickets, err := resolver.list(parentOption, feature)
+	if err != nil {
+		return nil, err
+	}
+	return ids(tickets), nil
+}
+
+// Features returns the ids of the repo's features, the tickets tix lists as epics, done ones included, in tix's
+// order. Outside a tix repo there are none.
+func (resolver Resolver) Features() ([]string, error) {
+	if !resolver.IsTixRepo() {
+		return nil, nil
+	}
+	tickets, err := resolver.list()
+	if err != nil {
+		return nil, err
+	}
+	var features []ticket.Ticket
+	for _, value := range tickets {
+		if value.Type == ticket.TypeEpic {
+			features = append(features, value)
+		}
+	}
+	return ids(features), nil
 }
 
 // Tickets returns the set of every ticket id in the repo, done ones included, from one run of tix ls. Call it
 // only in a tix repo.
 func (resolver Resolver) Tickets() (map[string]bool, error) {
-	ids, err := resolver.list()
+	listed, err := resolver.list()
 	if err != nil {
 		return nil, err
 	}
-	tickets := make(map[string]bool, len(ids))
-	for _, id := range ids {
-		tickets[id] = true
+	tickets := make(map[string]bool, len(listed))
+	for _, value := range listed {
+		tickets[value.ID] = true
 	}
 	return tickets, nil
 }
 
-// list runs tix ls --all --json with filters in front, and returns the ids of the tickets it prints, in order.
-func (resolver Resolver) list(filters ...string) ([]string, error) {
+// list runs tix ls --all --json with filters in front, and returns the tickets it prints, in order.
+func (resolver Resolver) list(filters ...string) ([]ticket.Ticket, error) {
 	arguments := append([]string{listCommand}, filters...)
 	arguments = append(arguments, allOption, jsonOption)
 	output, err := resolver.Run(resolver.Root, tixCommand, arguments, nil)
@@ -101,14 +124,21 @@ func (resolver Resolver) list(filters ...string) ([]string, error) {
 	if err := strictjson.Unmarshal(output, &tickets); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrTixOutput, err)
 	}
-	ids := make([]string, 0, len(tickets))
 	for index, value := range tickets {
 		if err := value.Validate(); err != nil {
 			return nil, fmt.Errorf("%w: ticket %d: %w", ErrTixOutput, index, err)
 		}
+	}
+	return tickets, nil
+}
+
+// ids returns the tickets' ids, in order.
+func ids(tickets []ticket.Ticket) []string {
+	ids := make([]string, 0, len(tickets))
+	for _, value := range tickets {
 		ids = append(ids, value.ID)
 	}
-	return ids, nil
+	return ids
 }
 
 // IsTixRepo reports whether the root holds a .tix directory.

@@ -1,13 +1,13 @@
 ---
 type: task
-status: todo
+status: done
 feature: sketch-explorer
 scope: medium
 review: none
 depends_on: [add-attach-edit-and-delete-notes]
 summary: r picks a name from an attached note's target, f filters to one tix feature, and ? jumps between notes with open questions.
 created_at: 2026-11-07T03:20:52Z
-updated_at: 2026-11-07T03:21:03Z
+updated_at: 2026-11-07T03:54:34Z
 ---
 
 # Symbol refs, feature filter and question jumps
@@ -25,6 +25,6 @@ Add the keys that make it a sketching tool rather than just an explorer: `r` on 
 
 ## Acceptance criteria
 
-- [ ] `r` on `~ useCamera.ts` lists its names, typing filters them, and `enter` appends ``- uses `make_camera` `` to the note.
-- [ ] `f` lists features, picking one shows only its notes and their folders, and the header names the filter.
-- [ ] `?` moves to the next note with an open question and wraps around, and the header shows the open-question count.
+- [x] `r` on `~ useCamera.ts` lists its names, typing filters them, and `enter` appends ``- uses `make_camera` `` to the note.
+- [x] `f` lists features, picking one shows only its notes and their folders, and the header names the filter.
+- [x] `?` moves to the next note with an open question and wraps around, and the header shows the open-question count.

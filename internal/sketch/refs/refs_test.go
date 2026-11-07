@@ -106,6 +106,50 @@ func TestTickets(t *testing.T) {
 	}
 }
 
+func TestFeatures(t *testing.T) {
+	tixRepo := t.TempDir()
+	if err := os.Mkdir(filepath.Join(tixRepo, ".tix"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tickets := `[{"id":"sketch-explorer","title":"Sketch explorer","type":"epic","status":"open"},
+{"id":"read-notes","title":"Read notes","type":"task","status":"completed","parent":"sketch-explorer"},
+{"id":"fight-camera","title":"Fight camera","type":"epic","status":"completed"}]`
+	tests := []struct {
+		name     string
+		root     string
+		output   string
+		runErr   error
+		expected []string
+		err      error
+	}{
+		{"Every epic, done ones included, in tix's order", tixRepo, tickets, nil,
+			[]string{"sketch-explorer", "fight-camera"}, nil},
+		{"Outside a tix repo, none", t.TempDir(), "", nil, nil, nil},
+		{"tix fails", tixRepo, "", cli.ErrChildFailed, nil, cli.ErrChildFailed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var ran []string
+			resolver := Resolver{Root: tt.root, Run: func(dir, name string, arguments []string, _ io.Reader) ([]byte, error) {
+				ran = append([]string{name}, arguments...)
+				return []byte(tt.output), tt.runErr
+			}}
+
+			actual, err := resolver.Features()
+
+			if !errors.Is(err, tt.err) {
+				t.Fatalf("Features() = %v, want %v", err, tt.err)
+			}
+			if !slices.Equal(actual, tt.expected) {
+				t.Errorf("Features() = %q, want %q", actual, tt.expected)
+			}
+			if tt.root == tixRepo && !slices.Equal(ran, []string{"tix", "ls", "--all", "--json"}) {
+				t.Errorf("ran %q, want tix ls --all --json", ran)
+			}
+		})
+	}
+}
+
 func TestRunQuiet(t *testing.T) {
 	tests := []struct {
 		name   string

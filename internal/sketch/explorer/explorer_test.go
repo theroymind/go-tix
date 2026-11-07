@@ -212,11 +212,11 @@ func TestView(t *testing.T) {
 		excludes []string
 	}{
 		{"The header, footer and tree", nil,
-			[]string{"trial  2 notes · 1 open questions", "q quit", "n notes only", "▸   docs/", "▾   src/", "+ orbit.ts",
+			[]string{"trial  2 notes · 1 open question", "q quit", "n notes only", "▸   docs/", "▾   src/", "+ orbit.ts",
 				"~ app.ts ?1", "util.ts", "no notes below"},
 			[]string{"sketch.md"}},
 		{"A note's text", []string{"j", "j", "j"}, []string{"orbit note"}, nil},
-		{"A folder's summary", []string{"j"}, []string{"2 notes below, 1 open questions"}, nil},
+		{"A folder's summary", []string{"j"}, []string{"2 notes below, 1 open question"}, nil},
 		{"A file's first lines", []string{"j", "j", "j", "j", "j", "j", "j"}, []string{"# trial", "line two"}, nil},
 		{"A binary file", []string{"j", "j", "j", "j", "j", "j"}, []string{"binary file"}, []string{"PNG"}},
 		{"Notes only says so", []string{"n"}, []string{"[notes only]"}, []string{"README.md"}},
@@ -508,5 +508,371 @@ func TestDeleteWithoutNote(t *testing.T) {
 
 	if model.status != noNoteToDelete || model.prompt.kind != promptNone {
 		t.Errorf("status %q, prompt %+v, want only %q", model.status, model.prompt, noNoteToDelete)
+	}
+}
+
+// selectPath puts model's cursor on the row showing nodePath.
+func selectPath(t *testing.T, model Model, nodePath string) Model {
+	t.Helper()
+	row := model.rowOf(nodePath)
+	if row < 0 {
+		t.Fatalf("no row shows %q in %q", nodePath, visiblePaths(model))
+	}
+	model.moveTo(row)
+	return model
+}
+
+func paste(model Model, text string) Model {
+	updated, _ := model.Update(tea.PasteMsg{Content: text})
+	return updated.(Model)
+}
+
+func TestPicker(t *testing.T) {
+	choices := []string{"makeCamera", "make_camera", "useCamera", "Zoom"}
+	tests := []struct {
+		name     string
+		keys     []string
+		typed    string
+		matches  []string
+		cursor   int
+		picked   string
+		isPicked bool
+	}{
+		{"Opens on every choice", nil, "", choices, 0, "", false},
+		{"Typing filters, ignoring case", []string{"c", "A", "m"}, "cAm",
+			[]string{"makeCamera", "make_camera", "useCamera"}, 0, "", false},
+		{"j and k type", []string{"k"}, "k", []string{"makeCamera", "make_camera"}, 0, "", false},
+		{"down and ctrl+n move, stopping at the last", []string{"down", "ctrl+n", "down", "down", "down"}, "", choices,
+			3, "", false},
+		{"up and ctrl+p move, stopping at the first", []string{"down", "down", "up", "ctrl+p", "up"}, "", choices, 0,
+			"", false},
+		{"Typing puts the cursor back on the first match", []string{"down", "down", "o"}, "o",
+			[]string{"Zoom"}, 0, "", false},
+		{"backspace takes back a letter", []string{"Z", "x", "backspace"}, "Z", []string{"Zoom"}, 0, "", false},
+		{"enter picks the choice under the cursor", []string{"_", "c", "enter"}, "_c", []string{"make_camera"}, 0,
+			"make_camera", true},
+		{"enter with no match picks nothing", []string{"q", "enter"}, "q", nil, 0, "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := picker{kind: pickName, choices: choices}
+			var picked string
+			var isPicked bool
+			for _, name := range tt.keys {
+				var message tea.KeyPressMsg
+				switch name {
+				case "down":
+					message = tea.KeyPressMsg{Code: tea.KeyDown}
+				case "up":
+					message = tea.KeyPressMsg{Code: tea.KeyUp}
+				case "ctrl+n":
+					message = tea.KeyPressMsg{Code: 'n', Mod: tea.ModCtrl}
+				case "ctrl+p":
+					message = tea.KeyPressMsg{Code: 'p', Mod: tea.ModCtrl}
+				case "enter":
+					message = tea.KeyPressMsg{Code: tea.KeyEnter}
+				case "backspace":
+					message = tea.KeyPressMsg{Code: tea.KeyBackspace}
+				default:
+					message = tea.KeyPressMsg{Code: rune(name[0]), Text: name}
+				}
+				picked, isPicked = list.press(message)
+			}
+
+			if list.typed != tt.typed || !slices.Equal(list.matches(), tt.matches) || list.cursor != tt.cursor {
+				t.Errorf("typed %q, matches %q, cursor %d, want %q, %q, %d", list.typed, list.matches(), list.cursor,
+					tt.typed, tt.matches, tt.cursor)
+			}
+			if picked != tt.picked || isPicked != tt.isPicked {
+				t.Errorf("picked %q %v, want %q %v", picked, isPicked, tt.picked, tt.isPicked)
+			}
+		})
+	}
+}
+
+func TestPickerLines(t *testing.T) {
+	list := picker{title: "names in a.ts", choices: []string{"a1", "a2", "a3", "a4", "b"}, typed: "a", cursor: 3}
+
+	lines := list.lines(4)
+
+	if want := []string{"names in a.ts", "filter: a█", "  a3", "> a4"}; !slices.Equal(lines, want) {
+		t.Errorf("lines(4) = %q, want %q", lines, want)
+	}
+}
+
+// cameraModel is newModel with an attached note on src/useCamera.ts, whose text is note.
+func cameraModel(t *testing.T, note string) Model {
+	t.Helper()
+	model := newModel(t)
+	writeFile(t, model.root, "src/useCamera.ts", "export function make_camera() {\n\treturn new Camera(make_camera)\n}\n")
+	writeFile(t, model.root, "src/useCamera.ts.sketch.md", note)
+	model.reload("src/useCamera.ts")
+	return model
+}
+
+func TestRef(t *testing.T) {
+	tests := []struct {
+		name string
+		note string
+		text string
+	}{
+		{"enter adds the pick on a line of its own", "camera note\n", "camera note\n- uses `make_camera`\n"},
+		{"A note without a last newline gets one first", "camera note", "camera note\n- uses `make_camera`\n"},
+		{"An empty note gets just the line", "", "- uses `make_camera`\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := cameraModel(t, tt.note)
+
+			model, _ = press(model, "r")
+			if want := []string{"Camera", "export", "function", "make_camera", "new", "return"}; !slices.Equal(
+				model.picker.choices, want) {
+				t.Fatalf("choices = %q, want %q", model.picker.choices, want)
+			}
+			model, _ = press(model, "m", "a", "k", "e", "_")
+			if view := ansi.Strip(model.View().Content); !strings.Contains(view, "> make_camera") ||
+				strings.Contains(view, "export") {
+				t.Errorf("View() lacks the filtered picker:\n%s", view)
+			}
+			model, _ = press(model, "enter")
+
+			if text := readNote(t, model, "src/useCamera.ts.sketch.md"); text != tt.text {
+				t.Errorf("note = %q, want %q", text, tt.text)
+			}
+			if model.picker.kind != pickNone || model.selected().Path != "src/useCamera.ts" {
+				t.Errorf("picker %+v, selected %q, want the picker closed on the note", model.picker,
+					model.selected().Path)
+			}
+			if view := ansi.Strip(model.View().Content); !strings.Contains(view, "- uses `make_camera`") {
+				t.Errorf("the preview lacks the new line:\n%s", view)
+			}
+		})
+	}
+}
+
+func TestRefEscCancels(t *testing.T) {
+	model := cameraModel(t, "camera note\n")
+
+	model, _ = press(model, "r", "m", "esc")
+
+	if model.picker.kind != pickNone || readNote(t, model, "src/useCamera.ts.sketch.md") != "camera note\n" {
+		t.Errorf("picker %+v, want it closed and the note untouched", model.picker)
+	}
+}
+
+func TestRefRejects(t *testing.T) {
+	tests := []struct {
+		name     string
+		selected string
+	}{
+		{"A ghost note", "src/new/orbit.ts"},
+		{"A file without a note", "src/util.ts"},
+		{"A folder", "src"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := selectPath(t, newModel(t), tt.selected)
+
+			model, _ = press(model, "r")
+
+			if model.picker.kind != pickNone || model.status != refNeedsAttachedNote {
+				t.Errorf("picker %+v, status %q, want only %q", model.picker, model.status, refNeedsAttachedNote)
+			}
+		})
+	}
+}
+
+// featureModel is newModel with src/app.ts's note in feature camera, a ghost note in feature orbit, and tix
+// knowing the features camera and sketch-explorer.
+func featureModel(t *testing.T) Model {
+	t.Helper()
+	model := newModel(t)
+	writeFile(t, model.root, "src/app.ts.sketch.md", "---\nfeature: camera\n---\napp note\n? why\n")
+	writeFile(t, model.root, "docs/plan.md.sketch.md", "---\nfeature: orbit\n---\n? when\n? where\n")
+	model.listFeatures = func() ([]string, error) { return []string{"sketch-explorer", "camera"}, nil }
+	model.reload("docs")
+	return model
+}
+
+func TestFeature(t *testing.T) {
+	tests := []struct {
+		name     string
+		keys     []string
+		feature  string
+		visible  []string
+		contains []string
+		excludes []string
+	}{
+		{"Without a filter, every note", nil, "",
+			[]string{"docs", "src", "src/new", "src/new/orbit.ts", "src/app.ts",
+				"src/util.ts", "logo.png", "README.md"},
+			[]string{"3 notes · 3 open questions"}, []string{"feature:"}},
+		{"A feature hides other features' notes and ghosts", []string{"f", "c", "a", "m", "enter"}, "camera",
+			[]string{"docs", "src", "src/app.ts", "src/util.ts", "logo.png", "README.md"},
+			[]string{"feature: camera", "1 note · 1 open question", "~ app.ts ?1"}, []string{"plan.md", "orbit.ts"}},
+		{"A feature only notes name", []string{"f", "o", "r", "enter"}, "orbit",
+			[]string{"docs", "docs/guide.md", "docs/plan.md", "src", "src/app.ts", "src/util.ts", "logo.png",
+				"README.md"},
+			[]string{"feature: orbit", "1 note · 2 open questions", "+ plan.md ?2", "  app.ts"}, nil},
+		{"With notes only, the feature's notes and their folders", []string{"f", "c", "a", "m", "enter", "n"},
+			"camera", []string{"src", "src/app.ts"}, []string{"feature: camera", "[notes only]"}, nil},
+		{"Picking a feature in notes only", []string{"n", "f", "o", "r", "enter"}, "orbit",
+			[]string{"docs", "docs/plan.md"}, nil, nil},
+		{"all features clears the filter", []string{"f", "c", "a", "m", "enter", "f", "enter"}, "",
+			[]string{"docs", "docs/guide.md", "docs/plan.md", "src", "src/new", "src/new/orbit.ts", "src/app.ts",
+				"src/util.ts", "logo.png", "README.md"},
+			[]string{"3 notes"}, []string{"feature:"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model, _ := press(featureModel(t), tt.keys...)
+
+			if model.feature != tt.feature || !slices.Equal(visiblePaths(model), tt.visible) {
+				t.Errorf("feature %q, visible %q, want %q, %q", model.feature, visiblePaths(model), tt.feature,
+					tt.visible)
+			}
+			view := ansi.Strip(model.View().Content)
+			for _, text := range tt.contains {
+				if !strings.Contains(view, text) {
+					t.Errorf("View() lacks %q:\n%s", text, view)
+				}
+			}
+			for _, text := range tt.excludes {
+				if strings.Contains(view, text) {
+					t.Errorf("View() has %q:\n%s", text, view)
+				}
+			}
+		})
+	}
+}
+
+func TestFeatureChoices(t *testing.T) {
+	model, _ := press(featureModel(t), "f")
+
+	want := []string{"all features", "camera", "orbit", "sketch-explorer"}
+	if !slices.Equal(model.picker.choices, want) {
+		t.Errorf("choices = %q, want %q", model.picker.choices, want)
+	}
+	if view := ansi.Strip(model.View().Content); !strings.Contains(view, "filter to feature") {
+		t.Errorf("View() lacks the picker:\n%s", view)
+	}
+}
+
+func TestFeatureTixFails(t *testing.T) {
+	model := featureModel(t)
+	model.listFeatures = func() ([]string, error) { return nil, os.ErrPermission }
+
+	model, _ = press(model, "f")
+
+	if model.picker.kind != pickNone || model.status != os.ErrPermission.Error() {
+		t.Errorf("picker %+v, status %q, want the error", model.picker, model.status)
+	}
+}
+
+func TestFeatureLinksNewNotes(t *testing.T) {
+	model := featureModel(t)
+	recordOpens(&model)
+
+	model, _ = press(model, "f", "c", "a", "m", "enter", "j", "a", "useOrbit.ts", "enter")
+
+	if text := readNote(t, model, "src/useOrbit.ts.sketch.md"); text != "---\nfeature: camera\n---\n# useOrbit.ts\n\n" {
+		t.Errorf("note = %q, want it linked to camera", text)
+	}
+	if model.selected().Path != "src/useOrbit.ts" {
+		t.Errorf("selected = %q, want the new note, which the filter shows", model.selected().Path)
+	}
+}
+
+// questionModel is newModel with open questions in the notes on src/app.ts, src/util.ts and README.md.
+func questionModel(t *testing.T) Model {
+	t.Helper()
+	model := newModel(t)
+	writeFile(t, model.root, "src/util.ts.sketch.md", "? how\n")
+	writeFile(t, model.root, "README.md.sketch.md", "? who\n")
+	model.reload("docs")
+	return model
+}
+
+func TestNextQuestion(t *testing.T) {
+	tests := []struct {
+		name     string
+		keys     []string
+		selected string
+	}{
+		{"? moves to the first note with a question", []string{"?"}, "src/app.ts"},
+		{"? again moves to the next", []string{"?", "?"}, "src/util.ts"},
+		{"? goes on past the folders", []string{"?", "?", "?"}, "README.md"},
+		{"? wraps around from the last", []string{"?", "?", "?", "?"}, "src/app.ts"},
+		{"? opens the folders above a closed note", []string{"j", "h", "?"}, "src/app.ts"},
+		{"? works in notes only", []string{"n", "?", "?"}, "src/util.ts"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model, _ := press(questionModel(t), tt.keys...)
+
+			if selected := model.selected().Path; selected != tt.selected {
+				t.Errorf("selected = %q, want %q", selected, tt.selected)
+			}
+		})
+	}
+}
+
+func TestNextQuestionSkipsOtherFeatures(t *testing.T) {
+	model, _ := press(featureModel(t), "f", "o", "r", "enter", "?", "?")
+
+	if model.selected().Path != "docs/plan.md" || model.status != "" {
+		t.Errorf("selected %q, status %q, want docs/plan.md every time", model.selected().Path, model.status)
+	}
+}
+
+func TestNextQuestionWithoutAny(t *testing.T) {
+	model := newModel(t)
+	writeFile(t, model.root, "src/app.ts.sketch.md", "? why\n> because\n")
+	model.reload("docs")
+
+	model, _ = press(model, "?")
+
+	if model.selected().Path != "docs" || model.status != noOpenQuestions {
+		t.Errorf("selected %q, status %q, want docs and %q", model.selected().Path, model.status, noOpenQuestions)
+	}
+}
+
+func TestPaste(t *testing.T) {
+	t.Run("Into the name prompt, on one line", func(t *testing.T) {
+		model, _ := press(newModel(t), "j", "a", "x")
+
+		model = paste(model, "use\nOrbit.ts\r\n")
+
+		if model.prompt.typed != "xuseOrbit.ts" {
+			t.Errorf("typed = %q, want %q", model.prompt.typed, "xuseOrbit.ts")
+		}
+	})
+	t.Run("Into the picker's filter", func(t *testing.T) {
+		model, _ := press(cameraModel(t, ""), "r", "down")
+
+		model = paste(model, "make\n")
+
+		if model.picker.typed != "make" || model.picker.cursor != 0 {
+			t.Errorf("typed %q, cursor %d, want make at the first match", model.picker.typed, model.picker.cursor)
+		}
+	})
+	t.Run("Anywhere else, nothing", func(t *testing.T) {
+		model := paste(newModel(t), "q")
+
+		if model.selected().Path != "docs" || model.status != "" {
+			t.Errorf("selected %q, status %q, want nothing to happen", model.selected().Path, model.status)
+		}
+	})
+}
+
+func TestHeaderPlurals(t *testing.T) {
+	model := newModel(t)
+	if err := os.Remove(model.filePath("src/new/orbit.ts.sketch.md")); err != nil {
+		t.Fatal(err)
+	}
+	model.reload("docs")
+
+	if view := ansi.Strip(model.View().Content); !strings.Contains(view, "trial  1 note · 1 open question") {
+		t.Errorf("View() lacks the singular counts:\n%s", view)
 	}
 }

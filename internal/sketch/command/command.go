@@ -33,7 +33,10 @@ when the file it plans doesn't exist yet or as ~ on that file when it does, and 
 lines beside it. j/k or the arrows move, l/enter opens a folder, h closes one, n shows only notes and the folders
 above them, and q quits. a asks for a file name and adds a note planning that file in the selected folder, A
 attaches a note to the selected file, and on a node with a note either opens it; e opens the note in $EDITOR, or
-in the parent nvim when $NVIM is set, and d deletes it after asking.
+in the parent nvim when $NVIM is set, and d deletes it after asking. r on a note attached to a file lists the
+names in that file and adds the one you pick to the note as a "- uses" line; f filters the tree to one feature's
+notes, picked from tix's features and the ones notes name, and links new notes to it; and ? jumps to the next note
+with an open question. In a list, type to filter, the arrows or ctrl+n/ctrl+p move, enter picks and esc cancels.
 
 commands:
   ls [--json]          lists every note under the repo root with the file it plans, + when that file is new
