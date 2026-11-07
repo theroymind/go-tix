@@ -9,13 +9,17 @@ import (
 
 // keys are the explorer's key bindings, in the order the footer lists them.
 var keys = struct {
-	Down, Up, Expand, Collapse, NotesOnly, Quit key.Binding
+	Down, Up, Expand, Collapse, NotesOnly, Add, Attach, Edit, Delete, Quit key.Binding
 }{
-	Down:      key.NewBinding(key.WithKeys("j", "down"), key.WithHelp("j/↓", "down")),
-	Up:        key.NewBinding(key.WithKeys("k", "up"), key.WithHelp("k/↑", "up")),
-	Expand:    key.NewBinding(key.WithKeys("l", "right", "enter"), key.WithHelp("l/enter", "open")),
+	Down:      key.NewBinding(key.WithKeys("j", "down"), key.WithHelp("j", "down")),
+	Up:        key.NewBinding(key.WithKeys("k", "up"), key.WithHelp("k", "up")),
+	Expand:    key.NewBinding(key.WithKeys("l", "right", "enter"), key.WithHelp("l", "open")),
 	Collapse:  key.NewBinding(key.WithKeys("h", "left"), key.WithHelp("h", "close")),
 	NotesOnly: key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "notes only")),
+	Add:       key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "add")),
+	Attach:    key.NewBinding(key.WithKeys("A"), key.WithHelp("A", "attach")),
+	Edit:      key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit")),
+	Delete:    key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete")),
 	Quit:      key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
 }
 
@@ -37,6 +41,22 @@ const (
 
 	binaryFile = "binary file"
 	nullByte   = 0
+
+	rootFolder = "."
+	folderMode = 0o755
+	fileMode   = 0o644
+
+	// A new note starts with front matter naming the feature filter, when one is set, and then a heading naming
+	// the file it plans.
+	noteFrontMatter = "---\nfeature: %s\n---\n"
+	noteHeading     = "# %s\n\n"
+
+	namePrompt      = "new file in %s/: %s█"
+	deletePrompt    = "delete %s? y/n"
+	editorFailed    = "editor: %v"
+	attachNeedsFile = "A attaches a note to a file; a adds one in a folder"
+	noNoteToEdit    = "no note; a or A to add one"
+	noNoteToDelete  = "no note to delete"
 )
 
 // styles are the colors and text styles the explorer draws with, picked for a light or dark background.

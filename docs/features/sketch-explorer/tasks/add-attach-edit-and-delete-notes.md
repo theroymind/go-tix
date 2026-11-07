@@ -1,13 +1,13 @@
 ---
 type: task
-status: todo
+status: done
 feature: sketch-explorer
 scope: medium
 review: pending
 depends_on: [explorer-tree-with-ghost-nodes]
 summary: Keys to create placeholder and attached notes, open them in $EDITOR or the parent nvim, and delete them.
 created_at: 2026-11-07T03:20:52Z
-updated_at: 2026-11-07T03:21:03Z
+updated_at: 2026-11-07T03:46:44Z
 ---
 
 # Add, attach, edit and delete notes
@@ -26,8 +26,8 @@ Make the explorer write notes: `a` on a folder asks for a file name and creates 
 
 ## Acceptance criteria
 
-- [ ] `a` on `src/composables/` and typing `useOrbit.ts` creates `src/composables/useOrbit.ts.sketch.md`, shows a `+` ghost node, and opens it in the editor.
-- [ ] `A` on an existing file creates its note and shows `~`, and on a node that already has a note, `a` or `A` opens it instead.
-- [ ] `e` opens the note in `$EDITOR`, or in the parent nvim when `$NVIM` is set, and the tree and preview reload afterwards.
-- [ ] `d` asks before deleting a note, and the node goes back to plain or disappears.
-- [ ] `esc` cancels a name prompt without creating anything.
+- [x] `a` on `src/composables/` and typing `useOrbit.ts` creates `src/composables/useOrbit.ts.sketch.md`, shows a `+` ghost node, and opens it in the editor.
+- [x] `A` on an existing file creates its note and shows `~`, and on a node that already has a note, `a` or `A` opens it instead.
+- [x] `e` opens the note in `$EDITOR`, or in the parent nvim when `$NVIM` is set, and the tree and preview reload afterwards.
+- [x] `d` asks before deleting a note, and the node goes back to plain or disappears.
+- [x] `esc` cancels a name prompt without creating anything.

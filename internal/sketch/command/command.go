@@ -31,7 +31,9 @@ const usage = `usage: sketch [<command> [arguments]]
 With no command, in a terminal, sketch opens the explorer: the repo tree with each note shown as a + ghost node
 when the file it plans doesn't exist yet or as ~ on that file when it does, and the selected node's note or first
 lines beside it. j/k or the arrows move, l/enter opens a folder, h closes one, n shows only notes and the folders
-above them, and q quits.
+above them, and q quits. a asks for a file name and adds a note planning that file in the selected folder, A
+attaches a note to the selected file, and on a node with a note either opens it; e opens the note in $EDITOR, or
+in the parent nvim when $NVIM is set, and d deletes it after asking.
 
 commands:
   ls [--json]          lists every note under the repo root with the file it plans, + when that file is new
@@ -105,21 +107,29 @@ func isTerminal(stream any) bool {
 }
 
 // runExplorer opens the explorer on the repo tree until the user quits, and then fails naming each note that
-// didn't read.
+// didn't read when the tree was last loaded.
 func runExplorer(stdin io.Reader, stdout io.Writer) error {
 	root, err := repoRootFromWorkingDir()
 	if err != nil {
 		return err
 	}
-	notes, problems, err := loadMarkedNotes(root)
+	var problems []error
+	load := func() (*tree.Node, error) {
+		notes, loadProblems, err := loadMarkedNotes(root)
+		if err != nil {
+			return nil, err
+		}
+		files, err := tree.Files(root)
+		if err != nil {
+			return nil, err
+		}
+		problems = loadProblems
+		return tree.Build(files, notes), nil
+	}
+	model, err := explorer.New(root, load)
 	if err != nil {
 		return err
 	}
-	files, err := tree.Files(root)
-	if err != nil {
-		return err
-	}
-	model := explorer.New(root, tree.Build(files, notes))
 	if _, err := tea.NewProgram(model, tea.WithInput(stdin), tea.WithOutput(stdout)).Run(); err != nil {
 		return err
 	}
