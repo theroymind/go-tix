@@ -1,5 +1,6 @@
-// Package command provides the sketch commands: ls, which lists the repo's .sketch.md notes as a table or JSON,
-// questions, which lists their open questions, and help, which documents the note format.
+// Package command provides the sketch commands: the explorer, which bare sketch opens on the repo tree; ls, which
+// lists the repo's .sketch.md notes as a table or JSON; questions, which lists their open questions; and help, which
+// documents the note format.
 package command
 
 import (
@@ -12,16 +13,25 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/term"
 	cli "github.com/theroymind/railyard-cli"
 
 	"github.com/theroymind/go-tix/contracts/sketch"
+	"github.com/theroymind/go-tix/internal/sketch/explorer"
 	"github.com/theroymind/go-tix/internal/sketch/marks"
 	"github.com/theroymind/go-tix/internal/sketch/note"
 	"github.com/theroymind/go-tix/internal/sketch/questions"
 	"github.com/theroymind/go-tix/internal/sketch/refs"
+	"github.com/theroymind/go-tix/internal/sketch/tree"
 )
 
-const usage = `usage: sketch <command> [arguments]
+const usage = `usage: sketch [<command> [arguments]]
+
+With no command, in a terminal, sketch opens the explorer: the repo tree with each note shown as a + ghost node
+when the file it plans doesn't exist yet or as ~ on that file when it does, and the selected node's note or first
+lines beside it. j/k or the arrows move, l/enter opens a folder, h closes one, n shows only notes and the folders
+above them, and q quits.
 
 commands:
   ls [--json]          lists every note under the repo root with the file it plans, + when that file is new
@@ -76,6 +86,46 @@ var Program = cli.Program{
 	},
 }
 
+// Run runs sketch with arguments: the explorer when there are none and stdin and stdout are a terminal, otherwise
+// the command they name, with no arguments printing the usage.
+func Run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) cli.ExitCode {
+	if len(arguments) > 0 || !isTerminal(stdin) || !isTerminal(stdout) {
+		return Program.Run(arguments, stdin, stdout, stderr)
+	}
+	if err := runExplorer(stdin, stdout); err != nil {
+		_, _ = fmt.Fprintf(stderr, "%s: %v\n", Program.Name, err)
+		return cli.ExitCodeFailure
+	}
+	return cli.ExitCodeSuccess
+}
+
+func isTerminal(stream any) bool {
+	file, isFile := stream.(*os.File)
+	return isFile && term.IsTerminal(file.Fd())
+}
+
+// runExplorer opens the explorer on the repo tree until the user quits, and then fails naming each note that
+// didn't read.
+func runExplorer(stdin io.Reader, stdout io.Writer) error {
+	root, err := repoRootFromWorkingDir()
+	if err != nil {
+		return err
+	}
+	notes, problems, err := loadMarkedNotes(root)
+	if err != nil {
+		return err
+	}
+	files, err := tree.Files(root)
+	if err != nil {
+		return err
+	}
+	model := explorer.New(root, tree.Build(files, notes))
+	if _, err := tea.NewProgram(model, tea.WithInput(stdin), tea.WithOutput(stdout)).Run(); err != nil {
+		return err
+	}
+	return unreadable(problems)
+}
+
 // runList prints every note under the repo root that reads and validates, marked against its target and, in a
 // tix repo, flagged when tix has no ticket for its feature, as a table or a JSON array. It then fails naming each
 // note that didn't read, so one bad note never hides the rest.
@@ -88,18 +138,9 @@ func runList(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	loaded, problems, err := loadNotes(root)
+	notes, problems, err := loadMarkedNotes(root)
 	if err != nil {
 		return err
-	}
-	reader := marks.NewReader(root)
-	notes := []sketch.Note{}
-	for _, value := range loaded {
-		if err := reader.MarkNote(&value); err != nil {
-			problems = append(problems, fmt.Errorf("%s: %w", value.Path, err))
-			continue
-		}
-		notes = append(notes, value)
 	}
 	if err := flagUnknownFeatures(refs.New(root), notes); err != nil {
 		return err
@@ -166,6 +207,25 @@ func loadNotes(root string) ([]sketch.Note, []error, error) {
 		value, err := loadValid(root, notePath)
 		if err != nil {
 			problems = append(problems, err)
+			continue
+		}
+		notes = append(notes, value)
+	}
+	return notes, problems, nil
+}
+
+// loadMarkedNotes returns what loadNotes does, with each note marked against its target and the files it plans. A
+// note whose target can't be read joins the problems.
+func loadMarkedNotes(root string) ([]sketch.Note, []error, error) {
+	loaded, problems, err := loadNotes(root)
+	if err != nil {
+		return nil, nil, err
+	}
+	reader := marks.NewReader(root)
+	notes := []sketch.Note{}
+	for _, value := range loaded {
+		if err := reader.MarkNote(&value); err != nil {
+			problems = append(problems, fmt.Errorf("%s: %w", value.Path, err))
 			continue
 		}
 		notes = append(notes, value)

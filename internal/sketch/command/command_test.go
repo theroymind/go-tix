@@ -357,3 +357,18 @@ func TestHelpPrintsUsage(t *testing.T) {
 		t.Errorf("sketch help = %d %q, want the usage on stdout", exitCode, stdout)
 	}
 }
+
+// TestBareSketchOutsideATerminal checks that bare sketch, when stdout isn't a terminal, prints the usage, which
+// describes the explorer, as a usage error instead of opening the explorer.
+func TestBareSketchOutsideATerminal(t *testing.T) {
+	var stdout, stderr strings.Builder
+
+	exitCode := Run(nil, strings.NewReader(""), &stdout, &stderr)
+
+	if exitCode != cli.ExitCodeUsage || stdout.String() != "" || stderr.String() != usage {
+		t.Errorf("sketch = %d %q %q, want the usage on stderr and exit 2", exitCode, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(usage, "explorer") {
+		t.Errorf("usage doesn't mention the explorer")
+	}
+}
