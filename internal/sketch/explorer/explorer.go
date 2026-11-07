@@ -21,11 +21,9 @@ import (
 	"github.com/theroymind/go-tix/contracts/sketch"
 	"github.com/theroymind/go-tix/internal/sketch/editor"
 	"github.com/theroymind/go-tix/internal/sketch/refs"
+	"github.com/theroymind/go-tix/internal/sketch/repo"
 	"github.com/theroymind/go-tix/internal/sketch/tree"
 )
-
-// Load reads the repo tree from disk, with its notes marked.
-type Load func() (*tree.Node, error)
 
 // Open returns the command that opens the file at filePath in an editor and then sends done with the editor's
 // error.
@@ -38,11 +36,11 @@ type editedMsg struct{ err error }
 // in the preview pane, and the prompt or status line in the footer.
 type Model struct {
 	root         string
-	load         Load
 	open         Open
 	listFeatures func() ([]string, error) // tix's features
 	feature      string                   // the feature filter; a new note links to it when set
-	loaded       *tree.Node               // the tree as load read it
+	loaded       *tree.Node               // the tree as repo.Load read it
+	problems     []error                  // the notes that didn't read then
 	tree         *tree.Node               // the tree that shows: loaded, with only the feature's notes
 	expanded     map[string]bool
 	notesOnly    bool
@@ -59,17 +57,23 @@ type Model struct {
 	status       string // a message for the footer, until the next key
 }
 
-// New returns the explorer for the repo at root, with the tree load reads and every folder above a note open so
-// that every note shows. Notes open in the editor editor.Open picks.
-func New(root string, load Load) (Model, error) {
-	top, err := load()
+// New returns the explorer for the repo at root, with the tree repo.Load reads and every folder above a note open
+// so that every note shows. Notes open in the editor editor.Open picks.
+func New(root string) (Model, error) {
+	loaded, err := repo.Load(root)
 	if err != nil {
 		return Model{}, err
 	}
-	model := Model{root: root, load: load, open: editor.Open, listFeatures: refs.New(root).Features, loaded: top,
-		tree: top, expanded: tree.NoteFolders(top), styles: newStyles(true)}
-	model.rows = tree.Flatten(top, model.expanded, model.notesOnly)
+	model := Model{root: root, open: editor.Open, listFeatures: refs.New(root).Features,
+		expanded: tree.NoteFolders(loaded.Tree), styles: newStyles(true)}
+	model.show(loaded)
+	model.rows = tree.Flatten(model.tree, model.expanded, model.notesOnly)
 	return model, nil
+}
+
+// Problems returns an error for each note that didn't read when the tree was last loaded.
+func (model Model) Problems() []error {
+	return model.problems
 }
 
 // Init asks the terminal for its background color, to pick colors that read on it.
@@ -89,6 +93,9 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if message.err != nil {
 			model.status = fmt.Sprintf(editorFailed, message.err)
 		}
+	case tea.FocusMsg:
+		// Coming back from an editor that returned at once, such as nvim --remote, the notes may have changed.
+		model.reload(model.selectedPath())
 	case tea.PasteMsg:
 		model.paste(message.Content)
 	case tea.KeyPressMsg:
@@ -126,6 +133,8 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			model.askFeature()
 		case key.Matches(message, keys.Question):
 			model.nextQuestion()
+		case key.Matches(message, keys.Reload):
+			model.reload(model.selectedPath())
 		}
 	}
 	return model, nil
@@ -159,18 +168,18 @@ func (model *Model) nextQuestion() {
 	model.status = noOpenQuestions
 }
 
-// add opens the selected node's note, or asks for the name of a file to plan in the selected folder, or in the
-// selected file's folder.
+// add asks for the name of a file to plan in the selected folder, or opens the selected file's note, or asks for
+// the name of a file to plan in the selected file's folder.
 func (model *Model) add() tea.Cmd {
 	node := model.selected()
-	if node != nil && node.Note != nil {
-		return model.openNote(node.Note.Path)
-	}
 	folder := rootFolder
-	if node != nil && node.IsDir {
+	switch {
+	case node == nil:
+	case node.IsDir:
 		folder = node.Path
-	}
-	if node != nil && !node.IsDir {
+	case node.Note != nil:
+		return model.openNote(node.Note.Path)
+	default:
 		folder = path.Dir(node.Path)
 	}
 	model.prompt = prompt{kind: promptName, path: folder}
@@ -237,14 +246,24 @@ func (model *Model) openNote(notePath string) tea.Cmd {
 // reload reads the tree from disk again and puts the cursor on the node at keep, or the nearest folder above it
 // that shows.
 func (model *Model) reload(keep string) {
-	top, err := model.load()
+	loaded, err := repo.Load(model.root)
 	if err != nil {
 		model.status = err.Error()
 		return
 	}
-	model.loaded = top
-	model.tree = onlyFeature(top, model.feature)
+	model.show(loaded)
 	model.showRows(keep)
+}
+
+// show puts loaded in the tree, with only the feature's notes, and names the first note that didn't read in the
+// status line.
+func (model *Model) show(loaded repo.Repo) {
+	model.loaded = loaded.Tree
+	model.problems = loaded.Problems
+	model.tree = onlyFeature(loaded.Tree, model.feature)
+	if len(loaded.Problems) > 0 {
+		model.status = fmt.Sprintf(unreadableNotes, count(len(loaded.Problems), "note"), loaded.Problems[0])
+	}
 }
 
 // showRows lists the rows that show again and puts the cursor on the node at keep, or the nearest folder above it
@@ -401,6 +420,7 @@ func (model Model) View() tea.View {
 	body := lipgloss.JoinHorizontal(lipgloss.Top, treePane, previewPane)
 	view := tea.NewView(strings.Join([]string{model.header(), body, model.footer()}, "\n"))
 	view.AltScreen = true
+	view.ReportFocus = true
 	return view
 }
 
@@ -414,6 +434,9 @@ func (model Model) header() string {
 	if model.notesOnly {
 		text += "  [notes only]"
 	}
+	if len(model.problems) > 0 {
+		text += fmt.Sprintf(unreadableBadge, len(model.problems))
+	}
 	return model.styles.header.Render(ansi.Truncate(text, model.width, ""))
 }
 
@@ -425,7 +448,7 @@ func (model Model) footer() string {
 	}
 	var hints []string
 	for _, binding := range []key.Binding{keys.NotesOnly, keys.Add, keys.Attach, keys.Edit, keys.Delete, keys.Ref,
-		keys.Feature, keys.Question, keys.Quit} {
+		keys.Feature, keys.Question, keys.Reload, keys.Quit} {
 		hints = append(hints, binding.Help().Key+" "+binding.Help().Desc)
 	}
 	return model.styles.footer.Render(ansi.Truncate(strings.Join(hints, hintSeparator), model.width, ""))
@@ -444,7 +467,10 @@ func (model Model) renderRow(index, width int) string {
 		}
 	}
 	mark, name, questions := noMark, node.Name, ""
-	if node.Note != nil {
+	switch {
+	case node.Problem != nil:
+		mark = problemMark
+	case node.Note != nil:
 		mark = node.Note.Mark.Symbol() + " "
 	}
 	if node.IsDir {
@@ -460,6 +486,8 @@ func (model Model) renderRow(index, width int) string {
 		return model.styles.cursor.Render(plain + strings.Repeat(" ", max(0, width-ansi.StringWidth(plain))))
 	}
 	switch {
+	case node.Problem != nil:
+		mark = model.styles.question.Render(mark)
 	case node.Note != nil && node.Ghost:
 		mark = model.styles.added.Render(mark)
 	case node.Note != nil:
@@ -480,6 +508,9 @@ func previewLines(root string, node *tree.Node, limit int) []string {
 	switch {
 	case node == nil:
 		return nil
+	case node.Problem != nil:
+		lines := readHead(filepath.Join(root, filepath.FromSlash(node.Note.Path)), limit-1)
+		return append([]string{node.Problem.Error()}, lines...)
 	case node.Note != nil:
 		return readHead(filepath.Join(root, filepath.FromSlash(node.Note.Path)), limit)
 	case node.IsDir && node.NotesBelow == 0:

@@ -24,6 +24,7 @@ type Node struct {
 	IsDir         bool
 	Ghost         bool
 	Note          *sketch.Note // the note that plans this node, if any
+	Problem       error        // why that note didn't read, when it didn't
 	OpenQuestions int          // in this node's own note
 	NotesBelow    int          // notes on the nodes below this folder
 	OpenBelow     int          // open questions in those notes
@@ -37,14 +38,28 @@ type Row struct {
 }
 
 // Files returns the slash-separated path from root of every file under it. Inside a git work tree it asks git for
-// the tracked and untracked files that aren't ignored, so folders like node_modules and dist stay hidden; outside
-// one it walks root, skipping hidden folders and node_modules.
+// the tracked and untracked files that aren't ignored, so folders like node_modules and dist stay hidden, leaving
+// out tracked files deleted from the work tree; outside one it walks root, skipping hidden folders and
+// node_modules.
 func Files(root string) ([]string, error) {
-	command := exec.Command("git", "ls-files", "-z", "--cached", "--others", "--exclude-standard")
+	files, err := gitFiles(root, "--cached", "--others", "--exclude-standard")
+	if err != nil {
+		return walk(root)
+	}
+	deleted, err := gitFiles(root, "--deleted")
+	if err != nil {
+		return nil, err
+	}
+	return slices.DeleteFunc(files, func(file string) bool { return slices.Contains(deleted, file) }), nil
+}
+
+// gitFiles returns the paths git ls-files prints with options, run in root.
+func gitFiles(root string, options ...string) ([]string, error) {
+	command := exec.Command("git", append([]string{"ls-files", "-z"}, options...)...)
 	command.Dir = root
 	output, err := command.Output()
 	if err != nil {
-		return walk(root)
+		return nil, err
 	}
 	var files []string
 	for _, file := range bytes.Split(output, []byte{0}) {
@@ -81,8 +96,9 @@ func walk(root string) ([]string, error) {
 
 // Build makes the tree of files and folds each note into the node of its target. A note never gets a row of its
 // own: a target that isn't among files becomes a ghost node, under ghost folders for any folders that are missing
-// too. Folders sort before files, each by name.
-func Build(files []string, notes []sketch.Note) *Node {
+// too. problems holds, by note path, why a note didn't read; that note's node carries it. Folders sort before
+// files, each by name.
+func Build(files []string, notes []sketch.Note, problems map[string]error) *Node {
 	root := &Node{Path: rootPath, IsDir: true}
 	nodes := map[string]*Node{rootPath: root}
 	for _, file := range files {
@@ -94,6 +110,7 @@ func Build(files []string, notes []sketch.Note) *Node {
 		value := &notes[index]
 		node := add(nodes, value.Target, false, true)
 		node.Note = value
+		node.Problem = problems[value.Path]
 		node.OpenQuestions = len(questions.Open([]sketch.Note{*value}))
 		for folder := path.Dir(value.Target); ; folder = path.Dir(folder) {
 			nodes[folder].NotesBelow++

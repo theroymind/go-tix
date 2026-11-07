@@ -5,6 +5,4 @@ const (
 	itemMarker       = "#"
 	questionMarker   = "? "
 	answerMarker     = ">"
-	nodeModules      = "node_modules"
-	hiddenPrefix     = "."
 )

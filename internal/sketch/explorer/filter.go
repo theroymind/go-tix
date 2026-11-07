@@ -55,7 +55,7 @@ func onlyFeature(top *tree.Node, feature string) *tree.Node {
 			notes = append(notes, *node.Note)
 		}
 	}
-	return tree.Build(files, notes)
+	return tree.Build(files, notes, nil)
 }
 
 // nodes returns every node below top, each folder before the nodes inside it, in the tree's order.

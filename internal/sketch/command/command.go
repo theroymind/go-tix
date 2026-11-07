@@ -19,11 +19,9 @@ import (
 
 	"github.com/theroymind/go-tix/contracts/sketch"
 	"github.com/theroymind/go-tix/internal/sketch/explorer"
-	"github.com/theroymind/go-tix/internal/sketch/marks"
-	"github.com/theroymind/go-tix/internal/sketch/note"
 	"github.com/theroymind/go-tix/internal/sketch/questions"
 	"github.com/theroymind/go-tix/internal/sketch/refs"
-	"github.com/theroymind/go-tix/internal/sketch/tree"
+	"github.com/theroymind/go-tix/internal/sketch/repo"
 )
 
 const usage = `usage: sketch [<command> [arguments]]
@@ -31,12 +29,15 @@ const usage = `usage: sketch [<command> [arguments]]
 With no command, in a terminal, sketch opens the explorer: the repo tree with each note shown as a + ghost node
 when the file it plans doesn't exist yet or as ~ on that file when it does, and the selected node's note or first
 lines beside it. j/k or the arrows move, l/enter opens a folder, h closes one, n shows only notes and the folders
-above them, and q quits. a asks for a file name and adds a note planning that file in the selected folder, A
-attaches a note to the selected file, and on a node with a note either opens it; e opens the note in $EDITOR, or
+above them, R reloads the tree, which also happens when the terminal regains focus, and q quits. a asks for a
+file name and adds a note planning that file in the selected folder, or beside the selected file, A attaches a
+note to the selected file, and on a file with a note either opens it; e opens the note in $EDITOR, or
 in the parent nvim when $NVIM is set, and d deletes it after asking. r on a note attached to a file lists the
 names in that file and adds the one you pick to the note as a "- uses" line; f filters the tree to one feature's
 notes, picked from tix's features and the ones notes name, and links new notes to it; and ? jumps to the next note
-with an open question. In a list, type to filter, the arrows or ctrl+n/ctrl+p move, enter picks and esc cancels.
+with an open question. A note that couldn't be read shows as ! with the reason in the status line and preview,
+so e can open it to fix it. In a list, type to filter, the arrows or ctrl+n/ctrl+p move, enter picks and esc
+cancels.
 
 commands:
   ls [--json]          lists every note under the repo root with the file it plans, + when that file is new
@@ -64,8 +65,9 @@ it; these lines give it structure, and every other line is free text, never an e
 
 Markers start the line. A #word that isn't an item type, such as #todo, and a # heading are free text, and so is
 a > line that isn't right under a question. The repo root is the nearest directory above holding .tix or .git.
-ls and questions skip hidden folders and node_modules, list every note they can read, and then fail naming
-any they couldn't.
+In a git repo, sketch sees the files git does, tracked or not but never ignored; outside one, it skips hidden
+folders and node_modules. ls and questions list every note they can read, and then fail naming any they
+couldn't. To quiet markdownlint's MD018 and MD041 on notes, see the README's .markdownlint-cli2.yaml override.
 `
 
 const (
@@ -116,27 +118,15 @@ func runExplorer(stdin io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	var problems []error
-	load := func() (*tree.Node, error) {
-		notes, loadProblems, err := loadMarkedNotes(root)
-		if err != nil {
-			return nil, err
-		}
-		files, err := tree.Files(root)
-		if err != nil {
-			return nil, err
-		}
-		problems = loadProblems
-		return tree.Build(files, notes), nil
-	}
-	model, err := explorer.New(root, load)
+	model, err := explorer.New(root)
 	if err != nil {
 		return err
 	}
-	if _, err := tea.NewProgram(model, tea.WithInput(stdin), tea.WithOutput(stdout)).Run(); err != nil {
+	final, err := tea.NewProgram(model, tea.WithInput(stdin), tea.WithOutput(stdout)).Run()
+	if err != nil {
 		return err
 	}
-	return unreadable(problems)
+	return unreadable(final.(explorer.Model).Problems())
 }
 
 // runList prints every note under the repo root that reads and validates, marked against its target and, in a
@@ -151,22 +141,22 @@ func runList(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	notes, problems, err := loadMarkedNotes(root)
+	loaded, err := repo.Load(root)
 	if err != nil {
 		return err
 	}
-	if err := flagUnknownFeatures(refs.New(root), notes); err != nil {
+	if err := flagUnknownFeatures(refs.New(root), loaded.Notes); err != nil {
 		return err
 	}
 	if asJSON {
-		err = cli.WriteJSON(stdout, notes)
+		err = cli.WriteJSON(stdout, loaded.Notes)
 	} else {
-		err = writeTable(stdout, notes)
+		err = writeTable(stdout, loaded.Notes)
 	}
 	if err != nil {
 		return err
 	}
-	return unreadable(problems)
+	return unreadable(loaded.Problems)
 }
 
 // runQuestions prints each open question under the repo root with the note and line that asks it, as
@@ -180,11 +170,11 @@ func runQuestions(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	notes, problems, err := loadNotes(root)
+	loaded, err := repo.Load(root)
 	if err != nil {
 		return err
 	}
-	open := questions.Open(notes)
+	open := questions.Open(loaded.Notes)
 	if asJSON {
 		err = cli.WriteJSON(stdout, open)
 	} else {
@@ -193,7 +183,7 @@ func runQuestions(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	return unreadable(problems)
+	return unreadable(loaded.Problems)
 }
 
 // parseJSONOption parses a command's arguments, which take only --json, and reports whether it was given.
@@ -205,57 +195,6 @@ func parseJSONOption(arguments []string) (bool, error) {
 		return false, err
 	}
 	return parsed.IsEnabled(optionJSON), nil
-}
-
-// loadNotes returns every note under root that reads and validates, in path order, and an error for each one
-// that doesn't. Only failing to walk root fails it.
-func loadNotes(root string) ([]sketch.Note, []error, error) {
-	paths, err := note.Find(root)
-	if err != nil {
-		return nil, nil, err
-	}
-	var notes []sketch.Note
-	var problems []error
-	for _, notePath := range paths {
-		value, err := loadValid(root, notePath)
-		if err != nil {
-			problems = append(problems, err)
-			continue
-		}
-		notes = append(notes, value)
-	}
-	return notes, problems, nil
-}
-
-// loadMarkedNotes returns what loadNotes does, with each note marked against its target and the files it plans. A
-// note whose target can't be read joins the problems.
-func loadMarkedNotes(root string) ([]sketch.Note, []error, error) {
-	loaded, problems, err := loadNotes(root)
-	if err != nil {
-		return nil, nil, err
-	}
-	reader := marks.NewReader(root)
-	notes := []sketch.Note{}
-	for _, value := range loaded {
-		if err := reader.MarkNote(&value); err != nil {
-			problems = append(problems, fmt.Errorf("%s: %w", value.Path, err))
-			continue
-		}
-		notes = append(notes, value)
-	}
-	return notes, problems, nil
-}
-
-// loadValid loads the note at notePath and checks it against the contract.
-func loadValid(root, notePath string) (sketch.Note, error) {
-	value, err := note.Load(root, notePath)
-	if err != nil {
-		return sketch.Note{}, err
-	}
-	if err := value.Validate(); err != nil {
-		return sketch.Note{}, fmt.Errorf("%s: %w", notePath, err)
-	}
-	return value, nil
 }
 
 // flagUnknownFeatures sets UnknownFeature on each note whose feature tix has no ticket for. It asks tix once, and

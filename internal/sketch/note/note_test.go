@@ -2,10 +2,7 @@ package note
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
 	"reflect"
-	"slices"
 	"testing"
 
 	"github.com/theroymind/go-tix/contracts/sketch"
@@ -102,46 +99,6 @@ func TestTarget(t *testing.T) {
 			}
 			if actual != tt.expected {
 				t.Errorf("Target() = %q, want %q", actual, tt.expected)
-			}
-		})
-	}
-}
-
-func TestFind(t *testing.T) {
-	tests := []struct {
-		name     string
-		files    []string
-		expected []string
-	}{
-		{"No notes", []string{"main.go"}, nil},
-		{"Notes at any depth, in order", []string{"b.go.sketch.md", "a/z.ts.sketch.md", "a/b/c.ts.sketch.md", "a/b/c.ts"},
-			[]string{"a/b/c.ts.sketch.md", "a/z.ts.sketch.md", "b.go.sketch.md"}},
-		{"Hidden folders and node_modules are skipped",
-			[]string{".git/x.sketch.md", "a/.cache/y.sketch.md", "node_modules/p/z.sketch.md", "web/node_modules/q.sketch.md",
-				"web/app.ts.sketch.md"},
-			[]string{"web/app.ts.sketch.md"}},
-		{"A file that only looks like a note", []string{"notes.sketch.md.bak", "sketch.md"}, nil},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			root := t.TempDir()
-			for _, file := range tt.files {
-				path := filepath.Join(root, filepath.FromSlash(file))
-				if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-					t.Fatal(err)
-				}
-				if err := os.WriteFile(path, nil, 0o644); err != nil {
-					t.Fatal(err)
-				}
-			}
-
-			actual, err := Find(root)
-
-			if err != nil {
-				t.Fatalf("Find() error = %v", err)
-			}
-			if !slices.Equal(actual, tt.expected) {
-				t.Errorf("Find() = %q, want %q", actual, tt.expected)
 			}
 		})
 	}

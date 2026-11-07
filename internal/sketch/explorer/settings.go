@@ -10,13 +10,13 @@ import (
 
 // keys are the explorer's key bindings. The footer leaves out the ones that move, to fit in 100 columns.
 var keys = struct {
-	Down, Up, Expand, Collapse, NotesOnly, Add, Attach, Edit, Delete, Ref, Feature, Question, Quit key.Binding
+	Down, Up, Expand, Collapse, NotesOnly, Add, Attach, Edit, Delete, Ref, Feature, Question, Reload, Quit key.Binding
 }{
 	Down:      key.NewBinding(key.WithKeys("j", "down"), key.WithHelp("j", "down")),
 	Up:        key.NewBinding(key.WithKeys("k", "up"), key.WithHelp("k", "up")),
 	Expand:    key.NewBinding(key.WithKeys("l", "right", "enter"), key.WithHelp("l", "open")),
 	Collapse:  key.NewBinding(key.WithKeys("h", "left"), key.WithHelp("h", "close")),
-	NotesOnly: key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "notes only")),
+	NotesOnly: key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "notes")),
 	Add:       key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "add")),
 	Attach:    key.NewBinding(key.WithKeys("A"), key.WithHelp("A", "attach")),
 	Edit:      key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit")),
@@ -24,6 +24,7 @@ var keys = struct {
 	Ref:       key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "ref")),
 	Feature:   key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "feature")),
 	Question:  key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "question")),
+	Reload:    key.NewBinding(key.WithKeys("R"), key.WithHelp("R", "reload")),
 	Quit:      key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
 }
 
@@ -33,6 +34,7 @@ const (
 	closedFolder  = "▸ "
 	noFolder      = "  "
 	noMark        = "  "
+	problemMark   = "! "
 	folderSuffix  = "/"
 	questionBadge = " ?%d"
 	hintSeparator = " · "
@@ -71,6 +73,9 @@ const (
 	featureTitle    = "filter to feature"
 	allFeatures     = "all features"
 	noOpenQuestions = "no open questions"
+
+	unreadableNotes = "%s couldn't be read: %v"
+	unreadableBadge = "  %d unreadable"
 
 	pickerFilter = "filter: %s█"
 	pickMarker   = "> "

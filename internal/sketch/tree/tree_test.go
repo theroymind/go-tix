@@ -132,7 +132,7 @@ func TestBuild(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual := describe(Build(tt.files, tt.notes))
+			actual := describe(Build(tt.files, tt.notes, nil))
 
 			if !slices.Equal(actual, tt.expected) {
 				t.Errorf("Build() =\n%s\nwant\n%s", strings.Join(actual, "\n"), strings.Join(tt.expected, "\n"))
@@ -142,7 +142,7 @@ func TestBuild(t *testing.T) {
 }
 
 func TestNoteFolders(t *testing.T) {
-	root := Build([]string{"a/b/c.ts", "e/f.ts", "g.ts"}, []sketch.Note{note("a/b/c.ts"), note("g.ts")})
+	root := Build([]string{"a/b/c.ts", "e/f.ts", "g.ts"}, []sketch.Note{note("a/b/c.ts"), note("g.ts")}, nil)
 
 	actual := slices.Sorted(maps.Keys(NoteFolders(root)))
 
@@ -152,7 +152,7 @@ func TestNoteFolders(t *testing.T) {
 }
 
 func TestFlatten(t *testing.T) {
-	root := Build([]string{"a/b/c.ts", "a/d.ts", "e/f.ts", "g.ts"}, []sketch.Note{note("a/b/c.ts"), note("e/new.ts")})
+	root := Build([]string{"a/b/c.ts", "a/d.ts", "e/f.ts", "g.ts"}, []sketch.Note{note("a/b/c.ts"), note("e/new.ts")}, nil)
 	tests := []struct {
 		name      string
 		expanded  []string

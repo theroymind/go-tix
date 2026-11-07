@@ -24,7 +24,7 @@ tix done "$id"
 
 ```bash
 go install github.com/theroymind/go-tix/cmd/sketch@latest
-sketch                    # the explorer; a add · A attach · e edit · d delete · r ref · f feature · ? question · n notes only
+sketch                    # the explorer; a add · A attach · e edit · d delete · r ref · f feature · ? question · n notes · R reload
 sketch ls --json          # every note with its target, marks, items and questions, for agents
 sketch questions --json   # the open questions
 ```
@@ -43,7 +43,7 @@ feature: camera-controls
 
 `feature:` and `task:` link the note to tix tickets. `#fn`, `#type`, `#component`, `#hook`, `#flow`, `#tune`, `#rule` and `#test` name an item. A `?` line is an open question until a `>` line right under it answers it.
 
-In LazyVim, this spec in `~/.config/nvim/lua/plugins/sketch.lua` opens it in a float on `<leader>k`, as LazyVim opens lazygit. `e` in the float hides it and opens the note in that nvim, and the next `<leader>k` brings the explorer back.
+In LazyVim, this spec in `~/.config/nvim/lua/plugins/sketch.lua` opens it in a float on `<leader>k`, as LazyVim opens lazygit. `e` in the float hides it and opens the note in that nvim, and the next `<leader>k` brings the explorer back. The explorer reloads when its terminal regains focus, and `R` reloads it by hand.
 
 ```lua
 local term
@@ -84,6 +84,17 @@ return {
     })
   end,
 }
+```
+
+The `#TYPE` lines read as headings without a space to markdownlint, and a note needn't start with a heading. With markdownlint-cli2 0.23.0 or later, as LazyVim's markdown extra runs, this `.markdownlint-cli2.yaml` at the repo root turns off those two rules for notes only:
+
+```yaml
+overrides:
+  - filter: ["**/*.sketch.md"]
+    combine: merge
+    config:
+      MD018: false # no space after # on a heading
+      MD041: false # first line isn't a heading
 ```
 
 ## Contracts

@@ -9,11 +9,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
-
-	"github.com/theroymind/go-tix/contracts/sketch"
-	"github.com/theroymind/go-tix/internal/sketch/marks"
-	"github.com/theroymind/go-tix/internal/sketch/note"
-	"github.com/theroymind/go-tix/internal/sketch/tree"
 )
 
 // files are the repo the tests explore; the notes below plan src/app.ts, which exists, and src/new/orbit.ts, which
@@ -34,7 +29,7 @@ func newModel(t *testing.T) Model {
 	for file, text := range files {
 		writeFile(t, root, file, text)
 	}
-	model, err := New(root, diskLoad(t, root))
+	model, err := New(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,33 +49,6 @@ func writeFile(t *testing.T, root, file, text string) {
 	}
 	if err := os.WriteFile(filePath, []byte(text), 0o644); err != nil {
 		t.Fatal(err)
-	}
-}
-
-// diskLoad reads the tree under root the way sketch does: every file, and every note marked against its target.
-func diskLoad(t *testing.T, root string) Load {
-	return func() (*tree.Node, error) {
-		paths, err := tree.Files(root)
-		if err != nil {
-			return nil, err
-		}
-		notePaths, err := note.Find(root)
-		if err != nil {
-			return nil, err
-		}
-		reader := marks.NewReader(root)
-		var notes []sketch.Note
-		for _, notePath := range notePaths {
-			value, err := note.Load(root, notePath)
-			if err != nil {
-				return nil, err
-			}
-			if err := reader.MarkNote(&value); err != nil {
-				return nil, err
-			}
-			notes = append(notes, value)
-		}
-		return tree.Build(paths, notes), nil
 	}
 }
 
@@ -212,7 +180,7 @@ func TestView(t *testing.T) {
 		excludes []string
 	}{
 		{"The header, footer and tree", nil,
-			[]string{"trial  2 notes · 1 open question", "q quit", "n notes only", "▸   docs/", "▾   src/", "+ orbit.ts",
+			[]string{"trial  2 notes · 1 open question", "q quit", "n notes ·", "R reload", "▸   docs/", "▾   src/", "+ orbit.ts",
 				"~ app.ts ?1", "util.ts", "no notes below"},
 			[]string{"sketch.md"}},
 		{"A note's text", []string{"j", "j", "j"}, []string{"orbit note"}, nil},
@@ -874,5 +842,78 @@ func TestHeaderPlurals(t *testing.T) {
 
 	if view := ansi.Strip(model.View().Content); !strings.Contains(view, "trial  1 note · 1 open question") {
 		t.Errorf("View() lacks the singular counts:\n%s", view)
+	}
+}
+
+func TestReload(t *testing.T) {
+	tests := []struct {
+		name    string
+		message tea.Msg
+	}{
+		{"Regaining focus reloads", tea.FocusMsg{}},
+		{"R reloads", tea.KeyPressMsg{Code: 'R', Text: "R"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model, _ := press(newModel(t), "j", "j", "j", "j")
+			writeFile(t, model.root, "src/app.ts.sketch.md", "app note\n? why\n? who\n")
+
+			updated, _ := model.Update(tt.message)
+			model = updated.(Model)
+
+			if selected := model.selected(); selected.Path != "src/app.ts" || selected.OpenQuestions != 2 {
+				t.Errorf("selected = %s with %d open questions, want src/app.ts with 2", selected.Path,
+					selected.OpenQuestions)
+			}
+		})
+	}
+}
+
+func TestViewReportsFocus(t *testing.T) {
+	if !newModel(t).View().ReportFocus {
+		t.Error("View() doesn't ask the terminal to report focus")
+	}
+}
+
+func TestUnreadableNote(t *testing.T) {
+	model := newModel(t)
+	opened := recordOpens(&model)
+	writeFile(t, model.root, "src/util.ts.sketch.md", "---\nfeature: [\n")
+
+	model, _ = press(model, "j", "j", "j", "j", "j", "R")
+
+	view := ansi.Strip(model.View().Content)
+	for _, text := range []string{"3 notes · 1 open question  1 unreadable", "! util.ts",
+		"1 note couldn't be read: src/util.ts.sketch.md: bad front matter"} {
+		if !strings.Contains(view, text) {
+			t.Errorf("View() lacks %q:\n%s", text, view)
+		}
+	}
+	if len(model.Problems()) != 1 {
+		t.Errorf("Problems() = %v, want one", model.Problems())
+	}
+	model, command := press(model, "e")
+	if command == nil {
+		t.Fatal("e opened nothing")
+	}
+	if want := []string{model.filePath("src/util.ts.sketch.md")}; !slices.Equal(*opened, want) {
+		t.Errorf("opened %q, want %q", *opened, want)
+	}
+}
+
+func TestAddOnFolderWithNote(t *testing.T) {
+	model := newModel(t)
+	opened := recordOpens(&model)
+	writeFile(t, model.root, "src.sketch.md", "src note\n")
+	model.reload("src")
+
+	model, _ = press(model, "a")
+
+	if model.prompt.kind != promptName || model.prompt.path != "src" {
+		t.Errorf("prompt = %+v, want a name in src", model.prompt)
+	}
+	model, _ = press(model, "esc", "e")
+	if want := []string{model.filePath("src.sketch.md")}; !slices.Equal(*opened, want) {
+		t.Errorf("e opened %q, want %q", *opened, want)
 	}
 }
