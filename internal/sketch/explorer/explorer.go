@@ -648,6 +648,9 @@ func (model Model) links() string {
 // footer shows the prompt and the status message when there is one, and otherwise names the most used keys.
 func (model Model) footer() string {
 	line := strings.TrimSpace(model.prompt.line() + "  " + model.status)
+	if model.pad.discarding {
+		line = discardPrompt
+	}
 	if line != "" {
 		return ansi.Truncate(line, model.width, "")
 	}

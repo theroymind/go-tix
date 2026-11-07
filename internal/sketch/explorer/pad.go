@@ -22,11 +22,12 @@ func paneOpen(filePath string, line int, _ func(error) tea.Msg) tea.Cmd {
 }
 
 // pad is the note being edited in the preview pane, if any: the file it saves to, the text last read or saved,
-// and the text area that edits it.
+// the text area that edits it, and whether it's asking before throwing away unsaved changes.
 type pad struct {
-	filePath string
-	saved    string
-	area     textarea.Model
+	filePath   string
+	saved      string
+	area       textarea.Model
+	discarding bool
 }
 
 func (pad pad) active() bool {
@@ -73,11 +74,25 @@ func (model *Model) sizePad() {
 	model.pad.area.SetHeight(model.paneHeight())
 }
 
-// updatePad types a key into the pad: esc saves the note and goes back to the tree, ctrl+s saves it, and ctrl+c
-// saves it and quits.
+// updatePad types a key into the pad: esc saves the note and goes back to the tree, ctrl+s saves it, ctrl+c
+// saves it and quits, and ctrl+x goes back to the tree without saving, asking first when there are changes to
+// lose.
 func (model *Model) updatePad(message tea.Msg) tea.Cmd {
 	if press, isKey := message.(tea.KeyPressMsg); isKey {
 		switch {
+		case model.pad.discarding:
+			model.pad.discarding = false
+			if press.String() == "y" {
+				model.discardPad()
+			}
+			return nil
+		case press.String() == "ctrl+x":
+			if model.pad.area.Value() == model.pad.saved {
+				model.discardPad()
+				return nil
+			}
+			model.pad.discarding = true
+			return nil
 		case press.String() == "esc":
 			model.closePad()
 			return nil
@@ -110,6 +125,12 @@ func (model *Model) savePad() bool {
 	model.pad.saved = text
 	model.status = savedNote
 	return true
+}
+
+// discardPad goes back to the tree, leaving the note as it was last read or saved.
+func (model *Model) discardPad() {
+	model.pad = pad{}
+	model.reload(model.selectedPath())
 }
 
 // closePad saves the note and, once it's saved, puts the preview back and reads the tree again, keeping the cursor

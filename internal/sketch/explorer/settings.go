@@ -48,7 +48,8 @@ var footerHints = []string{"n notes", "a add", "e edit", "f feature", "y ready",
 	"? help"}
 
 // padFooterHints are the keys the footer names while a note is edited in the preview pane.
-var padFooterHints = []string{"esc save and close", "ctrl+s save", "ctrl+c save and quit"}
+var padFooterHints = []string{"esc save and close", "ctrl+s save", "ctrl+x close without saving",
+	"ctrl+c save and quit"}
 
 // planFooterHints are the keys the footer names in the plan view.
 var planFooterHints = []string{"j/k note", "ctrl+d/ctrl+u scroll", "v/esc tree", "? help", "q quit"}
@@ -88,6 +89,7 @@ const (
 	noNoteToEdit   = "no note; a adds one in a folder"
 	createdNote    = "created %s, the note planning %s"
 	savedNote      = "saved"
+	discardPrompt  = "close without saving? your changes will be lost. y/n"
 	noNoteToDelete = "no note to delete"
 
 	// r adds a -> line linking the note to the file picked, and the links line shows a note's links both ways.

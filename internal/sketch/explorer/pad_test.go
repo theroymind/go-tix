@@ -51,6 +51,14 @@ func TestPad(t *testing.T) {
 			[]string{"q", "j", "d", "esc"}, "qjdapp note\n? why\n", false, savedNote},
 		{"esc on an untouched note leaves it as it was, tabs and all", "a\tb\n", []string{"e"},
 			[]string{"esc"}, "a\tb\n", false, ""},
+		{"ctrl+x on an untouched note goes back to the tree", "app note\n? why\n", []string{"e"},
+			[]string{"ctrl+x"}, "app note\n? why\n", false, ""},
+		{"ctrl+x then y throws away the changes", "app note\n? why\n", []string{"e"},
+			[]string{"X", "ctrl+x", "y"}, "app note\n? why\n", false, ""},
+		{"ctrl+x then another key goes back to editing", "app note\n? why\n", []string{"e"},
+			[]string{"X", "ctrl+x", "n", "Y", "esc"}, "XYapp note\n? why\n", false, savedNote},
+		{"ctrl+x keeps what ctrl+s saved", "app note\n? why\n", []string{"e"},
+			[]string{"X", "ctrl+s", "Y", "ctrl+x", "y"}, "Xapp note\n? why\n", false, ""},
 		{"> puts the cursor on the answer line", "app note\n? why\n", []string{">"},
 			[]string{"b", "e", "c", "a", "u", "s", "e", "esc"}, "app note\n? why\n> because\n", false, savedNote},
 	}
@@ -93,6 +101,16 @@ func TestPadShowsBesideTree(t *testing.T) {
 	view = ansi.Strip(model.View().Content)
 	if !strings.Contains(view, "Zorbit note") || strings.Contains(view, "esc save and close") {
 		t.Errorf("View() after esc doesn't show the saved note as a preview:\n%s", view)
+	}
+}
+
+func TestPadAsksBeforeDiscarding(t *testing.T) {
+	model := openPad(t, padModel(t), "j", "j", "j", "e")
+
+	model, _ = press(model, "X", "ctrl+x")
+
+	if view := ansi.Strip(model.View().Content); !strings.Contains(view, discardPrompt) {
+		t.Errorf("View() lacks the discard question:\n%s", view)
 	}
 }
 
