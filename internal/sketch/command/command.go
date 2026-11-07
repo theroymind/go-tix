@@ -35,7 +35,9 @@ notes only and the whole tree, R reloads the tree, which also happens when the t
 quits. a asks for a file name, tab completing folders, and adds a note planning that file in the selected folder,
 or beside the selected file; a typed .sketch.md or .sketch comes out, so useOrbit.sketch.ts plans useOrbit.ts,
 and a name with no extension is fine. enter or e on a file opens its note, adding one when it has none, in
-$EDITOR, or in the parent nvim when $NVIM is set, and d deletes it after asking. r on a note lists the repo's
+$EDITOR, and d deletes it after asking. Inside nvim, with $NVIM set, the preview hides, moving onto a note shows
+it in nvim's main window, and enter, e, a and > open it there with focus, through the sketch_show function the
+README's LazyVim spec defines; without it they fall back to nvim --remote. r on a note lists the repo's
 files and planned ones and adds the one you pick to the note as a "-> path" line; f filters the tree to one
 feature's notes, picked from tix's features and the ones notes name, links new notes to it, and is kept for the
 branch until cleared; L links the note to a feature; y marks the selected note ready, or back to draft, and new

@@ -43,6 +43,8 @@ func newModel(t *testing.T) Model {
 		t.Error("a note opened outside the test's editor")
 		return nil
 	}
+	// Run inside nvim, New pairs with it; paired_test.go covers that.
+	model.paired = false
 	// The tests start from the whole tree; TestOpensNotesOnly covers New opening on notes only.
 	model.notesOnly = false
 	model.refreshRows()

@@ -39,3 +39,28 @@ func TestCommands(t *testing.T) {
 		})
 	}
 }
+
+func TestShowCommand(t *testing.T) {
+	const call = `luaeval("_G.sketch_show and (_G.sketch_show(_A[1], _A[2], _A[3]) or 1) or 0", `
+	tests := []struct {
+		name     string
+		filePath string
+		focus    bool
+		line     int
+		wantExpr string
+	}{
+		{"Shown without focus", "/repo/a.md", false, 0, call + `['/repo/a.md', v:false, 0])`},
+		{"Focused on a line", "/repo/a.md", true, 7, call + `['/repo/a.md', v:true, 7])`},
+		{"A quote in the path is doubled", "/repo/it's.md", true, 0, call + `['/repo/it''s.md', v:true, 0])`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			argv := ShowCommand("/tmp/nvim.sock", tt.filePath, tt.focus, tt.line)
+
+			want := []string{"nvim", "--server", "/tmp/nvim.sock", "--remote-expr", tt.wantExpr}
+			if !reflect.DeepEqual(argv, want) {
+				t.Errorf("ShowCommand() = %q, want %q", argv, want)
+			}
+		})
+	}
+}

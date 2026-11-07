@@ -1,7 +1,8 @@
 // Package explorer provides the sketch explorer, a Bubble Tea model that shows the repo tree with each note as a +
-// ghost node or a ~ on the file it plans and a preview of the selected node beside it, that adds, opens and deletes
-// notes, marks them ready or draft, links a note to a file and shows its links both ways, filters the tree to one feature, kept per
-// branch, jumps between open questions and answers them, shows the notes joined in build order, and lists its keys.
+// ghost node or a ~ on the file it plans and a preview of the selected node beside it, or inside nvim the selected
+// note in nvim's main window, that adds, opens and deletes notes, marks them ready or draft, links a note to a
+// file and shows its links both ways, filters the tree to one feature, kept per branch, jumps between open
+// questions and answers them, shows the notes joined in build order, and lists its keys.
 package explorer
 
 import (
@@ -12,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -29,14 +31,28 @@ import (
 // done with the editor's error.
 type Open func(filePath string, line int, done func(error) tea.Msg) tea.Cmd
 
+// Follow returns the command that shows the file at filePath in the paired nvim, leaving focus in sketch.
+type Follow func(filePath string) tea.Cmd
+
 // editedMsg says the editor a note was opened in has returned.
 type editedMsg struct{ err error }
 
+// followMsg says the cursor was on the note at notePath a moment ago; the paired nvim shows it if it still is.
+type followMsg struct{ notePath string }
+
+// followDelay is how long the cursor rests on a note before the paired nvim shows it, so holding j doesn't run nvim
+// for every row passed.
+const followDelay = 100 * time.Millisecond
+
 // Model is the explorer's state: the tree, which folders are open, whether only notes show, the cursor, the picker
-// or help in the preview pane, and the prompt or status line in the footer.
+// or help in the preview pane, and the prompt or status line in the footer. Paired with an nvim, the selected note
+// shows there instead of in the preview pane.
 type Model struct {
 	root          string
 	open          Open
+	paired        bool                     // inside an nvim, which shows the selected note
+	follow        Follow                   // shows a note in the paired nvim
+	followed      string                   // the note the paired nvim was last asked to show
 	listFeatures  func() ([]string, error) // tix's features
 	lookUpFeature LookUpFeature            // the feature filter's ticket, for the plan view
 	feature       string                   // the feature filter; a new note links to it when set
@@ -64,14 +80,15 @@ type Model struct {
 
 // New returns the explorer for the repo at root, with the tree repo.Load reads, the feature filter the branch
 // last had, every folder above a note open so that every note shows, and only notes showing when there are any.
-// Notes open in the editor editor.Open picks.
+// Notes open in the editor editor.Open picks, and inside nvim the explorer pairs with it.
 func New(root string) (Model, error) {
 	loaded, err := repo.Load(root)
 	if err != nil {
 		return Model{}, err
 	}
 	resolver := refs.New(root)
-	model := Model{root: root, open: editor.Open, listFeatures: resolver.Features, lookUpFeature: tixFeature(resolver),
+	model := Model{root: root, open: editor.Open, paired: editor.Paired(), follow: editor.Follow,
+		listFeatures: resolver.Features, lookUpFeature: tixFeature(resolver),
 		expanded: tree.NoteFolders(loaded.Tree), styles: newStyles(true)}
 	model.featureFile = featureFile(root)
 	model.feature = readFeature(model.featureFile)
@@ -91,7 +108,14 @@ func (model Model) Init() tea.Cmd {
 	return tea.RequestBackgroundColor
 }
 
+// Update handles message and, when paired and the cursor has moved onto a note the nvim isn't showing, asks for a
+// followMsg once the cursor has rested there.
 func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
+	updated, command := model.update(message)
+	return updated, tea.Batch(command, updated.followLater())
+}
+
+func (model Model) update(message tea.Msg) (Model, tea.Cmd) {
 	switch message := message.(type) {
 	case tea.BackgroundColorMsg:
 		model.styles = newStyles(message.IsDark())
@@ -103,6 +127,8 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if message.err != nil {
 			model.status = fmt.Sprintf(editorFailed, message.err)
 		}
+	case followMsg:
+		return model, model.followNow(message.notePath)
 	case tea.FocusMsg:
 		// Coming back from an editor that returned at once, such as nvim --remote, the notes may have changed.
 		model.reload(model.selectedPath())
@@ -252,7 +278,28 @@ func (model *Model) openFoldersAbove(nodePath string) {
 // openNote opens the note at notePath in the editor, on line when it's above 0, and the editor sends editedMsg
 // when it returns.
 func (model *Model) openNote(notePath string, line int) tea.Cmd {
+	model.followed = notePath
 	return model.open(model.filePath(notePath), line, func(err error) tea.Msg { return editedMsg{err: err} })
+}
+
+// followLater returns a command that sends followMsg for the selected note after followDelay, when paired and the
+// nvim isn't already showing it, and otherwise nil.
+func (model Model) followLater() tea.Cmd {
+	notePath := model.selectedNotePath()
+	if !model.paired || notePath == "" || notePath == model.followed {
+		return nil
+	}
+	return tea.Tick(followDelay, func(time.Time) tea.Msg { return followMsg{notePath: notePath} })
+}
+
+// followNow shows the note at notePath in the paired nvim, unless the cursor has moved off it since or the nvim
+// shows it already.
+func (model *Model) followNow(notePath string) tea.Cmd {
+	if notePath != model.selectedNotePath() || notePath == model.followed {
+		return nil
+	}
+	model.followed = notePath
+	return model.follow(model.filePath(notePath))
 }
 
 // reload reads the tree from disk again and puts the cursor on the node at keep, or the nearest folder above it
@@ -385,6 +432,14 @@ func (model Model) selected() *tree.Node {
 	return model.rows[model.cursor].Node
 }
 
+// selectedNotePath returns the path of the selected node's note, or "" when it has none.
+func (model Model) selectedNotePath() string {
+	if node := model.selected(); node != nil && node.Note != nil {
+		return node.Note.Path
+	}
+	return ""
+}
+
 func (model Model) selectedPath() string {
 	if node := model.selected(); node != nil {
 		return node.Path
@@ -418,43 +473,60 @@ func (model Model) paneHeight() int {
 	return max(1, model.height-chromeHeight)
 }
 
+// View draws the header, the tree with the preview pane beside it, and the footer. Paired, the tree takes the
+// whole width, and help or a picker takes the tree's place while it shows; the plan view always shows both panes.
 func (model Model) View() tea.View {
 	if model.width == 0 {
 		return tea.NewView("")
 	}
-	height := model.paneHeight()
-	treeWidth := min(model.width, max(minTreeWidth, model.width/treeShare))
-	previewWidth := max(0, model.width-treeWidth-1-previewGap)
-
-	var treeLines []string
-	for index := model.offset; index < len(model.rows) && index < model.offset+height; index++ {
-		treeLines = append(treeLines, model.renderRow(index, treeWidth))
-	}
-	if model.plan.active {
-		treeLines = model.planRows(height, treeWidth)
-	}
-	treePane := lipgloss.NewStyle().Width(treeWidth).Height(height).Render(strings.Join(treeLines, "\n"))
-
-	previewLines := model.preview
+	var body string
 	switch {
-	case model.help:
-		previewLines = helpLines()
-	case model.picker.kind != pickNone:
-		previewLines = model.picker.lines(height)
-	case model.plan.active:
-		previewLines = model.planLines(height)
+	case !model.paired || model.plan.active:
+		treeWidth := min(model.width, max(minTreeWidth, model.width/treeShare))
+		body = lipgloss.JoinHorizontal(lipgloss.Top, model.treePane(treeWidth),
+			model.styles.preview.Render(model.previewPane(model.width-treeWidth-1-previewGap)))
+	case model.help || model.picker.kind != pickNone:
+		body = model.previewPane(model.width)
+	default:
+		body = model.treePane(model.width)
 	}
-	var previewText []string
-	for _, line := range previewLines {
-		previewText = append(previewText, ansi.Truncate(line, previewWidth, ""))
-	}
-	previewPane := model.styles.preview.Height(height).Render(strings.Join(previewText, "\n"))
-
-	body := lipgloss.JoinHorizontal(lipgloss.Top, treePane, previewPane)
 	view := tea.NewView(strings.Join([]string{model.header(), body, model.links(), model.footer()}, "\n"))
 	view.AltScreen = true
 	view.ReportFocus = true
 	return view
+}
+
+// treePane draws the rows in view, or the plan view's file list, width columns wide.
+func (model Model) treePane(width int) string {
+	height := model.paneHeight()
+	var lines []string
+	for index := model.offset; index < len(model.rows) && index < model.offset+height; index++ {
+		lines = append(lines, model.renderRow(index, width))
+	}
+	if model.plan.active {
+		lines = model.planRows(height, width)
+	}
+	return lipgloss.NewStyle().Width(width).Height(height).Render(strings.Join(lines, "\n"))
+}
+
+// previewPane draws the help, the picker, the plan view's notes or the selected node's preview, cut to width
+// columns.
+func (model Model) previewPane(width int) string {
+	height := model.paneHeight()
+	lines := model.preview
+	switch {
+	case model.help:
+		lines = helpLines()
+	case model.picker.kind != pickNone:
+		lines = model.picker.lines(height)
+	case model.plan.active:
+		lines = model.planLines(height)
+	}
+	var cut []string
+	for _, line := range lines {
+		cut = append(cut, ansi.Truncate(line, max(0, width), ""))
+	}
+	return lipgloss.NewStyle().Height(height).Render(strings.Join(cut, "\n"))
 }
 
 // header names the repo and counts the notes that show, how many are draft and ready, their open questions and

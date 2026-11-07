@@ -51,46 +51,74 @@ status: draft
 
 `feature:` links the note to a tix feature, and `status:` is `draft` or `ready`. A `-> path : label` line links to another file, from the repo root or, starting with `./` or `../`, from the note's folder. In the explorer, `r` picks the file and adds the line, and the line above the footer shows the note's `uses →` and `used by ←` links, `!` marking a path that is neither a file nor planned. A `?` line is an open question until `>` lines right under it, or under one blank line, answer it. `#fn`, `#type`, `#component`, `#flow` and `#test` are a suggested convention for describing what the file holds; sketch doesn't parse them. tix is optional: without it, `sketch ls` warns and skips checking features, and `sketch plan` leaves out the feature's criteria. `sketch plan` puts each note after every note it links to, and the notes of a cycle together in path order.
 
-In LazyVim, this spec in `~/.config/nvim/lua/plugins/sketch.lua` opens it in a float on `<leader>k`, as LazyVim opens lazygit. `e` in the float hides it and opens the note in that nvim, and the next `<leader>k` brings the explorer back. The explorer reloads when its terminal regains focus, and `R` reloads it by hand.
+In LazyVim, this spec in `~/.config/nvim/lua/plugins/sketch.lua` opens it as a left split on `<leader>k`, and `<leader>k` again hides it. Inside nvim the explorer hides its preview pane: moving onto a note shows it in the main window while focus stays in sketch, and `enter`, `e`, `a` or `>` move focus to it there, `>` on the answer line. sketch calls the spec's `sketch_show` over `nvim --remote-expr`; without the spec it falls back to `nvim --remote`. The explorer reloads when its terminal regains focus, and `R` reloads it by hand.
 
 ```lua
+local width = 38
 local term
 
 local function toggle()
   term = Snacks.terminal.toggle(vim.g.sketch_cmd or "sketch", {
     cwd = LazyVim.root(),
-    win = { position = "float", width = 0.9, height = 0.9, border = "rounded" },
+    win = { position = "left", width = width },
   })
 end
 
--- sketch's e runs nvim --server $NVIM --remote: hide the float and focus the note it opened.
-local function move_note_out_of_float(event)
-  if not (term and term.win and vim.api.nvim_win_is_valid(term.win)) or vim.bo[event.buf].buftype ~= "" then
+-- A window a note can show in: a normal, non-floating window that isn't sketch's.
+local function is_main(win)
+  return vim.api.nvim_win_is_valid(win)
+    and not (term and win == term.win)
+    and vim.api.nvim_win_get_config(win).relative == ""
+    and vim.bo[vim.api.nvim_win_get_buf(win)].buftype == ""
+end
+
+-- The window notes show in: the one used last, else any main one, else a new one right of sketch.
+local function main_window()
+  local last = vim.fn.win_getid(vim.fn.winnr("#"))
+  if is_main(last) then
+    return last
+  end
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if is_main(win) then
+      return win
+    end
+  end
+  local win = vim.api.nvim_open_win(vim.api.nvim_create_buf(false, true), false, { split = "right", win = -1 })
+  if term and term.win and vim.api.nvim_win_is_valid(term.win) then
+    vim.api.nvim_win_set_width(term.win, width) -- the split above evened the widths out
+  end
+  return win
+end
+
+-- sketch calls this over nvim --remote-expr. It shows the note at path in the main window, moving focus there when
+-- focus is set, with the cursor on line when it's above 0. A deleted note isn't opened, and a window holding
+-- unsaved edits with 'nohidden' set keeps them and doesn't show the note.
+function _G.sketch_show(path, focus, line)
+  if vim.fn.filereadable(path) == 0 then
     return
   end
-  vim.schedule(function()
-    if vim.api.nvim_win_get_buf(term.win) ~= term.buf then
-      vim.api.nvim_win_set_buf(term.win, term.buf)
-    end
-    term:hide()
-    local note_win = vim.fn.bufwinid(event.buf)
-    if note_win ~= -1 then
-      vim.api.nvim_set_current_win(note_win)
-    else
-      vim.api.nvim_set_current_buf(event.buf)
-    end
+  local win = main_window()
+  local ok = pcall(vim.api.nvim_win_call, win, function()
+    vim.cmd.edit(vim.fn.fnameescape(path))
   end)
+  if not ok then
+    return
+  end
+  if line > 0 then
+    local last = vim.api.nvim_buf_line_count(vim.api.nvim_win_get_buf(win))
+    vim.api.nvim_win_set_cursor(win, { math.min(line, last), 0 })
+  end
+  if focus then
+    vim.cmd.stopinsert()
+    vim.api.nvim_set_current_win(win)
+  end
 end
 
 return {
   "folke/snacks.nvim",
-  keys = { { "<leader>k", toggle, desc = "Sketch explorer" } },
-  init = function()
-    vim.api.nvim_create_autocmd("BufWinEnter", {
-      group = vim.api.nvim_create_augroup("sketch_float", { clear = true }),
-      callback = move_note_out_of_float,
-    })
-  end,
+  keys = {
+    { "<leader>k", toggle, desc = "Sketch explorer" },
+  },
 }
 ```
 

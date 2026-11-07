@@ -1,13 +1,13 @@
 ---
 type: task
-status: todo
+status: done
 feature: sketch-blueprints
 scope: medium
 review: pending
 depends_on: [explorer-keys-and-naming]
 summary: Inside nvim, sketch shows the selected note in nvim's main window instead of its own preview pane, and LazyVim opens it as a left split.
 created_at: 2026-11-07T18:47:01Z
-updated_at: 2026-11-07T18:47:01Z
+updated_at: 2026-11-07T19:16:40Z
 ---
 
 # Paired nvim editor
@@ -26,7 +26,7 @@ When `$NVIM` is set, moving onto a note opens it in that nvim's main window with
 
 ## Acceptance criteria
 
-- [ ] `<leader>k` in LazyVim opens sketch as a left split beside the main window.
-- [ ] Moving onto a note shows it in the main window while focus stays in sketch.
-- [ ] `enter` on a note moves focus to it in the main window.
-- [ ] Outside nvim, the preview pane shows and `e` opens `$EDITOR`.
+- [x] `<leader>k` in LazyVim opens sketch as a left split beside the main window.
+- [x] Moving onto a note shows it in the main window while focus stays in sketch.
+- [x] `enter` on a note moves focus to it in the main window.
+- [x] Outside nvim, the preview pane shows and `e` opens `$EDITOR`.
