@@ -30,6 +30,18 @@ const (
 	subcommandLs      = "ls"
 	subcommandShow    = "show"
 	optionType        = "type"
+	optionOpen        = "open"
+	optionSet         = "set"
+	optionFile        = "file"
+	optionWithParent  = "with-parent"
+
+	commandAc                 = "ac"
+	commandAcceptanceCriteria = "acceptance-criteria"
+	helpCommand               = "help"
+	helpShortFlag             = "-h"
+	helpLongFlag              = "--help"
+	usageIndent               = "  "
+	usageHeading              = "usage:\n"
 
 	typeNamesLegend        = "default|project: "
 	typeNamesHintSeparator = ", "
@@ -48,6 +60,9 @@ const (
 	criteriaHeading   = "criteria:"
 	criteriaSeparator = "\n"
 	criterionLine     = "  %d. %s\n"
+	checkedCriterion  = "%d. [x] %s\n"
+	openCriterion     = "%d. [ ] %s\n"
+	showHeader        = "==> %s <==\n"
 )
 
 const (
@@ -96,6 +111,9 @@ const (
 	commitSeparator = ","
 )
 
+// commandAliases maps each alias Program registers to the command it runs, whose usage it shares.
+var commandAliases = map[string]string{commandAcceptanceCriteria: commandAc}
+
 var (
 	ErrExpectedOneTitle           = errors.New("expected exactly one title")
 	ErrExpectedOneReference       = errors.New("expected exactly one reference")
@@ -111,7 +129,13 @@ var (
 	ErrNotDependency              = errors.New("does not depend on")
 	ErrExpectedNumbers            = errors.New("expected a ticket reference and at least one criterion number")
 	ErrInvalidNumber              = errors.New("is not a criterion number; expected a whole number from 1")
-	ErrExpectedSubcommand         = errors.New("expected ac set or ac add")
+	ErrExpectedSubcommand         = errors.New("expected ac ls, ac set or ac add")
+	ErrExpectedLsCriteria         = errors.New("expected ac ls REF")
+	ErrOpenNeedsLs                = errors.New("--open goes only with ac ls")
+	ErrExpectedTicketReferences   = errors.New("expected at least one ticket reference")
+	ErrExpectedNumbersOrAll       = errors.New("expected criterion numbers or --all, not both")
+	ErrCreated                    = errors.New("was created")
+	ErrNoFilesSection             = errors.New("lists no files; the backend's tickets have no files section")
 	ErrExpectedSetCriterion       = errors.New("expected ac set REF N TEXT")
 	ErrExpectedAddCriterion       = errors.New("expected ac add REF TEXT")
 	ErrExpectedDocsLs             = errors.New("expected docs ls")

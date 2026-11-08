@@ -2,6 +2,7 @@ package vaultstore
 
 import (
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -94,6 +95,31 @@ func (store Store) files(note *vault.Note) ([]string, error) {
 		return nil, err
 	}
 	return listedFiles(note.Body[section.Start:section.End]), nil
+}
+
+var _ backend.FileLister = Store{}
+
+// ListsFiles reports whether the profile names a files heading.
+func (store Store) ListsFiles() bool {
+	return store.Profile.FilesHeading != ""
+}
+
+// setFiles replaces the text under the note's files heading with one list item per path, failing when the profile
+// names no files heading or the note lacks it.
+func (store Store) setFiles(note *vault.Note, paths []string) error {
+	if !store.ListsFiles() {
+		return backend.Unsupported(backend.SetFiles{Paths: paths}, backend.KindVault)
+	}
+	for _, heading := range note.Headings() {
+		if heading.Level > titleLevel && heading.Text == store.Profile.FilesHeading {
+			items := make([]string, len(paths))
+			for index, path := range paths {
+				items[index] = listMarkers[0] + path
+			}
+			return note.SetTextUnder(heading.Line, strings.Join(items, "\n"))
+		}
+	}
+	return fmt.Errorf("%s: %w: %q", note.Path, vault.ErrSectionNotFound, store.Profile.FilesHeading)
 }
 
 // listedFiles reads the paths in a files section, written as a comma-separated line or as list items, with or

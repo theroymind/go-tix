@@ -11,6 +11,9 @@ type LintNote struct {
 	Headings         []string
 	RequiredSections []string
 	Links            []string
+	// TemplateSections are the required headings whose text is still, word for word, the text under the same
+	// heading in the template the note's type starts from.
+	TemplateSections []string
 }
 
 // LintReader is implemented by a backend whose notes tix lint can check.

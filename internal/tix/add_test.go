@@ -289,3 +289,71 @@ func TestAddOnAVaultFails(t *testing.T) {
 		})
 	}
 }
+
+func TestAddFilesAndPairsOnTheStarterVault(t *testing.T) {
+	tests := []struct {
+		name             string
+		arguments        []string
+		expectedExitCode cli.ExitCode
+		expectedLines    []string
+		mentions         []string
+	}{
+		{"--file lists each path under Files in place of the template's",
+			[]string{"--file", "sim/a.odin", "--file", "sim/b.odin"}, cli.ExitCodeSuccess,
+			[]string{"## Files\n\n- sim/a.odin\n- sim/b.odin\n\n## Acceptance criteria"}, nil},
+		{"--set writes each pair as set does",
+			[]string{"--set", "scope=medium", "--set", "summary=Draw it."}, cli.ExitCodeSuccess,
+			[]string{"scope: medium\n", "summary: Draw it.\n", "- path/to/a/file/it/likely/touches"}, nil},
+		{"A malformed --set pair creates nothing",
+			[]string{"--set", "scope"}, cli.ExitCodeUsage, nil, []string{"expected KEY=VALUE"}},
+		{"A --set the note refuses names the created ticket",
+			[]string{"--set", "feature=nope"}, cli.ExitCodeFailure, nil, []string{"draw-the-map was created", "nope"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			if exitCode, output := run(t, root, "init", "--prefix", "tx"); exitCode != cli.ExitCodeSuccess {
+				t.Fatalf("init exit code = %d, output %q", exitCode, output)
+			}
+			arguments := append(append([]string{"add", "--type", "task"}, tt.arguments...), "Draw the map")
+
+			exitCode, output := run(t, root, arguments...)
+
+			if exitCode != tt.expectedExitCode {
+				t.Fatalf("exit code = %d, expected %d; output %q", exitCode, tt.expectedExitCode, output)
+			}
+			for _, mention := range tt.mentions {
+				if !strings.Contains(output, mention) {
+					t.Errorf("output %q does not mention %q", output, mention)
+				}
+			}
+			if tt.expectedLines == nil {
+				return
+			}
+			_, pathOutput := run(t, root, "path", strings.TrimSpace(output))
+			text := readFile(t, strings.TrimSpace(pathOutput))
+			for _, line := range tt.expectedLines {
+				if !strings.Contains(text, line) {
+					t.Errorf("note =\n%s\ndoes not hold %q", text, line)
+				}
+			}
+		})
+	}
+}
+
+func TestAddFileOnYAMLCreatesNothing(t *testing.T) {
+	root, _ := yamlRepository(t)
+	before := ticketFiles(t, root)
+
+	exitCode, output := run(t, root, "add", "--type", "task", "--file", "a.go", "Draw the map")
+
+	if exitCode != cli.ExitCodeFailure {
+		t.Fatalf("exit code = %d, output %q", exitCode, output)
+	}
+	if !strings.Contains(output, "--file lists no files") {
+		t.Errorf("output %q does not explain --file", output)
+	}
+	if after := ticketFiles(t, root); !slices.Equal(before, after) {
+		t.Errorf("ticket files = %v, expected %v", after, before)
+	}
+}

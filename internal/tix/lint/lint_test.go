@@ -41,9 +41,11 @@ func TestCheck(t *testing.T) {
 			[]string{lint.RuleSummary}, []string{"has no summary"}},
 		{"A link to no note is named", withChange(func(note *backend.LintNote) { note.Links = []string{"combat-loop", "turn-order"} }),
 			[]string{lint.RuleLink}, []string{"[[turn-order]] names no note or file in the vault"}},
-		{"Findings come section, summary, link", withChange(func(note *backend.LintNote) {
-			note.Headings, note.Summary, note.Links = nil, "", []string{"gone"}
-		}), []string{lint.RuleSection, lint.RuleSummary, lint.RuleLink}, nil},
+		{"A section still holding its template's text is named", withChange(func(note *backend.LintNote) { note.TemplateSections = []string{"Rejected"} }),
+			[]string{lint.RuleTemplate}, []string{`"Rejected" still holds the template's text`}},
+		{"Findings come section, template, summary, link", withChange(func(note *backend.LintNote) {
+			note.Headings, note.TemplateSections, note.Summary, note.Links = nil, []string{"Files"}, "", []string{"gone"}
+		}), []string{lint.RuleSection, lint.RuleTemplate, lint.RuleSummary, lint.RuleLink}, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

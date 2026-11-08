@@ -35,6 +35,12 @@ type CriterionTracker interface {
 	TracksCriteria()
 }
 
+// FileLister is implemented by a backend whose tickets can list the files they expect to touch, for tix add --file.
+type FileLister interface {
+	// ListsFiles reports whether the backend's tickets have a files section to write.
+	ListsFiles() bool
+}
+
 // TypeNamer is a Backend whose project calls the ticket types by names of its own, such as a vault whose epics are
 // phases. Commands that take a --type accept those names beside the ticket types.
 type TypeNamer interface {
@@ -48,8 +54,8 @@ type TypeName struct {
 	Type ticket.Type
 }
 
-// Change is one edit Apply makes to a ticket: SetField, RemoveField, CheckCriterion, UncheckCriterion, SetCriterion or
-// AddCriterion.
+// Change is one edit Apply makes to a ticket: SetField, RemoveField, CheckCriterion, UncheckCriterion, SetCriterion,
+// AddCriterion or SetFiles.
 type Change interface {
 	isChange()
 }
@@ -87,9 +93,15 @@ type AddCriterion struct {
 	Text string
 }
 
+// SetFiles replaces the files the ticket lists with Paths, one per item, on a backend that is a FileLister.
+type SetFiles struct {
+	Paths []string
+}
+
 func (SetField) isChange()         {}
 func (RemoveField) isChange()      {}
 func (CheckCriterion) isChange()   {}
 func (UncheckCriterion) isChange() {}
 func (SetCriterion) isChange()     {}
 func (AddCriterion) isChange()     {}
+func (SetFiles) isChange()         {}

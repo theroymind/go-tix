@@ -75,3 +75,48 @@ func TestDoneOnYAMLIgnoresCriteriaWithoutADoneState(t *testing.T) {
 		t.Errorf("updated_at unchanged: %s", updatedAtLine.FindString(actual))
 	}
 }
+
+func TestDoneOnSeveralTickets(t *testing.T) {
+	tests := []struct {
+		name             string
+		arguments        []string
+		expectedExitCode cli.ExitCode
+		expectedStatuses map[string]string
+		mentions         []string
+	}{
+		{"Every ticket met completes them all",
+			[]string{"done", "golem-guards", "weighted-step-choice", "--force"}, cli.ExitCodeSuccess,
+			map[string]string{"golem-guards.md": "done", "weighted-step-choice.md": "done"}, nil},
+		{"One ticket unmet changes none, naming it",
+			[]string{"done", "golem-guards", "weighted-step-choice"}, cli.ExitCodeFailure,
+			map[string]string{"golem-guards.md": "todo", "weighted-step-choice.md": "todo"},
+			[]string{"weighted-step-choice has unmet criteria", "2: The argmax"}},
+		{"A reference that matches nothing changes none",
+			[]string{"done", "golem-guards", "nope"}, cli.ExitCodeFailure,
+			map[string]string{"golem-guards.md": "todo"}, []string{"nope"}},
+		{"No reference is a usage error",
+			[]string{"done"}, cli.ExitCodeUsage, nil, []string{"expected at least one ticket reference"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := copyVault(t)
+
+			exitCode, output := run(t, root, tt.arguments...)
+
+			if exitCode != tt.expectedExitCode {
+				t.Fatalf("exit code = %d, expected %d; output %q", exitCode, tt.expectedExitCode, output)
+			}
+			for _, mention := range tt.mentions {
+				if !strings.Contains(output, mention) {
+					t.Errorf("output %q does not mention %q", output, mention)
+				}
+			}
+			for note, status := range tt.expectedStatuses {
+				text := readFile(t, filepath.Join(root, "docs", "tasks", note))
+				if !strings.Contains(text, "status: "+status+"\n") {
+					t.Errorf("%s does not say status: %s", note, status)
+				}
+			}
+		})
+	}
+}

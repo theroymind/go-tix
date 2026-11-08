@@ -11,7 +11,10 @@ import (
 )
 
 var showSpecification = cli.Specification{
-	Options:           []cli.Option{{Name: optionJSON, Type: cli.OptionTypeBoolean}},
+	Options: []cli.Option{
+		{Name: optionJSON, Type: cli.OptionTypeBoolean},
+		{Name: optionWithParent, Type: cli.OptionTypeBoolean},
+	},
 	AllowsPositionals: true,
 }
 
@@ -35,8 +38,49 @@ func runShow(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if isDoc {
 		return writeDoc(stdout, store.(backend.DocStore), id, parsed.IsEnabled(optionJSON))
 	}
+	if parsed.IsEnabled(optionWithParent) {
+		return writeWithParent(stdout, store, id, parsed.IsEnabled(optionJSON))
+	}
+	return writeTicket(stdout, store, id, parsed.IsEnabled(optionJSON))
+}
+
+// writeWithParent shows the ticket and then its parent, each under a ==> ID <== line as head prints several files,
+// or as a JSON array of the two. A ticket without a parent shows alone, as plain show does.
+func writeWithParent(stdout io.Writer, store backend.Backend, id string, isJSON bool) error {
+	shown, err := store.Read(id)
+	if err != nil {
+		return err
+	}
+	if shown.Parent == "" {
+		return writeTicket(stdout, store, id, isJSON)
+	}
+	if isJSON {
+		parent, err := store.Read(shown.Parent)
+		if err != nil {
+			return err
+		}
+		return cli.WriteJSON(stdout, []ticket.Ticket{shown, parent})
+	}
+	for index, shownID := range []string{id, shown.Parent} {
+		header := showHeader
+		if index > 0 {
+			header = "\n" + header
+		}
+		if _, err := fmt.Fprintf(stdout, header, shownID); err != nil {
+			return err
+		}
+		if err := writeTicket(stdout, store, shownID, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// writeTicket shows one ticket: its source text with numbered criteria, or JSON when isJSON is set or the backend
+// has no source text.
+func writeTicket(stdout io.Writer, store backend.Backend, id string, isJSON bool) error {
 	// A backend without source text shows the ticket as JSON.
-	if textReader, hasText := store.(backend.TextReader); hasText && !parsed.IsEnabled(optionJSON) {
+	if textReader, hasText := store.(backend.TextReader); hasText && !isJSON {
 		text, err := textReader.ReadText(id)
 		if err != nil {
 			return err

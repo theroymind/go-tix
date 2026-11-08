@@ -1,6 +1,7 @@
 package tix
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -16,33 +17,46 @@ var doneSpecification = cli.Specification{
 	AllowsPositionals: true,
 }
 
+// runDone completes every ticket the arguments name. Unless --force is given, it first checks every ticket's
+// criteria and changes none while any is unmet.
 func runDone(arguments []string, _ io.Reader, _ io.Writer) error {
 	parsed, err := cli.Parse(arguments, doneSpecification)
 	if err != nil {
 		return err
 	}
-	if len(parsed.Positionals) != 1 {
-		return cli.NewUsageError(ErrExpectedOneReference)
+	if len(parsed.Positionals) == 0 {
+		return cli.NewUsageError(ErrExpectedTicketReferences)
 	}
 	store, err := openBackend()
 	if err != nil {
 		return err
 	}
-	id, err := store.Resolve(parsed.Positionals[0])
+	ids, err := resolveAll(store, parsed.Positionals)
 	if err != nil {
 		return err
 	}
 	// Only a backend whose criteria carry a done state can say a criterion is unmet.
 	if _, tracksCriteria := store.(backend.CriterionTracker); tracksCriteria && !parsed.IsEnabled(optionForce) {
+		if err := requireAllCriteriaMet(store, ids); err != nil {
+			return err
+		}
+	}
+	return setStatuses(store, ids, ticket.StatusCompleted)
+}
+
+// requireAllCriteriaMet fails naming every ticket with an unmet criterion, and each of its unmet criteria.
+func requireAllCriteriaMet(store backend.Backend, ids []string) error {
+	var problems []error
+	for _, id := range ids {
 		completing, err := store.Read(id)
 		if err != nil {
 			return err
 		}
 		if err := requireCriteriaMet(completing); err != nil {
-			return err
+			problems = append(problems, err)
 		}
 	}
-	return setStatus(store, id, ticket.StatusCompleted)
+	return errors.Join(problems...)
 }
 
 // requireCriteriaMet fails naming every unmet criterion by its 1-based index and text.

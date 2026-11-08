@@ -153,3 +153,93 @@ func TestCriterionCommandsOnAVault(t *testing.T) {
 		})
 	}
 }
+
+func TestAcLsOnAVault(t *testing.T) {
+	tests := []struct {
+		name             string
+		arguments        []string
+		expectedExitCode cli.ExitCode
+		expectedPrefixes []string
+		mentions         []string
+	}{
+		{"ac ls numbers every criterion with its box",
+			[]string{"ac", "ls", "weighted-step-choice"}, cli.ExitCodeSuccess,
+			[]string{"1. [x] `scoring_target`", "2. [ ] The argmax", "3. [ ] Only the winning step", "4. [ ] A parity test"}, nil},
+		{"ac ls --open keeps the numbers tick takes",
+			[]string{"ac", "ls", "--open", "weighted-step-choice"}, cli.ExitCodeSuccess,
+			[]string{"2. [ ] The argmax", "3. [ ] Only the winning step", "4. [ ] A parity test"}, nil},
+		{"acceptance-criteria is ac's long name",
+			[]string{"acceptance-criteria", "ls", "--open", "weighted-step-choice"}, cli.ExitCodeSuccess,
+			[]string{"2. [ ] The argmax", "3. [ ] Only the winning step", "4. [ ] A parity test"}, nil},
+		{"ac ls --open on a finished task prints nothing",
+			[]string{"ac", "ls", "--open", "golem-guards"}, cli.ExitCodeSuccess, nil, nil},
+		{"ac ls without a reference is a usage error",
+			[]string{"ac", "ls"}, cli.ExitCodeUsage, nil, []string{"expected ac ls REF"}},
+		{"--open goes only with ac ls",
+			[]string{"ac", "add", "--open", "weighted-step-choice", "x"}, cli.ExitCodeUsage, nil, []string{"--open goes only with ac ls"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := copyVault(t)
+
+			exitCode, output := run(t, root, tt.arguments...)
+
+			if exitCode != tt.expectedExitCode {
+				t.Fatalf("exit code = %d, expected %d; output %q", exitCode, tt.expectedExitCode, output)
+			}
+			for _, mention := range tt.mentions {
+				if !strings.Contains(output, mention) {
+					t.Errorf("output %q does not mention %q", output, mention)
+				}
+			}
+			if tt.expectedExitCode != cli.ExitCodeSuccess {
+				return
+			}
+			lines := strings.Split(strings.TrimSuffix(output, "\n"), "\n")
+			if output == "" {
+				lines = nil
+			}
+			if len(lines) != len(tt.expectedPrefixes) {
+				t.Fatalf("lines = %q, expected %d", lines, len(tt.expectedPrefixes))
+			}
+			for index, prefix := range tt.expectedPrefixes {
+				if !strings.HasPrefix(lines[index], prefix) {
+					t.Errorf("line %d = %q, expected it to start %q", index+1, lines[index], prefix)
+				}
+			}
+		})
+	}
+}
+
+func TestMarkAllOnAVault(t *testing.T) {
+	tests := []struct {
+		name             string
+		arguments        []string
+		expectedExitCode cli.ExitCode
+		expectedOpen     string
+	}{
+		{"tick --all ticks every box", []string{"tick", "weighted-step-choice", "--all"}, cli.ExitCodeSuccess, ""},
+		{"untick --all unticks every box", []string{"untick", "--all", "weighted-step-choice"}, cli.ExitCodeSuccess, "1234"},
+		{"Numbers with --all is a usage error", []string{"tick", "weighted-step-choice", "2", "--all"}, cli.ExitCodeUsage, "234"},
+		{"--all without a reference is a usage error", []string{"tick", "--all"}, cli.ExitCodeUsage, "234"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := copyVault(t)
+
+			exitCode, output := run(t, root, tt.arguments...)
+
+			if exitCode != tt.expectedExitCode {
+				t.Fatalf("exit code = %d, expected %d; output %q", exitCode, tt.expectedExitCode, output)
+			}
+			_, listed := run(t, root, "ac", "ls", "--open", "weighted-step-choice")
+			open := ""
+			for line := range strings.Lines(listed) {
+				open += line[:1]
+			}
+			if open != tt.expectedOpen {
+				t.Errorf("unticked criteria = %q, expected %q", open, tt.expectedOpen)
+			}
+		})
+	}
+}

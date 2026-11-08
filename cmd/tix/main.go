@@ -19,5 +19,5 @@ import (
 func main() {
 	backend.Register(backend.KindYAML, yamlstore.Open)
 	backend.Register(backend.KindVault, vaultstore.Open)
-	os.Exit(int(tix.Program.Run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)))
+	os.Exit(int(tix.Run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)))
 }

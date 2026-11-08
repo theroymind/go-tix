@@ -60,7 +60,7 @@ func run(t *testing.T, directory string, arguments ...string) (cli.ExitCode, str
 	t.Helper()
 	t.Chdir(directory)
 	var stdout, stderr bytes.Buffer
-	exitCode := tix.Program.Run(arguments, bytes.NewReader(nil), &stdout, &stderr)
+	exitCode := tix.Run(arguments, bytes.NewReader(nil), &stdout, &stderr)
 	return exitCode, stdout.String() + stderr.String()
 }
 

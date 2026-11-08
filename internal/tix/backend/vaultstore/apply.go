@@ -61,6 +61,9 @@ func (store Store) applyChange(notes map[string]ticketNote, found ticketNote, ch
 	if remove, isRemoveField := change.(backend.RemoveField); isRemoveField {
 		return store.removeTicketProperty(found, remove.Field)
 	}
+	if files, isSetFiles := change.(backend.SetFiles); isSetFiles {
+		return store.setFiles(found.note, files.Paths)
+	}
 	set, isSetField := change.(backend.SetField)
 	if !isSetField {
 		return store.applyCriterionChange(found.note, change)

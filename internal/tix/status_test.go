@@ -78,3 +78,40 @@ func TestReviewOnYAML(t *testing.T) {
 		t.Errorf("ticket =\n%s\nexpected only status and updated_at to change from\n%s", actual, original)
 	}
 }
+
+func TestStartOnSeveralTickets(t *testing.T) {
+	tests := []struct {
+		name             string
+		references       []string
+		expectedExitCode cli.ExitCode
+		expectedStatus   string
+	}{
+		{"start moves every ticket it names", []string{"draw-the-map", "load-the-tiles"}, cli.ExitCodeSuccess, "in-progress"},
+		{"A reference that matches nothing changes none", []string{"draw-the-map", "load-the-tiles", "nope"}, cli.ExitCodeFailure, "todo"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			if exitCode, output := run(t, root, "init", "--prefix", "tx"); exitCode != cli.ExitCodeSuccess {
+				t.Fatalf("init exit code = %d, output %q", exitCode, output)
+			}
+			for _, title := range []string{"Draw the map", "Load the tiles"} {
+				if exitCode, output := run(t, root, "add", "--type", "task", title); exitCode != cli.ExitCodeSuccess {
+					t.Fatalf("add exit code = %d, output %q", exitCode, output)
+				}
+			}
+
+			exitCode, output := run(t, root, append([]string{"start"}, tt.references...)...)
+
+			if exitCode != tt.expectedExitCode {
+				t.Fatalf("exit code = %d, expected %d; output %q", exitCode, tt.expectedExitCode, output)
+			}
+			for _, id := range []string{"draw-the-map", "load-the-tiles"} {
+				_, pathOutput := run(t, root, "path", id)
+				if text := readFile(t, strings.TrimSpace(pathOutput)); !strings.Contains(text, "status: "+tt.expectedStatus+"\n") {
+					t.Errorf("%s does not say status: %s", id, tt.expectedStatus)
+				}
+			}
+		})
+	}
+}

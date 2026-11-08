@@ -20,25 +20,36 @@ func runReview(arguments []string, _ io.Reader, _ io.Writer) error {
 	return runSetStatus(arguments, ticket.StatusInReview)
 }
 
-// runSetStatus moves the one ticket the arguments name to status. A vault writes the note status the ticket's
-// mapping gives it, and refuses a status the mapping doesn't name.
+// runSetStatus moves every ticket the arguments name to status, after resolving them all, so a reference that
+// matches no ticket changes none. A vault writes the note status the ticket's mapping gives it, and refuses a status
+// the mapping doesn't name.
 func runSetStatus(arguments []string, status ticket.Status) error {
 	parsed, err := cli.Parse(arguments, statusSpecification)
 	if err != nil {
 		return err
 	}
-	if len(parsed.Positionals) != 1 {
-		return cli.NewUsageError(ErrExpectedOneReference)
+	if len(parsed.Positionals) == 0 {
+		return cli.NewUsageError(ErrExpectedTicketReferences)
 	}
 	store, err := openBackend()
 	if err != nil {
 		return err
 	}
-	id, err := store.Resolve(parsed.Positionals[0])
+	ids, err := resolveAll(store, parsed.Positionals)
 	if err != nil {
 		return err
 	}
-	return setStatus(store, id, status)
+	return setStatuses(store, ids, status)
+}
+
+// setStatuses moves each ticket to status in turn, stopping at the first that fails.
+func setStatuses(store backend.Backend, ids []string, status ticket.Status) error {
+	for _, id := range ids {
+		if err := setStatus(store, id, status); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func setStatus(store backend.Backend, id string, status ticket.Status) error {

@@ -27,6 +27,8 @@ var addSpecification = cli.Specification{
 		{Name: optionDependency, Type: cli.OptionTypeString, IsMultiple: true},
 		{Name: optionExternalID, Type: cli.OptionTypeString},
 		{Name: optionExternalURL, Type: cli.OptionTypeString},
+		{Name: optionFile, Type: cli.OptionTypeString, IsMultiple: true},
+		{Name: optionSet, Type: cli.OptionTypeString, IsMultiple: true},
 	},
 	AllowsPositionals: true,
 }
@@ -75,9 +77,19 @@ func runAdd(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
+	extras, err := parsePairs(parsed.Strings(optionSet))
+	if err != nil {
+		return err
+	}
 	store, err := openBackend()
 	if err != nil {
 		return err
+	}
+	if files := parsed.Strings(optionFile); len(files) > 0 {
+		if lister, isLister := store.(backend.FileLister); !isLister || !lister.ListsFiles() {
+			return fmt.Errorf("%s%s %w", longOptionStart, optionFile, ErrNoFilesSection)
+		}
+		extras = append([]backend.Change{backend.SetFiles{Paths: files}}, extras...)
 	}
 	ticketType, err := resolveType(typeName, store)
 	if err != nil {
@@ -122,8 +134,17 @@ func runAdd(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintln(stdout, id)
-	return err
+	if _, err := fmt.Fprintln(stdout, id); err != nil {
+		return err
+	}
+	if len(parsed.Strings(optionFile)) == 0 && len(parsed.Strings(optionSet)) == 0 {
+		return nil
+	}
+	// The files and pairs go in one write after the ticket exists, as tix set would write them.
+	if err := store.Apply(id, extras); err != nil {
+		return fmt.Errorf("%s %w, but %w", id, ErrCreated, err)
+	}
+	return nil
 }
 
 // resolveParent resolves the --parent reference, or returns "" when there is none.

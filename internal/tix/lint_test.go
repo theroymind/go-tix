@@ -111,3 +111,44 @@ func TestLint(t *testing.T) {
 		})
 	}
 }
+
+func TestLintNamesRequiredSectionsStillHoldingTheTemplate(t *testing.T) {
+	tests := []struct {
+		name          string
+		arguments     []string
+		expectedLines []string
+	}{
+		{"A task added bare names each required section the template filled",
+			nil, []string{
+				`docs/features/uncategorized/tasks/draw-the-map.md: template: "Description" still holds the template's text`,
+				`docs/features/uncategorized/tasks/draw-the-map.md: template: "Files" still holds the template's text`,
+				`docs/features/uncategorized/tasks/draw-the-map.md: template: "Acceptance criteria" still holds the template's text`,
+			}},
+		{"A task added whole is clean",
+			[]string{"--description", "Draw it.", "--file", "map.go", "--acceptance", "The map shows.", "--set", "summary=Draw the map."}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			if exitCode, output := run(t, root, "init", "--prefix", "tx"); exitCode != cli.ExitCodeSuccess {
+				t.Fatalf("init exit code = %d, output %q", exitCode, output)
+			}
+			arguments := append(append([]string{"add", "--type", "task"}, tt.arguments...), "Draw the map")
+			if exitCode, output := run(t, root, arguments...); exitCode != cli.ExitCodeSuccess {
+				t.Fatalf("add exit code = %d, output %q", exitCode, output)
+			}
+
+			_, output := run(t, root, "lint", "draw-the-map")
+
+			var templateLines []string
+			for line := range strings.Lines(output) {
+				if strings.Contains(line, ": template: ") {
+					templateLines = append(templateLines, strings.TrimSuffix(line, "\n"))
+				}
+			}
+			if strings.Join(templateLines, "\n") != strings.Join(tt.expectedLines, "\n") {
+				t.Errorf("template findings = %q, expected %q", templateLines, tt.expectedLines)
+			}
+		})
+	}
+}

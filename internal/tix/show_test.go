@@ -178,3 +178,55 @@ func TestShowANoteWithoutCriteria(t *testing.T) {
 		t.Errorf("output =\n%s\nexpected the phase note as it is", output)
 	}
 }
+
+func TestShowWithParent(t *testing.T) {
+	tests := []struct {
+		name          string
+		arguments     []string
+		expectedOrder []string
+		absent        []string
+	}{
+		{"The ticket comes first, then its parent, each under a ==> ID <== line",
+			[]string{"show", "weighted-step-choice", "--with-parent"},
+			[]string{"==> weighted-step-choice <==\n---\n", "# Weighted step choice", "\n\n==> enemy-puzzle <==\n---\n", "# Enemy puzzle"}, nil},
+		{"A ticket without a parent shows alone, as plain show does",
+			[]string{"show", "--with-parent", "enemy-puzzle"},
+			[]string{"---\ntype: phase", "# Enemy puzzle"}, []string{"==>"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			exitCode, output := run(t, copyVault(t), tt.arguments...)
+
+			if exitCode != cli.ExitCodeSuccess {
+				t.Fatalf("exit code = %d, output %q", exitCode, output)
+			}
+			rest := output
+			for _, part := range tt.expectedOrder {
+				index := strings.Index(rest, part)
+				if index < 0 {
+					t.Fatalf("output %q lacks %q after the parts before it", output, part)
+				}
+				rest = rest[index+len(part):]
+			}
+			for _, absent := range tt.absent {
+				if strings.Contains(output, absent) {
+					t.Errorf("output %q mentions %q", output, absent)
+				}
+			}
+		})
+	}
+}
+
+func TestShowWithParentAsJSON(t *testing.T) {
+	exitCode, output := run(t, copyVault(t), "show", "--with-parent", "--json", "weighted-step-choice")
+	if exitCode != cli.ExitCodeSuccess {
+		t.Fatalf("exit code = %d, output %q", exitCode, output)
+	}
+	var shown []ticket.Ticket
+	if err := json.Unmarshal([]byte(output), &shown); err != nil {
+		t.Fatalf("output %q is not a JSON array of tickets: %v", output, err)
+	}
+	if len(shown) != 2 || shown[0].ID != "weighted-step-choice" || shown[1].ID != "enemy-puzzle" {
+		t.Errorf("tickets = %+v, expected weighted-step-choice then enemy-puzzle", shown)
+	}
+}
