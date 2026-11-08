@@ -27,8 +27,8 @@ const (
 	ideaDirectory          = "ideas"
 	filesHeading           = "Files"
 	noteStatusTodo         = "todo"
-	noteStatusActive       = "active"
-	noteStatusReview       = "review"
+	noteStatusInProgress   = "in-progress"
+	noteStatusInReview     = "in-review"
 	noteStatusDone         = "done"
 	noteStatusOpen         = "open"
 	propertyDependsOn      = "depends_on"
@@ -44,10 +44,10 @@ var ErrTemplateExists = errors.New("already exists")
 // inside it, a task with no feature goes under features/uncategorized/, and ideas go in ideas/.
 func Profile(root string) backend.Profile {
 	statuses := map[string]ticket.Status{
-		noteStatusTodo:   ticket.StatusOpen,
-		noteStatusActive: ticket.StatusInProgress,
-		noteStatusReview: ticket.StatusInReview,
-		noteStatusDone:   ticket.StatusCompleted,
+		noteStatusTodo:       ticket.StatusOpen,
+		noteStatusInProgress: ticket.StatusInProgress,
+		noteStatusInReview:   ticket.StatusInReview,
+		noteStatusDone:       ticket.StatusCompleted,
 	}
 	feature := backend.TicketMapping{TicketType: ticket.TypeEpic, Statuses: statuses}
 	task := backend.TicketMapping{

@@ -14,8 +14,8 @@ func TestStartAndReviewOnTheStarterVault(t *testing.T) {
 		command  string
 		expected string
 	}{
-		{"start writes the active note status", "start", "status: active\n"},
-		{"review writes the review note status", "review", "status: review\n"},
+		{"start writes the in-progress note status", "start", "status: in-progress\n"},
+		{"review writes the in-review note status", "review", "status: in-review\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
