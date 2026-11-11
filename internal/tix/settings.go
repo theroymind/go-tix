@@ -66,8 +66,12 @@ const (
 )
 
 const (
-	tableHeader           = "ID\tTYPE\tSTATUS\tPRIORITY\tTITLE"
-	tableRow              = "%s\t%s\t%s\t%s\t%s\n"
+	tableColumnID         = "ID"
+	tableColumnType       = "TYPE"
+	tableColumnStatus     = "STATUS"
+	tableColumnPriority   = "PRIORITY"
+	tableColumnTitle      = "TITLE"
+	tableSeparator        = "\t"
 	docTableHeader        = "ID	TYPE	STATUS\tTITLE"
 	docTableRow           = "%s\t%s\t%s\t%s\n"
 	tableAbsent           = "-"

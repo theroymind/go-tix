@@ -16,7 +16,10 @@ commands:
                          --with-parent follows it with its parent's)
   path REF               (the absolute path of the file holding the ticket)
   ls [--status S] [--type T] [--tag T] [--parent REF] [--all] [--json]
-  ready [--type T] [--json]
+                         (a table of ID, TYPE, STATUS, PRIORITY when any ticket has one, each of the vault's
+                         list_properties, then TITLE)
+  ready [--type T] [--parent REF] [--json]
+                         (open tickets with every dependency done, as ls prints them; --parent keeps one feature's)
   start REF...           (status in_progress: being built)
   review REF...          (status in_review: built, being reviewed)
   done [--force] REF...  (refuses, changing none, while a criterion is unticked)

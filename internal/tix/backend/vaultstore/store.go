@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 
+	"go.yaml.in/yaml/v3"
+
 	"github.com/theroymind/go-tix/contracts/ticket"
 	"github.com/theroymind/go-tix/internal/tix/backend"
 	"github.com/theroymind/go-tix/internal/tix/vault"
@@ -35,7 +37,32 @@ var (
 	_ backend.CriterionTracker = Store{}
 	_ backend.NotePather       = Store{}
 	_ backend.TypeNamer        = Store{}
+	_ backend.PropertyLister   = Store{}
 )
+
+// ListProperties returns the properties the Profile names for tix ls and tix ready to show.
+func (store Store) ListProperties() []string {
+	return store.Profile.ListProperties
+}
+
+// PropertyValues returns each ticket note's scalar values for ListProperties, by slug.
+func (store Store) PropertyValues() (map[string][]string, error) {
+	notes, err := store.ticketNotes()
+	if err != nil {
+		return nil, err
+	}
+	values := make(map[string][]string, len(notes))
+	for slug, found := range notes {
+		row := make([]string, len(store.Profile.ListProperties))
+		for index, property := range store.Profile.ListProperties {
+			if node := found.note.Property(property); node != nil && node.Kind == yaml.ScalarNode {
+				row[index] = node.Value
+			}
+		}
+		values[slug] = row
+	}
+	return values, nil
+}
 
 // TypeNames returns the vault's note types that are tickets, sorted, each with the ticket type it stands for.
 func (store Store) TypeNames() []backend.TypeName {

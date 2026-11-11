@@ -41,6 +41,16 @@ type FileLister interface {
 	ListsFiles() bool
 }
 
+// PropertyLister is implemented by a backend whose project names properties of its own, such as a task's scope, for
+// tix ls and tix ready to show as columns.
+type PropertyLister interface {
+	// ListProperties returns the names of the properties to show, in column order.
+	ListProperties() []string
+	// PropertyValues returns each ticket's values for ListProperties by ticket id, in the same order, with "" for a
+	// property the ticket doesn't hold.
+	PropertyValues() (map[string][]string, error)
+}
+
 // TypeNamer is a Backend whose project calls the ticket types by names of its own, such as a vault whose epics are
 // phases. Commands that take a --type accept those names beside the ticket types.
 type TypeNamer interface {

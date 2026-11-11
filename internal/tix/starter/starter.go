@@ -33,6 +33,8 @@ const (
 	noteStatusOpen         = "open"
 	propertyDependsOn      = "depends_on"
 	propertyFeature        = "feature"
+	propertyScope          = "scope"
+	propertyReview         = "review"
 	templateExtension      = ".md"
 )
 
@@ -73,6 +75,7 @@ func Profile(root string) backend.Profile {
 		TicketDirectories:      map[string]string{featureNoteType: featureDirectory, taskNoteType: taskDirectory},
 		UncategorizedDirectory: uncategorizedDirectory,
 		FilesHeading:           filesHeading,
+		ListProperties:         []string{propertyScope, propertyReview},
 		RequiredSections: map[string][]string{
 			featureNoteType: {backend.DefaultDescriptionHeading, backend.DefaultCriteriaHeading},
 			taskNoteType:    {backend.DefaultDescriptionHeading, filesHeading, backend.DefaultCriteriaHeading},

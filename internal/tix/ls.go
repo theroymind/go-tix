@@ -55,7 +55,11 @@ func runLs(arguments []string, _ io.Reader, stdout io.Writer) error {
 		parent:           parent,
 		includesResolved: parsed.IsEnabled(optionAll),
 	}.apply(tickets)
-	return writeTickets(stdout, listed, parsed.IsEnabled(optionJSON))
+	properties, err := readPropertyColumns(store)
+	if err != nil {
+		return err
+	}
+	return writeTickets(stdout, listed, properties, parsed.IsEnabled(optionJSON))
 }
 
 // parseOption returns the option's value, or "" when it's absent, and rejects a value outside options as a usage error.

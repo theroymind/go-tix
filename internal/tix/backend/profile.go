@@ -46,6 +46,8 @@ type Profile struct {
 	// ContextStopTypes are the note types, such as a vault's home note, that tix context reaches but doesn't walk
 	// through, unless the walk starts there.
 	ContextStopTypes []string `yaml:"context_stop_types,omitempty,flow"`
+	// ListProperties are the note properties, such as a task's scope, that tix ls and tix ready show as columns.
+	ListProperties []string `yaml:"list_properties,omitempty,flow"`
 	// RequiredSections maps a ticket or doc note type to the headings every note of the type must hold, which tix
 	// lint checks.
 	RequiredSections map[string][]string `yaml:"required_sections,omitempty"`

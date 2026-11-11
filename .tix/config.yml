@@ -36,6 +36,7 @@ vault:
     task: '{parent}/tasks'
   uncategorized_directory: features/uncategorized
   files_heading: Files
+  list_properties: [scope, review]
   required_sections:
     feature:
       - Description

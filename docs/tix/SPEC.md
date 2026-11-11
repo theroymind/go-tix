@@ -108,9 +108,9 @@ Flags come before positional arguments, because Go's `flag` stops at the first n
 | `tix add --type task [--parent REF] [--priority N] [--tag T]... [--dependency REF]... [--acceptance A]... [--description D] [--draft] "title"` | Validates, saves, and prints only the new ID. |
 | `tix show REF [--json]` | Prints the ticket as YAML, the same as the file. On a backend with docs, a reference that matches no ticket shows the doc, as `tix doc show` does. |
 | `tix path REF` | Prints the absolute path of the file holding the ticket, so another app, such as sketch, can find what sits beside it without reading the backend's layout. |
-| `tix ls [--status S] [--type T] [--tag T] [--parent REF] [--all] [--json]` | Table of `ID TYPE STATUS PRIORITY TITLE`. Hides resolved tickets unless `--all` or `--status` is given. |
+| `tix ls [--status S] [--type T] [--tag T] [--parent REF] [--all] [--json]` | Table of `ID TYPE STATUS PRIORITY TITLE`. Hides resolved tickets unless `--all` or `--status` is given. The `PRIORITY` column shows only when a listed ticket has a priority. On a vault, each property in the Profile's `list_properties`, such as `scope`, is a column before `TITLE`, with a dash for a ticket that lacks it; `--json` is unchanged. |
 | `tix dep REF DEPENDENCY_REF` / `tix undep REF DEPENDENCY_REF` | Adds or removes a dependency. `dep` rejects cycles and names the path. |
-| `tix ready [--type T] [--json]` | Ready tickets, sorted. |
+| `tix ready [--type T] [--parent REF] [--json]` | Ready tickets, sorted, in the table `ls` prints. `--parent` keeps the ones whose parent is REF. |
 | `tix blocked [--json]` | Blocked tickets, each with the IDs blocking it. |
 | `tix start REF` / `tix review REF` / `tix done REF` / `tix cancel REF` | Sets the status to `in_progress` / `in_review` / `completed` / `canceled`. On a vault, it writes the note status the type maps to that status, and refuses one the type doesn't map. |
 | `tix reparent REF PARENT_REF` / `tix reparent --root REF` | Changes the parent and runs the parent validation. |
@@ -148,7 +148,7 @@ These commands and rules are Railyard's, beyond v1. Files they write still match
 
 ## Writing tickets
 
-`tix init` sets up a starter vault: `feature` notes as epics, each in its own `features/<feature>/` directory, `task` notes as tasks in that feature's `tasks/` directory, with `feature` as the parent and `depends_on` as the dependencies, and `idea` docs in `ideas/`. Feature and task notes say `status: todo`, `in-progress`, `in-review` or `done`, for `open`, `in_progress`, `in_review` and `completed`. A task with no feature goes in `features/uncategorized/tasks/`. Each starts from a template that init writes into `<root>/templates/`, refusing before it writes anything when one is already there. The templates' source is `internal/tix/starter/templates/`. The profile sets `files_heading: Files` and requires the sections below. Edit `.tix/config.yml` and the templates to fit the project. Each part of a ticket has one job, and nothing says twice what another part already says.
+`tix init` sets up a starter vault: `feature` notes as epics, each in its own `features/<feature>/` directory, `task` notes as tasks in that feature's `tasks/` directory, with `feature` as the parent and `depends_on` as the dependencies, and `idea` docs in `ideas/`. Feature and task notes say `status: todo`, `in-progress`, `in-review` or `done`, for `open`, `in_progress`, `in_review` and `completed`. A task with no feature goes in `features/uncategorized/tasks/`. Each starts from a template that init writes into `<root>/templates/`, refusing before it writes anything when one is already there. The templates' source is `internal/tix/starter/templates/`. The profile sets `files_heading: Files` and `list_properties: [scope, review]`, and requires the sections below. Edit `.tix/config.yml` and the templates to fit the project. Each part of a ticket has one job, and nothing says twice what another part already says.
 
 | Part | Job | Read by |
 | --- | --- | --- |

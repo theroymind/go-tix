@@ -329,3 +329,20 @@ func TestTypeNames(t *testing.T) {
 		t.Errorf("TypeNames() = %v, want %v", names, expected)
 	}
 }
+
+func TestPropertyValues(t *testing.T) {
+	store, isVault := openFixture(t).(vaultstore.Store)
+	if !isVault {
+		t.Fatalf("Open() = %T, want vaultstore.Store", store)
+	}
+	store.Profile.ListProperties = []string{"scope", "depends_on", "absent"}
+
+	values, err := store.PropertyValues()
+	if err != nil {
+		t.Fatalf("PropertyValues() error = %v", err)
+	}
+	// A list such as depends_on is no cell's text, so it reads as absent.
+	if expected := []string{"medium", "", ""}; !reflect.DeepEqual(values["mana"], expected) {
+		t.Errorf("PropertyValues()[mana] = %q, want %q", values["mana"], expected)
+	}
+}
