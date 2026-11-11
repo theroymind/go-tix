@@ -29,21 +29,13 @@ make hooks    # point git at .githooks (pre-commit runs format, tidy, vet, lint)
 
 ## Code standards
 
-- Every package has a package comment. See [Package comments](#package-comments).
+- Every package has one package comment, directly above the `package` clause in one file: `// Package ticket ...`, or `// Command tix ...` for `main`, saying what it provides in a sentence or two. It moves to `doc.go` once it runs past a few lines.
 - Errors are sentinel `var Err... = errors.New(...)` values, wrapped with `%w` and checked with `errors.Is`.
 - Tests are table-driven.
 - JSON at a boundary decodes through `strictjson`, then `Validate`. Unknown `schema_version` or `type` is rejected, never guessed at.
-- `gofmt -l .` prints nothing, and `go vet ./...` and `golangci-lint run` stay clean.
-
-## Package comments
-
-Required by Go tooling (staticcheck ST1000) and shown by `go doc`.
-
-- Exactly one file per package carries it, directly above the `package` clause with no blank line.
-- The first sentence is the summary: `// Package ticket ...` for libraries, `// Command tix ...` for `main`. It must stand alone, since tools show it in package lists.
-- Describe what the package provides, not how it's implemented or how it changed.
-- Default to one or two sentences. Once it grows past a few lines, move it to `doc.go`.
-- For `main`, describe what the command does and how to run it, not its Go API.
+- No app imports another app.
+- Ask before adding a dependency or any download, and give its size.
+- Run `make check` before reporting a change done.
 
 ## Go documentation
 
@@ -52,11 +44,3 @@ Check `go doc <pkg>.<Symbol>` and the package's `example_test.go` under `$(go en
 ## Compatibility
 
 Railyard imports `contracts/*`. A change to an exported name there is a breaking change: tag a new major version, or update Railyard in step.
-
-## Review checklist
-
-- [ ] `make check` passes.
-- [ ] `gofmt -l .` prints nothing.
-- [ ] No app imports another app.
-- [ ] `.tix/` files tix writes still match tix v1's format.
-- [ ] Ask before adding a dependency or any download, with its size.
