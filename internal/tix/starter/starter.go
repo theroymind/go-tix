@@ -26,6 +26,7 @@ const (
 	uncategorizedDirectory = "features/uncategorized"
 	ideaDirectory          = "ideas"
 	filesHeading           = "Files"
+	noteStatusDraft        = "draft"
 	noteStatusTodo         = "todo"
 	noteStatusInProgress   = "in-progress"
 	noteStatusInReview     = "in-review"
@@ -46,6 +47,7 @@ var ErrTemplateExists = errors.New("already exists")
 // inside it, a task with no feature goes under features/uncategorized/, and ideas go in ideas/.
 func Profile(root string) backend.Profile {
 	statuses := map[string]ticket.Status{
+		noteStatusDraft:      ticket.StatusDraft,
 		noteStatusTodo:       ticket.StatusOpen,
 		noteStatusInProgress: ticket.StatusInProgress,
 		noteStatusInReview:   ticket.StatusInReview,

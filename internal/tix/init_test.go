@@ -25,6 +25,7 @@ vault:
       ticket_type: epic
       statuses:
         done: completed
+        draft: draft
         in-progress: in_progress
         in-review: in_review
         todo: open
@@ -32,6 +33,7 @@ vault:
       ticket_type: task
       statuses:
         done: completed
+        draft: draft
         in-progress: in_progress
         in-review: in_review
         todo: open
