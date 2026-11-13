@@ -17,7 +17,7 @@ commands:
   path REF               (the absolute path of the file holding the ticket)
   ls [--status S] [--type T] [--tag T] [--parent REF] [--all] [--json]
                          (a table of ID, TYPE, STATUS, PRIORITY when any ticket has one, each of the vault's
-                         list_properties, then TITLE)
+                         list_properties, then TITLE; each child indented under its parent; list is an alias)
   ready [--type T] [--parent REF] [--json]
                          (open tickets with every dependency done, as ls prints them; --parent keeps one feature's)
   start REF...           (status in_progress: being built)
@@ -61,7 +61,8 @@ var Program = cli.Program{
 		"add":                     runAdd,
 		"show":                    runShow,
 		"path":                    runPath,
-		"ls":                      runLs,
+		commandLs:                 runLs,
+		commandList:               runLs,
 		"ready":                   runReady,
 		"start":                   runStart,
 		"review":                  runReview,

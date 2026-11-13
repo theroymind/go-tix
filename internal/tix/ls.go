@@ -59,7 +59,50 @@ func runLs(arguments []string, _ io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	return writeTickets(stdout, listed, properties, parsed.IsEnabled(optionJSON))
+	if parsed.IsEnabled(optionJSON) {
+		return writeTickets(stdout, listed, properties, true)
+	}
+	ordered, depths := nest(listed)
+	return writeTable(stdout, ordered, depths, properties)
+}
+
+// nest orders the tickets as a tree, each child after its parent in the order it was listed, and returns each
+// ticket's depth by id. A ticket whose parent isn't listed is a root, so a filter never hides a match.
+func nest(tickets []ticket.Ticket) ([]ticket.Ticket, map[string]int) {
+	listed := make(map[string]bool, len(tickets))
+	for _, row := range tickets {
+		listed[row.ID] = true
+	}
+	children := map[string][]ticket.Ticket{}
+	var roots []ticket.Ticket
+	for _, row := range tickets {
+		if row.Parent != "" && row.Parent != row.ID && listed[row.Parent] {
+			children[row.Parent] = append(children[row.Parent], row)
+		} else {
+			roots = append(roots, row)
+		}
+	}
+	ordered := make([]ticket.Ticket, 0, len(tickets))
+	depths := make(map[string]int, len(tickets))
+	var visit func(row ticket.Ticket, depth int)
+	visit = func(row ticket.Ticket, depth int) {
+		if _, seen := depths[row.ID]; seen {
+			return
+		}
+		depths[row.ID] = depth
+		ordered = append(ordered, row)
+		for _, child := range children[row.ID] {
+			visit(child, depth+1)
+		}
+	}
+	for _, row := range roots {
+		visit(row, 0)
+	}
+	// A parent cycle has no root; list its tickets flat rather than drop them.
+	for _, row := range tickets {
+		visit(row, 0)
+	}
+	return ordered, depths
 }
 
 // parseOption returns the option's value, or "" when it's absent, and rejects a value outside options as a usage error.

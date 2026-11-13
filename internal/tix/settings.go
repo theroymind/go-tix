@@ -37,6 +37,8 @@ const (
 
 	commandAc                 = "ac"
 	commandAcceptanceCriteria = "acceptance-criteria"
+	commandLs                 = "ls"
+	commandList               = "list"
 	helpCommand               = "help"
 	helpShortFlag             = "-h"
 	helpLongFlag              = "--help"
@@ -75,6 +77,7 @@ const (
 	docTableHeader        = "ID	TYPE	STATUS\tTITLE"
 	docTableRow           = "%s\t%s\t%s\t%s\n"
 	tableAbsent           = "-"
+	tableTreeIndent       = "  "
 	tableMinimumWidth     = 0
 	tableTabWidth         = 0
 	tablePadding          = 2
@@ -116,7 +119,7 @@ const (
 )
 
 // commandAliases maps each alias Program registers to the command it runs, whose usage it shares.
-var commandAliases = map[string]string{commandAcceptanceCriteria: commandAc}
+var commandAliases = map[string]string{commandAcceptanceCriteria: commandAc, commandList: commandLs}
 
 var (
 	ErrExpectedOneTitle           = errors.New("expected exactly one title")

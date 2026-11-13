@@ -29,6 +29,8 @@ func TestHelp(t *testing.T) {
 			[]string{"  ac ls [--open] REF", "  ac set REF N TEXT", "  ac add REF TEXT"}, []string{"  tick"}},
 		{"acceptance-criteria shares ac's usage", []string{"acceptance-criteria", "-h"}, cli.ExitCodeSuccess,
 			[]string{"  ac ls [--open] REF", "  ac add REF TEXT"}, nil},
+		{"list shares ls's usage", []string{"list", "-h"}, cli.ExitCodeSuccess,
+			[]string{"usage:\n  ls [--status S]", "list is an alias"}, nil},
 		{"help for an unknown command says it is unknown", []string{"help", "shwo"}, cli.ExitCodeUsage,
 			[]string{`unknown command "shwo"`}, nil},
 		{"--help after -- is an argument, not a request for help", []string{"tick", "x", "--", "--help"}, cli.ExitCodeUsage,

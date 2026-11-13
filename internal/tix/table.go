@@ -38,6 +38,11 @@ func writeTickets(stdout io.Writer, tickets []ticket.Ticket, properties property
 	if isJSON {
 		return cli.WriteJSON(stdout, withoutAcceptance(tickets))
 	}
+	return writeTable(stdout, tickets, nil, properties)
+}
+
+// writeTable prints the tickets as writeTickets's table, each ID indented by its depth in depths.
+func writeTable(stdout io.Writer, tickets []ticket.Ticket, depths map[string]int, properties propertyColumns) error {
 	showsPriority := hasPriority(tickets)
 	header := []string{tableColumnID, tableColumnType, tableColumnStatus}
 	if showsPriority {
@@ -53,7 +58,7 @@ func writeTickets(stdout io.Writer, tickets []ticket.Ticket, properties property
 		return err
 	}
 	for _, row := range tickets {
-		cells := []string{row.ID, string(row.Type), string(row.Status)}
+		cells := []string{strings.Repeat(tableTreeIndent, depths[row.ID]) + row.ID, string(row.Type), string(row.Status)}
 		if showsPriority {
 			cells = append(cells, priorityCell(row.Priority))
 		}
