@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/theroymind/go-tix/contracts/ticket"
@@ -85,8 +86,8 @@ func markAll(reference string, mark func(index int) backend.Change) error {
 }
 
 // runAc dispatches on its first positional, since cli.Program has no nested commands: ac ls REF prints the
-// criteria, or with --open only the unticked ones; ac set REF N TEXT replaces a criterion's text, and ac add REF
-// TEXT appends one.
+// criteria, or with --open only the unticked ones; ac set REF N TEXT replaces a criterion's text, ac add REF
+// TEXT appends one, and ac hand lists every open hand check.
 func runAc(arguments []string, _ io.Reader, stdout io.Writer) error {
 	parsed, err := cli.Parse(arguments, criterionSpecification)
 	if err != nil {
@@ -119,6 +120,11 @@ func runAc(arguments []string, _ io.Reader, stdout io.Writer) error {
 			return cli.NewUsageError(ErrExpectedAddCriterion)
 		}
 		return applyToReference(rest[0], []backend.Change{backend.AddCriterion{Text: rest[1]}})
+	case subcommandHand:
+		if len(rest) != 0 {
+			return cli.NewUsageError(ErrExpectedHand)
+		}
+		return listHandChecks(stdout)
 	default:
 		return cli.NewUsageError(fmt.Errorf("%w, got %s", ErrExpectedSubcommand, strconv.Quote(subcommand)))
 	}
@@ -153,6 +159,42 @@ func listCriteria(stdout io.Writer, reference string, isOpenOnly bool) error {
 		}
 	}
 	return nil
+}
+
+// listHandChecks prints every unticked hand check on every ticket, resolved ones included, as ID N TEXT, so the
+// human has one list to work through with tix tick ID N.
+func listHandChecks(stdout io.Writer) error {
+	store, err := openBackend()
+	if err != nil {
+		return err
+	}
+	tickets, err := store.List()
+	if err != nil {
+		return err
+	}
+	ticket.Sort(tickets)
+	return writeOpenHandChecks(stdout, tickets)
+}
+
+// writeOpenHandChecks prints each ticket's unticked hand checks as ID N TEXT, N the number tick takes.
+func writeOpenHandChecks(stdout io.Writer, tickets []ticket.Ticket) error {
+	for _, value := range tickets {
+		for index, criterion := range value.Acceptance {
+			if criterion.Done || !isHandCheck(criterion) {
+				continue
+			}
+			if _, err := fmt.Fprintf(stdout, openHandCheck, value.ID, index+1, criterion.Text); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// isHandCheck reports whether only a human can check the criterion, which its text says by starting with the
+// hand check marker.
+func isHandCheck(criterion ticket.Criterion) bool {
+	return strings.HasPrefix(criterion.Text, handCheckMarker)
 }
 
 // parseCriterionNumber reads the 1-based number tix show prints. Whether the ticket has that many criteria is the

@@ -29,6 +29,7 @@ const (
 	subcommandAdd     = "add"
 	subcommandLs      = "ls"
 	subcommandShow    = "show"
+	subcommandHand    = "hand"
 	optionType        = "type"
 	optionOpen        = "open"
 	optionSet         = "set"
@@ -64,6 +65,8 @@ const (
 	criterionLine     = "  %d. %s\n"
 	checkedCriterion  = "%d. [x] %s\n"
 	openCriterion     = "%d. [ ] %s\n"
+	handCheckMarker   = "Hand check: "
+	openHandCheck     = "%s %d %s\n"
 	showHeader        = "==> %s <==\n"
 )
 
@@ -136,7 +139,8 @@ var (
 	ErrNotDependency              = errors.New("does not depend on")
 	ErrExpectedNumbers            = errors.New("expected a ticket reference and at least one criterion number")
 	ErrInvalidNumber              = errors.New("is not a criterion number; expected a whole number from 1")
-	ErrExpectedSubcommand         = errors.New("expected ac ls, ac set or ac add")
+	ErrExpectedSubcommand         = errors.New("expected ac ls, ac set, ac add or ac hand")
+	ErrExpectedHand               = errors.New("expected ac hand, which takes no reference")
 	ErrExpectedLsCriteria         = errors.New("expected ac ls REF")
 	ErrOpenNeedsLs                = errors.New("--open goes only with ac ls")
 	ErrExpectedTicketReferences   = errors.New("expected at least one ticket reference")

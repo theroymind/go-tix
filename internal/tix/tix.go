@@ -22,7 +22,8 @@ commands:
                          (open tickets with every dependency done, as ls prints them; --parent keeps one feature's)
   start REF...           (status in_progress: being built)
   review REF...          (status in_review: built, being reviewed)
-  done [--force] REF...  (refuses, changing none, while a criterion is unticked)
+  done [--force] REF...  (refuses, changing none, while a criterion other than a hand check is unticked; prints
+                         the hand checks it leaves open)
   set REF KEY=VALUE...   (raw write to a ticket or doc; takes the values the file holds, not the ones ls shows)
   unset REF KEY...       (removes each key; refuses a required one, and a ticket's description, its body)
   dep REF DEPENDENCY_REF...
@@ -33,7 +34,8 @@ commands:
   untick REF (N... | --all)
   ac ls [--open] REF     (the numbered criteria, or only the unticked ones; acceptance-criteria is ac's long name)
   ac set REF N TEXT
-  ac add REF TEXT
+  ac add REF TEXT        (a TEXT starting "Hand check: " makes a criterion only a human checks)
+  ac hand                (every unticked hand check, done tickets' too, as ID N TEXT for tick)
   docs ls [--type T] [--status S] [--json]
   doc show REF [--json]
   doc add --type T TITLE (prints the new id)

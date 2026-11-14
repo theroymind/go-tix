@@ -36,6 +36,14 @@ _Avoid_: key, number
 What a user types to name a ticket: an exact ID, an ID without its prefix, or a unique prefix of either.
 _Avoid_: ref (in code), handle, selector
 
+**Acceptance criterion**:
+One checkable condition on a ticket, ticked when it is met.
+_Avoid_: AC (in prose), requirement
+
+**Hand check**:
+An acceptance criterion only the human can check, such as a look in the running game. Its text starts `Hand check: `. It doesn't keep `tix done` from completing a ticket, and `tix ac hand` lists the open ones.
+_Avoid_: manual criterion, human check
+
 ### Hierarchy
 
 **Parent**:

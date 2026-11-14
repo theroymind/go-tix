@@ -18,8 +18,9 @@ var doneSpecification = cli.Specification{
 }
 
 // runDone completes every ticket the arguments name. Unless --force is given, it first checks every ticket's
-// criteria and changes none while any is unmet.
-func runDone(arguments []string, _ io.Reader, _ io.Writer) error {
+// criteria and changes none while any is unmet. A hand check doesn't hold a ticket open, so done names the ones it
+// leaves open instead.
+func runDone(arguments []string, _ io.Reader, stdout io.Writer) error {
 	parsed, err := cli.Parse(arguments, doneSpecification)
 	if err != nil {
 		return err
@@ -36,34 +37,52 @@ func runDone(arguments []string, _ io.Reader, _ io.Writer) error {
 		return err
 	}
 	// Only a backend whose criteria carry a done state can say a criterion is unmet.
-	if _, tracksCriteria := store.(backend.CriterionTracker); tracksCriteria && !parsed.IsEnabled(optionForce) {
-		if err := requireAllCriteriaMet(store, ids); err != nil {
+	if _, tracksCriteria := store.(backend.CriterionTracker); !tracksCriteria {
+		return setStatuses(store, ids, ticket.StatusCompleted)
+	}
+	completing, err := readAll(store, ids)
+	if err != nil {
+		return err
+	}
+	if !parsed.IsEnabled(optionForce) {
+		if err := requireAllCriteriaMet(completing); err != nil {
 			return err
 		}
 	}
-	return setStatuses(store, ids, ticket.StatusCompleted)
+	if err := setStatuses(store, ids, ticket.StatusCompleted); err != nil {
+		return err
+	}
+	return writeOpenHandChecks(stdout, completing)
+}
+
+func readAll(store backend.Backend, ids []string) ([]ticket.Ticket, error) {
+	tickets := make([]ticket.Ticket, 0, len(ids))
+	for _, id := range ids {
+		value, err := store.Read(id)
+		if err != nil {
+			return nil, err
+		}
+		tickets = append(tickets, value)
+	}
+	return tickets, nil
 }
 
 // requireAllCriteriaMet fails naming every ticket with an unmet criterion, and each of its unmet criteria.
-func requireAllCriteriaMet(store backend.Backend, ids []string) error {
+func requireAllCriteriaMet(tickets []ticket.Ticket) error {
 	var problems []error
-	for _, id := range ids {
-		completing, err := store.Read(id)
-		if err != nil {
-			return err
-		}
-		if err := requireCriteriaMet(completing); err != nil {
+	for _, value := range tickets {
+		if err := requireCriteriaMet(value); err != nil {
 			problems = append(problems, err)
 		}
 	}
 	return errors.Join(problems...)
 }
 
-// requireCriteriaMet fails naming every unmet criterion by its 1-based index and text.
+// requireCriteriaMet fails naming every unmet criterion that isn't a hand check by its 1-based index and text.
 func requireCriteriaMet(value ticket.Ticket) error {
 	var unmet []string
 	for index, criterion := range value.Acceptance {
-		if !criterion.Done {
+		if !criterion.Done && !isHandCheck(criterion) {
 			unmet = append(unmet, strconv.Itoa(index+1)+": "+criterion.Text)
 		}
 	}

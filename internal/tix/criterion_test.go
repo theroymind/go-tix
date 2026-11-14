@@ -243,3 +243,62 @@ func TestMarkAllOnAVault(t *testing.T) {
 		})
 	}
 }
+
+func TestHandChecksOnAVault(t *testing.T) {
+	const (
+		doneCheck  = "Hand check: The guard stance reads at a glance"
+		openCheck  = "Hand check: The argmax feels fair"
+		addedCheck = "Hand check: The camera glides over the shoulder"
+	)
+	setup := [][]string{
+		{"ac", "add", "golem-guards", doneCheck},
+		{"done", "golem-guards"},
+		{"ac", "add", "weighted-step-choice", openCheck},
+		{"ac", "add", "weighted-step-choice", "Hand check: Already seen"},
+		{"tick", "weighted-step-choice", "6"},
+		{"add", "--type", "task", "--acceptance", addedCheck, "Camera glide"},
+		{"set", "golem-guards", "summary=Golems guard."},
+		{"set", "weighted-step-choice", "summary=Enemies pick the best step."},
+	}
+	tests := []struct {
+		name             string
+		arguments        []string
+		expectedExitCode cli.ExitCode
+		mentions         []string
+	}{
+		{"ac hand lists every open hand check, done tickets' included, as ID N TEXT",
+			[]string{"ac", "hand"}, cli.ExitCodeSuccess,
+			[]string{"golem-guards 4 " + doneCheck + "\n", "weighted-step-choice 5 " + openCheck + "\n", " 1 " + addedCheck + "\n"}},
+		{"ac ls shows the marker", []string{"ac", "ls", "weighted-step-choice"}, cli.ExitCodeSuccess,
+			[]string{"5. [ ] " + openCheck + "\n", "6. [x] Hand check: Already seen\n"}},
+		{"show shows the marker", []string{"show", "weighted-step-choice"}, cli.ExitCodeSuccess,
+			[]string{"5. [ ] " + openCheck + "\n"}},
+		{"lint accepts the marker", []string{"lint", "golem-guards", "weighted-step-choice"}, cli.ExitCodeSuccess, nil},
+		{"ac hand takes no reference", []string{"ac", "hand", "golem-guards"}, cli.ExitCodeUsage,
+			[]string{"expected ac hand"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := copyVault(t)
+			for _, arguments := range setup {
+				if exitCode, output := run(t, root, arguments...); exitCode != cli.ExitCodeSuccess {
+					t.Fatalf("%v exit code = %d, output %q", arguments, exitCode, output)
+				}
+			}
+
+			exitCode, output := run(t, root, tt.arguments...)
+
+			if exitCode != tt.expectedExitCode {
+				t.Fatalf("exit code = %d, expected %d; output %q", exitCode, tt.expectedExitCode, output)
+			}
+			for _, mention := range tt.mentions {
+				if !strings.Contains(output, mention) {
+					t.Errorf("output %q does not mention %q", output, mention)
+				}
+			}
+			if tt.arguments[1] == "hand" && exitCode == cli.ExitCodeSuccess && strings.Count(output, "\n") != len(tt.mentions) {
+				t.Errorf("output %q, expected only %d lines", output, len(tt.mentions))
+			}
+		})
+	}
+}
